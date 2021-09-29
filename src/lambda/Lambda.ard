@@ -1,0 +1,46 @@
+\import Data.Or
+\import Identifier
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Set
+\import Star
+\import Util
+\import identity.NatIdentity
+\import util.Maybe
+
+\data LambdaTerm
+  | \coerce Var Identifier
+  | Lam (v : Identifier) (body : LambdaTerm)
+  | App \alias \infixl 6 ⋅ (f arg : LambdaTerm)
+
+\func Value (t : LambdaTerm) : \Prop
+  | Var i => Empty
+  | Lam v body => Value body
+  | ⋅ f arg => Empty
+
+
+\func FreeIn (i : Identifier) (t : LambdaTerm) : \Set
+\elim t
+  | Var i1 => i = i1
+  | Lam v body => \Sigma (i /= v) (FreeIn i body)
+  | ⋅ f arg => Or (FreeIn i f) (FreeIn i arg)
+
+\where {
+  \func dec (i : Identifier) (t : LambdaTerm) : Or (FreeIn i t) (Not (FreeIn i t))
+    \elim t
+      | Var i1 => \case i nat≟ i1 \with {
+        | yes e => inl e
+        | no n => inr n
+      }
+      | Lam v body => \case i nat≟ v, dec i body \with {
+        | yes e, _ => inr (\lam f => using f.1 contradiction)
+        | no n, inl a => inl (n, a)
+        | no n, inr b => inr (\lam f => using f.2 contradiction)
+      }
+      | ⋅ f arg => \case dec i f, dec i arg \with {
+        | inl a, _ => inl (inl a)
+        | _, inl b => inl (inr b)
+        | inr a, inr b => inr (foldOr a b)
+      }
+}

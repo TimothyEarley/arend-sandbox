@@ -1,0 +1,138 @@
+\import Arith.Int
+\import Arith.Nat
+\import Data.Bool (Bool, false, so, true, true/=false)
+\import Logic
+\import Logic.Meta
+\import LogicUtil
+\import Meta
+\import Order.PartialOrder
+\import Order.StrictOrder
+\import Paths
+\import Paths.Meta
+\import Relation.Equivalence
+\import Set \hiding (#)
+\import Util
+\import limp.LIMP
+
+\instance BExpEq {S : Signature} : Equivalence BExp
+  | ~ x y => \Pi (s : State S) (b : Bool) -> ((x, s) bEval b) <--> ((y, s) bEval b)
+  | ~-reflexive _ _ => <-->.refl
+  | ~-symmetric f s b => <-->.symm (f s b)
+  | ~-transitive f f' s b => <-->.trans (f s b) (f' s b)
+
+\instance AExpEq {S : Signature} : Equivalence AExp
+  | ~ a b => \Pi (s : State S) (n : Num) -> ((a, s) aEval n) <--> ((b, s) aEval n)
+  | ~-reflexive _ _ => <-->.refl
+  | ~-symmetric f s n => <-->.symm (f s n)
+  | ~-transitive f f' s n => <-->.trans (f s n) (f' s n)
+
+\instance ComEq {S : Signature} : Equivalence Com
+  | ~ a b => \Pi (s s' : State S) -> ((a, s) cEval s') <--> ((b, s) cEval s')
+  | ~-reflexive s s' => <-->.refl
+  | ~-symmetric f s s' => <-->.symm (f s s')
+  | ~-transitive f f' s s' => <-->.trans (f s s') (f' s s')
+
+  \where {
+    \func seqEquiv {S : Signature} {a b a' b' : Com} (ha : a ComEq.~ a') (hb : b ComEq.~ b') : (a # b) ComEq.~ (a' # b') =>
+      \lam s s' => (
+        \lam ev => \case ev \with {
+          | r# {s''} ev1 ev2 => \case (ha s s'').1 ev1, (hb s'' s').1 ev2 \with {
+            | inP ev1', inP ev2' => inP (r# ev1' ev2')
+          }
+        },
+        \lam ev => \case ev \with {
+          | r# {s''} ev1 ev2 => \case (ha s s'').2 ev1, (hb s'' s').2 ev2 \with {
+            | inP ev1', inP ev2' => inP (r# ev1' ev2')
+          }
+        }
+      )
+
+    \func iteEquiv {S : Signature} {b b' : BExp} {t t' e e' : Com}
+                   (hb : b BExpEq.~ b')
+                   (ht : t ComEq.~ t')
+                   (he : e ComEq.~ e') : (ite b t e) ComEq.~ (ite b' t' e') => \lam s s' =>
+        (\lam ev => \case \elim ev \with {
+          | rift bEv ev => \case (hb s Bool.true).1 bEv, (ht s s').1 ev \with {
+            | inP b'Ev, inP t'Ev => inP (rift b'Ev t'Ev)
+          }
+          | riff bEv ev => \case (hb s Bool.false).1 bEv, (he s s').1 ev \with {
+            | inP b'Ev, inP e'Ev => inP (riff b'Ev e'Ev)
+          }
+        },
+         \lam ev => \case \elim ev \with {
+           | rift b'Ev t'Ev => \case (hb s Bool.true).2 b'Ev, (ht s s').2 t'Ev \with {
+             | inP bEv, inP tEv => inP (rift bEv tEv)
+           }
+           | riff b'Ev e'Ev => \case (hb s Bool.false).2 b'Ev, (he s s').2 e'Ev \with {
+             | inP bEv, inP eEv => inP (riff bEv eEv)
+           }
+         })
+
+    \func whileEquiv {S : Signature} {b b' : BExp} {t t' : Com}
+                     (hb : b BExpEq.~ b')
+                     (ht : t ComEq.~ t') : (while b t) ComEq.~ (while b' t') =>
+      \lam s s' => (whileEquivHelper hb ht, whileEquivHelper (BExpEq.~-symmetric hb) (ComEq.~-symmetric ht))
+
+      \where {
+        \func whileEquivHelper {S : Signature} {b b' : BExp} {t t' : Com}
+                               (hb : b BExpEq.~ b')
+                               (ht : t ComEq.~ t')
+                               {s s' : State S} (ev : (while b t, s) cEval s') : TruncP ((while b' t', s) cEval s')
+        \elim ev
+          | rwht bEv {s''} tEv whileEv => \case (hb s Bool.true).1 bEv, (ht s s'').1 tEv, whileEquivHelper hb ht whileEv \with {
+            | inP b'Ev, inP t'Ev, inP while'Ev => inP (rwht b'Ev t'Ev while'Ev)
+          }
+          | rwhf bEv p => \case (hb s Bool.false).1 bEv \with {
+            | inP b'Ev => inP (rwhf b'Ev p)
+          }
+      }
+
+    \open IntRing
+
+    -- ((x := 0) # (x := ((var x) ⊕ 1)))
+
+    \func example {S : Signature} {x : Var}
+      : ((x := 0) # (x := ((var x) ⊕ 1))) ComEq.~ ((x := 0) # (while ((var x) leq 0) (x := ((var x) ⊕ 1)))) =>
+      \lam s s' => (
+        \lam c => \case \elim s', \elim c \with {
+          | _, r# (r:= (rNum idp) idp) (r:= (rPlus (rVar idp) (rNum idp) idp) idp) =>
+            inP (r#
+                (r:= (rNum idp) idp)
+                (rwht (rleqt so (rVar substVar.get) (rNum idp) pos0<=pos0)
+                    (r:= (rPlus (rVar substVar.get) (rNum idp) idp) idp)
+                    (rwhf (rleqf so (rVar substVar.get) (rNum idp) pos1</=pos0)stateP
+                    )
+                )
+            )
+        },
+        \lam c => \case \elim s', \elim c \with {
+          | _, r# (r:= (rNum idp) idp)
+            (rwht (rleqt _ _ _ _) (r:= (rPlus (rVar idp) (rNum idp) idp) idp)
+            (rwhf (rleqf _ _ _ _) idp)) =>
+            inP (r#
+                (r:= (rNum idp) idp)
+                (r:= (rPlus (rVar substVar.get) (rNum idp) idp) stateP))
+
+          | _, r# (r:= (rNum idp) idp) (rwhf (rleqf _ (rVar idp) (rNum idp) h) idp) =>
+            usingOnly (pos0<=pos0,  rewriteF substVar.get h) contradiction
+
+          | _, r# (r:= (rNum idp) idp) (rwht (rleqt _ _ _ _)
+              (r:= (rPlus (rVar idp) (rNum idp) idp) idp) (rwht (rleqt _ (rVar idp) (rNum idp) h) _ _)) =>
+            usingOnly (pos1</=pos0, rewriteF substVar.get (rewriteF substVar.get h)) contradiction
+
+          | _, r# (r:= (rNum idp) idp) (rwhf (rleqt () _ _ _) _)
+          | _, r# _ (rwht (rleqf () _ _ _) _ _)
+          | _, r# _ (rwht _ _ (rwhf (rleqt () _ _ _) _))
+          | s', r# _ (rwht _ _ (rwht (rleqf () _ _ _) _ _))
+        })
+
+      \where {
+        \func pos0<=pos0 : pos 0 <= pos 0 => pos<=pos zero<=_
+
+        \func pos1</=pos0 : Not (pos 1 <= pos 0) => \lam h => h idp
+
+        \func stateP {S : Signature} {s : State S} {x : Var}
+          : substVar (substVar s x (pos 0)) x (variables {substVar s x (pos 0)} x + pos 1) = substVar (substVar s x (pos 0)) x (pos 1) =>
+          rewrite substVar.combine (rewrite substVar.get (rewrite substVar.combine idp))
+      }
+  }

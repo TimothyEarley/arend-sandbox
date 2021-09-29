@@ -1,0 +1,112 @@
+\import Algebra.Monoid
+\import Arith.Nat
+\import DualNumbers
+\import Function
+\import Logic
+\import Order.Lattice
+\import Paths
+\import Paths.Meta
+\import Set
+\import Util
+\import sets.Add
+\import sets.Card
+\import sets.Disjoint
+\import sets.Elements
+\import sets.Finite
+\import sets.MySet
+\import sets.Complement
+\import sets.Intersect
+\import sets.pow
+\import sets.remove
+\import sets.subset
+\import sets.union
+\open pow (closed-under-union, set-in-pow)
+
+\func pow {A : \Set} (S : Ensemble A) : Ensemble (Ensemble A) => __ ⊆ S
+  \where {
+    \func empty-in-pow {A : \Set} {S : Ensemble A} : ∅ ∈ pow S => \lam e => \case e \with {
+    }
+
+    \func set-in-pow {A : \Set} {S : Ensemble A} : S ∈ pow S => \lam e => e
+
+    \func pow-not-empty {A : \Set} {S : Ensemble A} : Not (pow S = ∅) => \lam p => transport (∅ ∈ __) p empty-in-pow
+
+    \func empty-pow {A : \Set} : pow {A} ∅ = single ∅ =>
+      extSet (\lam {x} (e : x ⊆ ∅) => inv (⊆.⊆∅-is-∅ e)) (\lam {x} p {x1} e1 => rewrite p e1)
+
+    \func closed-under-union {A : \Set} {S X Y : Ensemble A}
+      (h : X ∈ pow S) (h' : Y ∈ pow S) : (X ∪ Y) ∈ pow S
+      => fold|| h h' __
+
+    -- TODO prove this without decset
+    --    \func add-pow {A : \Set} (S : Ensemble A) (a : A)
+    --      : pow (add S a) = pow S ∪ (addToAll (pow S) a) => extSet
+    --
+--        (\lam {x} e => {?})
+    --
+    --        (\lam {S'} e {a'} a'S' => \case e \with {
+    --          | byLeft S'PowS => byLeft (S'PowS a'S')
+    --          | byRight (inP (X, S'=addAx, XpowS)) => \case rewrite S'=addAx a'S' \with {
+    --            | byLeft a'X => byLeft (XpowS a'X)
+    --            | byRight a'=a => byRight a'=a
+    --          }
+    --        })
+
+--    \func add-pow-card {A : \Set} {S : Ensemble A} {a : A} {n : Nat}
+--                       (h : Card (pow S) n)
+--      : Card (pow (add S a)) (n * 2)
+--    \elim n, h
+--      | 0, empty-card p => absurd (pow-not-empty p)
+--      | suc n, add-card S' {X} nIn h p => {?}
+
+    \func powCard {A : \Set} {S : Ensemble A} {n : Nat} (h : Card S n) : Card (pow S) (Monoid.pow 2 n)
+    \elim n, h
+      | 0, empty-card idp => rewrite empty-pow Card.singleCard
+      | suc n, add-card S' {a} a~InS h idp =>
+        \let
+          | r => powCard h
+          | d : Disjoint (pow S') (addToAll (pow S') a)
+          => \lam X (XInpowS', inP (Y, X=addYa, YInpowS')) =>
+                \let
+                  | aX : a ∈ X => rewrite X=addYa (byRight idp)
+                  | aInS' : a ∈ S' => XInpowS' aX
+                \in a~InS aInS'
+
+
+          | inj : \Pi (X : A -> \Prop) (X ∈ pow S') ->
+              (add X a) ∉ (addToAll (remove (pow S') X) a)
+          => \lam X XIn (inP (Y, p, (YIn, X/=Y))) =>
+                \let aNotInY : a ∉ Y => \lam aY => a~InS (YIn aY)
+                     | aNotInX : a ∉ X => \lam aX => a~InS (XIn aX)
+                \in X/=Y (add.isInjective aNotInX aNotInY p)
+
+          | goal : Card (pow S' ∪ addToAll (pow S') a) (Monoid.pow 2 n + Monoid.pow 2 n) =>
+            Card.unionCard d
+                r
+                (Card.smapCard inj r)
+
+        \in {?}
+  }
+
+
+\func PowLattice {A : \Set} {S : Ensemble A} : Bounded.DistributiveLattice (Elements (pow S)) \cowith
+  | <= X Y => X.1 ⊆ Y.1
+  | <=-reflexive => id
+  | <=-transitive => ⊆.trans
+  | <=-antisymmetric x y => ext (⊆.anti-sym x y)
+  | meet X Y => (X.1 ∩ Y.1, ⊆.trans ⊆.of-∩-left X.2)
+  | meet-left => __.1
+  | meet-right => __.2
+  | meet-univ h h' z => (h z, h' z)
+  | join X Y => (X.1 ∪ Y.1, closed-under-union X.2 Y.2)
+  | join-left => byLeft
+  | join-right => byRight
+  | join-univ => closed-under-union
+  | top => (S, set-in-pow)
+  | top-univ {X} => X.2
+  | bottom => (∅, pow.empty-in-pow)
+  | bottom-univ e => absurd e
+  | ldistr>= e => \case \elim e \with {
+    | (e1, byLeft e2) => byLeft (e1, e2)
+    | (e1, byRight e2) => byRight (e1, e2)
+  }

@@ -1,0 +1,22 @@
+\import Logic
+\import LogicUtil
+\import sets.MySet
+\import sets.remove
+\import sets.subset
+
+\func Disjoint {A : \Set} (S S' : Ensemble A) : \Prop
+  => \Pi (a : A) -> Not (\Sigma (a ∈ S) (a ∈ S'))
+
+\where {
+  \func afterRemove {A : \Set} {S S' : Ensemble A} (d : Disjoint S S') {a : A} : Disjoint S (remove S' a)
+    => \lam a1 h => d a1 (h.1, h.2.1)
+
+  \func isInRight {A : \Set} {S S' : Ensemble A} (d : Disjoint S S') {a : A} (h : a ∈ S')
+    : a ∉ S
+    => \lam in => d a (in, h)
+
+
+  \func fromSubset {A : \Set} {S1 S2 S1' S2' : Ensemble A} (h : Disjoint S1 S2)
+    (sub1 : S1' ⊆ S1) (sub2 : S2' ⊆ S2) : Disjoint S1' S2'
+    => \lam a (aS1', aS2') => h a (sub1 aS1', sub2 aS2')
+}

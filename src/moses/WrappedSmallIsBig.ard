@@ -1,0 +1,49 @@
+\import Algebra.Monoid
+\import Arith.Int
+\import Arith.Nat
+\import Logic
+\import Logic.Meta
+\import LogicUtil
+\import util.Maybe
+\import Paths
+\import moses.BigStep
+\import moses.Deterministic
+\import moses.MOSES
+\import moses.SmallStep
+\import moses.Syntax
+
+\func wrappedSmallIsBig (a : AExp) (s : State) (n : Num) :
+  (WrapperSemAExp a s n) <-> (SemAExp a s n) => (wrappedToBig, bigToWrapped)
+
+  \where {
+    \func wrappedToBig {a : AExp} {s : State} {n : Num} (h : WrapperSemAExp a s n) : SemAExp a s n \elim a, h
+      | aNum n1, arSingleStep (arNum p) => rNum (AExp.unANum p)
+      | aNum n1, arMultipleSteps _ e (arNum idp) h => absurd e
+
+      | aVar v, arSingleStep (arVar p) => rVar (AExp.unANum p)
+      | aVar v, arMultipleSteps _ e (arVar idp) h => absurd e
+
+      | aPlus a1 a2, h =>
+        \let (n1, n2, h1, h2, p) => splitBinary {PlusOp} h
+        \in rPlus n1 (wrappedToBig h1) n2 (wrappedToBig h2) p
+
+      | aMinus a1 a2, h =>
+        \let (n1, n2, h1, h2, p) => splitBinary {MinusOp} h
+        \in rMinus n1 (wrappedToBig h1) n2 (wrappedToBig h2) p
+
+      | aTimes a1 a2, h =>
+        \let (n1, n2, h1, h2, p) => splitBinary {TimesOp} h
+        \in rTimes n1 (wrappedToBig h1) n2 (wrappedToBig h2) p
+    \open BinaryOp
+
+    \func bigToWrapped {a : AExp} {s : State} {n : Num} (h : SemAExp a s n) : WrapperSemAExp a s n \elim a, h
+      | aNum n', rNum idp => arSingleStep (arNum idp)
+      | aVar v, rVar idp => arSingleStep (arVar idp)
+
+      | aPlus a1 a2, rPlus n1 semA1 n2 semA2 idp =>
+        flattenBinary (bigToWrapped semA1) (bigToWrapped semA2)
+      | aMinus a1 a2, rMinus n1 semA1 n2 semA2 idp =>
+        flattenBinary {MinusOp} (bigToWrapped semA1) (bigToWrapped semA2)
+      | aTimes a1 a2, rTimes n1 semA1 n2 semA2 idp =>
+        flattenBinary {TimesOp} (bigToWrapped semA1) (bigToWrapped semA2)
+  }

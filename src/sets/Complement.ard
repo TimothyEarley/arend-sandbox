@@ -1,0 +1,3 @@
+\import sets.MySet
+
+\func complement {A : \Set} (S : Ensemble A) : Ensemble A => __ ∉ S

@@ -1,0 +1,53 @@
+\import Algebra.Meta
+\import Data.Bool (true)
+\import Function.Meta
+\import Logic
+\import Logic.Meta
+\import Paths
+\import sets.MySet
+\import sets.Intersect
+\import sets.subset
+\import sets.union
+\import team.ClosureProperty
+\import team.TeamProp
+\import team.emptyProp
+
+\func downwardClosure {P : \Set} : ClosureProperty P => \lam ops t => \Pi (X X' : Team P) (X ⊧ t) (X' ⊆ X) -> X' ⊧ t
+
+\open ClosureProperty
+\open StandardOperators
+
+\func top-downward-closed {P : \Set} : Preserves {P} downwardClosure ⊤ => \lam {ops} e args a X X' m s => ()
+
+\func bot-downward-closed {P : \Set} : Preserves {P} downwardClosure ⊥ => \lam {ops} e args a X X' m s =>
+    \case \elim X, \elim m, \elim s \with {
+      | _, idp, s => ⊆.⊆∅-is-∅ s
+    }
+
+\func predicate-preserves-downwardClosure {P : \Set} {p : P} : Preserves {P} downwardClosure (predicate p) =>
+  \lam {ops} _ args h => \lam X X' m s el => m (el.1, s el.2)
+
+\func neg-preserves-downwardClosure {P : \Set} {p : P} : Preserves {P} downwardClosure (neg p) => \lam {ops} _ args h =>
+    \lam X X' m s el => m (el.1, s el.2)
+
+\func and-preserves-downwardClosure {P : \Set} : Preserves {P} downwardClosure and =>
+  \lam {ops} _ args h X X' m s => \case \elim args, \elim h, \elim m \with {
+    | :: t1 (:: t2 nil), (h1, (h2, _)), (m1, m2) => (h1 X X' m1 s, h2 X X' m2 s)
+  }
+
+\func or-preserves-downwardClosure {P : \Set} : Preserves {P} downwardClosure or =>
+  \lam {ops} _ args h X X' m s => \case \elim args, \elim h, \elim m \with {
+    | :: t1 (:: t2 nil), (h1, (h2, _)), inP (X1, X2, X1subX, X2subX, p, m1, m2) =>
+      inP (X1 ∩ X', X2 ∩ X',
+           ⊆.of-∩-right, ⊆.of-∩-right,
+           equation #
+           {⊆.anti-sym (\lam e => (s e, e)) (\lam e => e.2)} X ∩ X' #
+           {pmap (__ ∩ X') p} (X1 ∪ X2) ∩ X' #
+           {distribute-∩-∪ {Assignment P} {X1} {X2} {X'}} (X1 ∩ X') ∪ (X2 ∩ X'),
+
+           h1 X1 (X1 ∩ X') m1 ⊆.of-∩-left,
+           h2 X2 (X2 ∩ X') m2 ⊆.of-∩-left)
+  }
+
+\func NE-not-preserves-downwardClosure {P : \Set} : Not (Preserves {P} downwardClosure NE) =>
+  \lam h => h {single NE} idp nil () full ∅ (full/=empty (\lam _ => true)) ⊆.∅-is-⊆ idp

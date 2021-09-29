@@ -1,0 +1,52 @@
+\import Arith.Int
+\import Arith.Nat
+\import Data.Bool
+\import Data.List
+\import Data.Or
+\import Data.Sigma
+\import Equiv
+\import Meta
+\import Order.LinearOrder
+\import Set
+\import Logic
+\import Logic.Meta
+\import LogicUtil
+\import Order.PartialOrder
+\import Paths
+\import Paths.Meta
+\open LinearOrder (<=-dec)
+\open NatSemiring (<)
+
+-- Or
+
+\func foldOr {A B C : \Type} (f : A -> C) (g : B -> C) (O : Or A B) : C \elim O
+  | inl a => f a
+  | inr b => g b
+
+\func fold|| {A B : \Type} {C : \Prop} (f : A -> C) (g : B -> C) (O : A || B) : C \elim O
+  | byLeft a => f a
+  | byRight b => g b
+
+\func caseListEnd {A : \Type} (l : List A)
+  : Or (l = nil) (\Sigma (h : List A) (a : A) (l = h ++ (a :: nil))) \elim l
+  | nil => inl idp
+  | :: a nil => inr (nil, a, idp)
+  | :: a (:: a1 l) => \case caseListEnd (a1 :: l) \with {
+    | inl l => contradiction
+    | inr r => inr (a :: r.1, r.2, pmap (a :: __) r.3)
+  }
+
+-- used when the inference gets it wrong
+\cons fsuc {n : Nat} (a : Fin n) : Fin (suc n) => suc a
+\func fpred {n : Nat} (a : Fin (suc n)) (h : a /= 0) : Fin n \elim n, a
+  | n, zero => contradiction
+  | n, suc a => a
+\func fsucfpred {n : Nat} {a : Fin (suc n)} {h : a /= 0} : fsuc (fpred a h) = a
+  \elim a
+    | zero => contradiction
+    | suc a => idp
+
+\func sigmaMap {A : \Type} {B : A -> \Type}
+  {C : \Type} {D : C -> \Type} (f : A -> C) (g : \Pi {a : A} (b : B a) -> D (f a))
+               (s : \Sigma (a : A) (B a)): \Sigma (c : C) (D c)
+  => (f s.1, g s.2)

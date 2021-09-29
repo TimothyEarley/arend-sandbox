@@ -1,0 +1,23 @@
+\import Data.Or
+\import Logic
+\import Paths
+\import identity.Identity
+
+\instance OrIdentity {A B : \Set} : Identity (Or A B)
+  | Code x y => \case \elim x, \elim y \with {
+    | inl a, inl a1 => a = a1
+    | inl a, inr b => Empty
+    | inr b, inl a => Empty
+    | inr b, inr b1 => b = b1
+  }
+  | code-refl x => \case \elim x \with {
+    | inl a => idp
+    | inr b => idp
+  }
+  | code-encode {a} p => transport (Code {\this} a) p (code-refl {\this} a)
+  | code-decode {a} {b} c => \case \elim a, \elim b, c \with {
+    | inl a, inl a1, p => pmap inl p
+    | inr b, inr b1, p => pmap inr p
+  }
+
+\func uninr {A B : \Set} {x y : B} (p : inr x = {Or A B} inr y) : x = y => OrIdentity.code-encode p

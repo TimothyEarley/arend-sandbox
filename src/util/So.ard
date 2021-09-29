@@ -1,0 +1,30 @@
+\import Data.Bool
+\import Logic
+\import Logic.Meta
+\import Set
+
+\func soYes {P : \Prop} {d : Dec P} (p : P) : So (decToBool d) \elim d
+  | yes e => so
+  | no n => contradiction
+
+\func soNo  {P : \Prop} {d : Dec P} (p : Not P) : So (not (decToBool d)) \elim d
+  | yes e => contradiction
+  | no n => so
+
+\func soTrue {b : Bool} (s : So b) : b = true
+  | {true}, so => idp
+
+\func soFalse {b : Bool} (n : Not (So b)) : b = false
+  | {false}, n => idp
+  | {true}, n => contradiction
+
+\func soAnd1 {a b : Bool} (h : So (a and b)) : So a
+  | {false}, {false}, ()
+  | {true}, {true}, so => so
+
+\func soAnd2 {a b : Bool} (h : So (a and b)) : So b
+  | {false}, {false}, ()
+  | {true}, {true}, so => so
+
+\func soNot {b : Bool} (h : So (not b)) : Not (So b)
+  | {false}, so => \lam s => contradiction

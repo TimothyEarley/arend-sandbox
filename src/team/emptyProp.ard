@@ -1,0 +1,44 @@
+\import Function
+\import Paths
+\import Paths.Meta
+\import sets.MySet
+\import sets.subset
+\import sets.union
+\import team.ClosureProperty
+\import team.TeamProp
+\import Logic
+
+\func empty-prop {P : \Set} : ClosureProperty P
+  => \lam ops t => ∅ ⊧ t
+
+
+
+\open StandardOperators
+\open ClosureProperty
+
+\func top-preserves-empty-prop {P : \Set} : Preserves {P} empty-prop ⊤ => \lam {ops} _ args h => ()
+
+\func bot-preserves-empty-prop {P : \Set} : Preserves {P} empty-prop ⊥ => \lam {ops} _ args h => idp
+
+\func predicate-preserves-empty-prop {P : \Set} {p : P} : Preserves {P} empty-prop (predicate p) =>
+  \lam {ops} _ args h => \lam s => \case s \with {
+  (_, ())
+  }
+
+\func neg-preserves-empty-prop {P : \Set} {p : P} : Preserves {P} empty-prop (neg p) => \lam {ops} _ args h =>
+    \lam s => \case s \with {
+    (_, ())
+    }
+
+\func and-preserves-empty-prop {P : \Set} : Preserves {P} empty-prop and =>
+  \lam {ops} _ args h => \case \elim args, h \with {
+    | :: f1 (:: f2 nil), (h1, (h2, _)) => (h1, h2)
+  }
+
+\func or-preserves-empty-prop {P : \Set} : Preserves {P} empty-prop or => \lam {ops} _ args h =>
+    \case \elim args, h \with {
+      | :: f1 (:: f2 nil), (h1, (h2, _)) => inP (∅, ∅, ⊆.refl, ⊆.refl, inv (∪.cancel ∅), h1, h2)
+    }
+
+\func NE-not-preserves-empty-prop {P : \Set} : Not (Preserves {P} empty-prop NE) =>
+  \lam h => h {single NE} idp nil () idp

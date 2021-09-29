@@ -1,0 +1,90 @@
+\import Data.Or
+\import Logic
+\import Logic.Meta
+\import Paths
+\import sets.Elements
+\import sets.MySet
+\import sets.Complement
+\import sets.Finite
+\import sets.Intersect
+\import sets.pow
+\import sets.subset
+\import sets.union
+
+\func Num => Int
+
+\func Var => Nat
+
+\data AExp
+  | aNum Num
+  | aVar Var
+  | aPlus AExp AExp
+  | aMinus AExp AExp
+  | aTimes AExp AExp
+\where {
+  \func IsNum (a : AExp) : \Prop \elim a
+    | aNum _ => \Sigma
+    | _ => Empty
+
+  \func IsNotNum (a : AExp) : \Prop \elim a
+    | aNum _ => Empty
+    | _ => \Sigma
+
+  \func NumOrNot (a : AExp) => Or (\Sigma (n : Num) (a = aNum n)) (IsNotNum a)
+
+  \func isNum? (a : AExp) : NumOrNot a \elim a
+    | aNum n => inl (n, idp)
+    | aVar v => inr ()
+    | aPlus a a1 => inr ()
+    | aMinus a a1 => inr ()
+    | aTimes a a1 => inr ()
+
+  \func Code (a b : AExp) : \Prop \elim a, b
+    | aNum n, aNum n1 => n = n1
+    | aNum n, _ => Empty
+    | aVar v, aVar v1 => v = v1
+    | aVar v, _ => Empty
+    | aPlus a1 a2, aPlus b1 b2 => \Sigma (Code a1 b1) (Code a2 b2)
+    | aPlus a1 a2, _ => Empty
+    | aMinus a1 a2, aMinus b1 b2 => \Sigma (Code a1 b1) (Code a2 b2)
+    | aMinus a1 a2, _ => Empty
+    | aTimes a1 a2, aTimes b1 b2 => \Sigma (Code a1 b1) (Code a2 b2)
+    | aTimes a1 a2, _ => Empty
+
+  \func refl {a : AExp} : Code a a \elim a
+    | aNum n => idp
+    | aVar v => idp
+    | aPlus a1 a2 => (refl, refl)
+    | aMinus a1 a2 => (refl, refl)
+    | aTimes a1 a2 => (refl, refl)
+
+  \func encode {a b : AExp} (p : a = b) : Code a b \elim p
+    | idp => refl
+
+  \func decode {a b : AExp} (c : Code a b) : a = b \elim a, b, c
+    | aNum n, aNum n1, p => pmap aNum p
+    | aVar v, aVar v1, p => pmap aVar p
+    | aPlus a1 a2, aPlus b1 b2, c => pmap2 aPlus (decode c.1) (decode c.2)
+    | aMinus a1 a2, aMinus b1 b2, c => pmap2 aMinus (decode c.1) (decode c.2)
+    | aTimes a1 a2, aTimes b1 b2, c => pmap2 aTimes (decode c.1) (decode c.2)
+
+  \func unANum {n1 n2 : Num} (p : aNum n1 = aNum n2) : n1 = n2
+    => encode p
+
+}
+
+\data BExp
+  | bTrue
+  | bFalse
+  | bEq AExp AExp
+  | bLeq AExp AExp
+  | bNot BExp
+  | bAnd BExp BExp
+  | bOr BExp BExp
+
+\data Com
+  | skip
+  | assign Var AExp
+  | seq Com Com
+  | ite BExp (then : Com) (else : Com)
+  | while BExp Com

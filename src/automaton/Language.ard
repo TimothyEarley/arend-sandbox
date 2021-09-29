@@ -1,0 +1,22 @@
+\import Data.List
+\import Logic.Meta
+\import sets.MySet
+\import sets.union
+
+\func Alphabet => \Set
+
+\func Word (A : Alphabet) => List A
+
+\func Language (A : Alphabet) => Word A -> \Prop
+
+\where {
+  \func concat \alias \infix 6 ∘ {A : Alphabet} (L L' : Language A) : Language A =>
+    \lam w => ∃ (v v' : Word A) (w = v ++ v') (L v) (L' v')
+
+  \func concat-self+1 {A : Alphabet} (L : Language A) (n : Nat) : Language A \elim n
+    | 0 => L
+    | suc n => L ∘ (concat-self+1 L n)
+
+  \func star {A : Alphabet} (L : Language A) : Language A =>
+    (\lam w => ∃ (n : Nat) (concat-self+1 L n w)) ∪ (single nil)
+}

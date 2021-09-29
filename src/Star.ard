@@ -1,0 +1,38 @@
+\data Star {A : \Type} (r : A -> A -> \Type) (a b : A)
+  | refl (a = b)
+  | step \alias \infixr 6 ~> {c : A} (r a c) (Star {A} r c b)
+
+\where {
+  \func embedSingle {A B : \Type} {r : A -> A -> \Type}
+              {a b : A} (h : Star r a b)
+              {r2 : B -> B -> \Type} {f : A -> B}
+                    (transfer : \Pi {x y : A} (r x y) -> r2 (f x) (f y))
+    : Star r2 (f a) (f b) \elim h
+    | refl idp => refl idp
+    | ~> r1 h => (transfer r1) ~> (embedSingle h transfer)
+
+  \func embed {A B : \Type} {r : A -> A -> \Type}
+    {a b : A} (h : Star r a b)
+    {r2 : B -> B -> \Type}
+              {f : A -> B}
+              (transfer : \Pi {x y : A} (r x y) -> Star r2 (f x) (f y))
+    : Star r2 (f a) (f b)
+    \elim h
+      | refl idp => refl idp
+      | ~> rac h => (transfer rac) ~~> (embed h transfer)
+}
+
+\func \infixr 6 ~~> {A : \Type} {r : A -> A -> \Type} {x y z : A}
+          (s : Star r x y) (s' : Star r y z) : Star r x z
+  \elim s
+    | refl idp => s'
+    | ~> r1 s => r1 ~> (s ~~> s')
+
+\func \fix 2 stop {A : \Type} {r : A -> A -> \Type} (a : A) : Star r a a => refl idp
+
+\func \infixr 1 >~> {A : \Type} {a a' a'' : A}  {r : A -> A -> \Type}
+                    (p : Star r a a') (q : Star r a' a'') : Star r a a'' \elim p
+  | refl idp => q
+  | ~> r1 p => r1 ~> (p >~> q)
+
+\func \infix 2 ~~< {A : \Type} (a : A) {r : A -> A -> \Type} {a' : A} (p : r a a') : Star r a a' => p ~> refl idp

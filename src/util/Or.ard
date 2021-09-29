@@ -1,0 +1,19 @@
+\import Data.Maybe
+\import Data.Or
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Paths
+
+\data Or3 (A B C : \Type)
+  | in1 A
+  | in2 B
+  | in3 C
+
+\func inl? {A B : \Type} (o : Or A B) : Maybe A \elim o
+  | inl a => just a
+  | inr b => nothing
+
+\func inr? {A B : \Type} (o : Or A B) : Maybe B \elim o
+  | inl a => nothing
+  | inr b => just b

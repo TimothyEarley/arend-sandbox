@@ -1,0 +1,37 @@
+\import Data.Bool
+\import Logic
+\import Set
+\import Set.Fin
+\import sets.MySet
+\import sets.Sized
+\import sets.count
+\import sets.Finite
+
+
+\record DigraphData
+  | verts : DecSet
+  | arcs : DecSet (\Sigma verts verts)
+
+\class PreDigraph (\classifying G : DigraphData)
+
+-- well formed by construction
+\class WellformedDigraph \extends PreDigraph
+
+\class FinDigraph \extends PreDigraph
+  | finiteVerts : SizedSet G.verts
+  | finiteArcs : SizedSet G.arcs
+
+\class LoopFreeDigraph \extends WellformedDigraph
+  | noLoops : \Pi {e : G.arcs} -> e.1 /= e.2
+
+-- by construction
+\class NoMultiDigraph \extends WellformedDigraph
+
+\class Digraph \extends FinDigraph, LoopFreeDigraph, NoMultiDigraph
+
+\func outArcs {D : Digraph} (n : D.G.verts) : D.G.arcs -> \Prop
+  => __.1 = n
+
+\func outDegree {D : Digraph} (n : D.G.verts) : Nat
+  => \let o => outArcs n \in {?}
+

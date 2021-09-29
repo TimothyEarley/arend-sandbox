@@ -1,0 +1,65 @@
+\import Arith.Int
+\import Arith.Nat
+\import Logic
+\import Order.PartialOrder
+\import Paths
+\import Set
+\import identity.DecMaps
+\import identity.Identity
+\import identity.NatIdentity
+\import util.Int
+\import util.Nat
+
+\instance IntIdentity : Identity Int
+  | Code x y => \case \elim x, y \with {
+    | pos n, pos n1 => n = n1
+    | pos n, neg 0 => n = 0
+    | neg 0, pos n1 => 0 = n1
+    | neg 0, neg 0 => 0 = 0
+    | neg (suc n), neg (suc n1) => n = n1
+
+    | pos n, neg (suc n1) => Empty
+    | neg (suc n), pos n1 => Empty
+    | neg 0, neg (suc n1) => Empty
+    | neg (suc n), neg 0 => Empty
+  }
+  | code-refl a => \case \elim a \with {
+    | pos n => idp
+    | neg 0 => idp
+    | neg (suc n) => idp
+  }
+  | code-decode {a} {b} c => \case \elim a, \elim b, \elim c \with {
+    | pos n, pos n1, c => pmap pos c
+    | pos n, neg 0, c => pmap pos c
+    | pos n, neg (suc n1), ()
+    | neg 0, pos n1, c => pmap pos c
+    | neg (suc n), pos n1, ()
+    | neg 0, neg 0, c => pmap pos c
+    | neg 0, neg (suc n1), ()
+    | neg (suc n), neg 0, ()
+    | neg (suc n), neg (suc n1), c => pmap neg (pmap suc c)
+  }
+  -- | code-decide => {?}
+
+\where {
+  \func unPos {a b : Nat} (h : pos a = pos b) : a = b
+    => \let x => code-encode h \in x
+}
+
+-- order (TODO: create / use abstraction for decidable <=)
+\func \infix 6 int<=? (a b : Int) : Dec (a <= b)
+  \elim a, b
+    | 0, pos n => yes (pos<=pos zero<=_)
+    | 0, neg 0 => yes (pos<=pos zero<=_)
+
+    | pos (suc n), 0 => no (\lam h => h idp)
+    | pos (suc n), neg 0 => no (\lam h => h idp)
+
+    | pos (suc n), pos (suc n1) => decMap (suc n <=? suc n1) (pos<=pos, pos<=pos.conv)
+    | neg (suc n), neg (suc n1) => decMap (suc n1 <=? suc n) (neg<=neg, neg<=neg.conv)
+
+    | neg (suc n), pos n1 => yes neg<=pos
+    | pos _, neg (suc n) => no (\lam h => pos</=neg h)
+
+
+

@@ -1,0 +1,35 @@
+\import Equiv
+
+-- cPair x y == x + ∑(i = 1, …, x + y) i
+\func cPair (x y : Nat) : Nat
+  => x Nat.+ sumTo (x Nat.+ y)
+\where {
+  \func sumTo (x : Nat) : Nat
+    | 0 => 0
+    | suc x => (suc x) Nat.+ (sumTo x)
+
+
+  \func unPair (c : Nat) : \Sigma Nat Nat
+    \elim c
+      | 0 => (0, 0)
+      -- x + ∑(i = 1, …, x + y) i
+      -- so x has to be at least 1
+      -- x suc x'
+      -- (suc x') + ∑(i = 1, …, (suc x') + y) i
+      -- = suc (x' + ∑(i = 1, …, x' + y) i + (suc x' + y))
+      -- = suc c
+      | suc c =>
+        {?}
+
+  \func pairWorks : QEquiv {Nat} {\Sigma Nat Nat} \cowith
+    | f => unPair
+    | ret (x, y) => cPair x y
+    | ret_f => {?}
+    | f_sec => {?}
+  \where {
+    \func ret (x : Nat) : cPair (unPair x).1 (unPair x).2 = x
+      | 0 => idp
+      | suc x => {?}
+  }
+
+}

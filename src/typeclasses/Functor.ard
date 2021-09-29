@@ -1,0 +1,22 @@
+\import Function
+\import typeclasses.Identity
+
+\class Functor (F : \Type -> \Type)
+  | fmap : \Pi {A B : \Type} (f : A -> B) (F A) -> F B
+
+  -- laws
+  | functor-identity : \Pi {A : \Type} -> fmap (id {A}) = id
+  | functor-composition : \Pi {A B C : \Type} (f : B -> C) (g : A -> B) -> fmap (f o g) = (fmap f) o (fmap g)
+
+\class SetFunctor (F : \Set -> \Set)
+  | sfmap : \Pi {A B : \Set} (f : A -> B) (F A) -> F B
+
+  -- laws
+  | sfunctor-identity : \Pi {A : \Set} -> sfmap (id {A}) = id
+  | sfunctor-composition : \Pi {A B C : \Set} (f : B -> C) (g : A -> B) -> sfmap (f o g) = (sfmap f) o (sfmap g)
+
+
+\func IndentityFunctor : Functor Identity \cowith
+  | fmap f => f
+  | functor-identity {A} => idp
+  | functor-composition {A} {B} {C} f g => idp

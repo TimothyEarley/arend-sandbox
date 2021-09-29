@@ -1,0 +1,61 @@
+\import Logic
+\import LogicUtil
+\import Paths
+\import Paths.Meta
+\import sets.Card
+\import team.emptyProp
+\import util.Maybe
+\import Set.Fin
+\import sets.Elements
+\import sets.MySet
+\import sets.union
+\import team.ClosureProperty
+\import team.TeamProp
+\import team.downwardClosure
+\import team.unionClosure
+\open single (splitIntoSingles)
+\open splitIntoSingles (bigUnionUnsplit)
+
+\func flat {P : \Set} : ClosureProperty P => \lam ops t =>
+    \Pi (X : Team P) -> (X ⊧ t) <-> (\Pi (s : Elements X) -> (single s.1) ⊧ t)
+
+\func flatForFinite {P : \Set} : ClosureProperty P => \lam ops t =>
+    \Pi (X : Team P) {n : Nat} (Card X n) -> (X ⊧ t) <-> (\Pi (s : Elements X) -> (single s.1) ⊧ t)
+
+\func flat->downward {P : \Set} {ops : Operators P} {t : Term P ops} (fl : flat ops t) : downwardClosure ops t =>
+  \lam X X' m s => \let
+    | split_m => (fl X).1 m
+                   \in (fl X').2 (\lam e => split_m (e.1, s e.2))
+
+\func flat->union {P : \Set} {ops : Operators P} {t : Term P ops} (fl : flat ops t) : unionClosed ops t =>
+  \lam {X1} {X2} m1 m2 => (fl (X1 ∪ X2)).2 (\lam s => \case \elim s \with {
+    | (a, byLeft e) => (fl X1).1 m1 (a, e)
+    | (a, byRight e) => (fl X2).1 m2 (a, e)
+  })
+
+\func empty-downward-union->flat {P : \Set} {ops : Operators P} {t : Term P ops}
+                           (em : empty-prop ops t) (down : downwardClosure ops t) (union : unionClosed ops t) : flatForFinite ops t =>
+  \lam X C =>
+      (\lam m (as, in) => down X (single as) m (\lam {x} e => transport X e in),
+       \lam h => \let h' : ⋃ (splitIntoSingles X) ⊧ t => unionClosed.finiteUnion
+           union
+           (single.splitIntoSingles X)
+           (\lam {_} (inP (T, TX, idp)) => h (T, TX))
+           (Card.splitIntoSinglesCard C)
+           em
+                 \in rewriteF splitIntoSingles.bigUnionUnsplit h')
+
+--\func downward-union-finite->flat {P : \Set} (fin : FinSet P) {ops : Operators P} {t : Term P ops}
+--                           (down : downwardClosure ops t)  (uni : unionClosed ops t): flat ops t
+--  => \lam X => (\lam m s => down X (single s.1) m (\lam {x} e => \case \elim x, e \with {
+--    | x, idp => s.2
+--  }),
+--                \lam f => union-helper fin uni X f) -- is this correct? Do we need infinite union closure?
+--
+--\where {
+--  \func union-helper {P : \Set} (fin : FinSet P) {ops : Operators P}
+--                     {t : Term P ops} (uni : unionClosed ops t)
+--                     (X : Team P) (f : \Pi (s : Elements X) -> (single s.1) ⊧ t) : X ⊧ t \elim P, fin, t
+--    | P, (0, inP idp), term op e args => {?}
+--    | P, (suc n, inP idp), t => {?}
+--}

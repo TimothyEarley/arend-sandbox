@@ -1,0 +1,145 @@
+\import Arith.Nat
+\import Category.Limit
+\import Data.Array
+\import Data.List (List)
+\import Data.Maybe
+\import Debug.Meta
+\import Function.Meta
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Order.Lattice
+\import Order.LinearOrder
+\import Order.PartialOrder
+\import Paths
+\import Paths.Meta
+\import Set (no, yes)
+\import identity.FinIdentity
+\import identity.Identity
+\import typeclasses.Functor
+\import typeclasses.Monad
+\import util.Fin
+\open DArray (!!)
+
+\module ArrayUtils \where {
+  \func \infixl 9 ?? {A : \Type} (a : Array A) (i : Nat) : Maybe A => fmap (a !!) (truncateNatToFin i)
+
+  \func arrayOf {A : \Type} (val : A) {n : Nat} : Array A n => mkArray (\lam f => val)
+
+  \func set {n : Nat} {A : \Type} (a : Array A n) (i : Fin n) (v : A) : Array A n
+    => \lam j => \case i fin≟ j \return A \with {
+      | yes e => v
+      | no n => a j
+    }
+
+    \where {
+      \data Test | aTest | bTest | cTest | dTest
+
+      \func test : set {3} (aTest :: bTest :: cTest :: nil) 1 dTest = aTest :: dTest :: cTest :: nil =>
+        idp
+
+    }
+
+  \func max {A : JoinSemilattice} {n : Nat} (l : Array A (suc n)) : \Sigma (m : A) (\Pi (x : A) (Index x l) -> x Order.PartialOrder.<= m)
+  \elim n, l
+    | 0, :: a nil => (a, \lam x (0, p) => rewrite p <=-reflexive)
+    | suc n, :: a (:: a' l') \as l =>
+      \let (m', h') => max (a' :: l') \in (a ∨ m', \lam x (i : Index x l) => \case \elim x, \elim i \with {
+        | _, (0, idp) => join-left
+        | _, (suc i, idp) => <=-transitive (h' a' (0, idp)) join-right
+      })
+
+  \func All {A : \Type} (v : Array A) (P : A -> \Prop) : \Prop => Big (\lam a r => \Sigma (P a) r) (\Sigma) v
+    \where {
+      \func all++ {A : \Type} {v v' : Array A} {P : A -> \Prop} (h : All v P) (h' : All v' P) : All (v ++ v') P
+      \elim v
+        | nil => h'
+        | :: a arr => (h.1, all++ h.2 h')
+    }
+
+  \func HasSome {A : \Type} {n : Nat} (v : Array A n) (P : A -> \Prop) : \Prop => ∃ (i : Fin n) (P (v i))
+
+  \func toList {A : \Type} (a : Array A) : List A \elim a
+    | nil => List.nil
+    | :: a arr => a List.:: toList arr
+
+  \func zipWithNext {A : \Type} {n : Nat} (v : Array A (suc n)) : Array (\Sigma A A) n \elim n, v
+    | 0, :: a nil => nil
+    | suc n, :: a (:: a' v) => (a, a') :: zipWithNext (a' :: v)
+
+  \func length {A : \Type} {n : Nat} (a : Array A n) : Nat => n
+
+  \func dropLast {n : Nat} {A : Fin (suc n) -> \Type} (d : DArray {suc n} A) : DArray {n} (A __)
+    => d __ -- same function, we just don't use the last entry
+
+  \func rev {n : Nat} {A : Fin n -> \Type} (d : DArray A) (i : Fin n) : Rev A i \elim n, d, i
+    | suc n, d, 0 => d n
+    | suc n, d, suc i => rev {n} {A __} (dropLast d) i
+    \where {
+      \func Rev {n : Nat} (A : Fin n -> \Type) (i : Fin n) : \Type \elim n, i
+        | suc n, 0 => A n
+        | suc n, suc i => Rev {n} (A __) i
+
+      \func example : rev (1 :: 2 :: 3 :: nil) = {Array Nat} 3 :: 2 :: 1 :: nil => idp
+    }
+
+  \func headOr {A : \Type} (or : A) (d : Array A)  : A \elim d
+    | nil => or
+    | :: a arr => a
+
+  \func tail {A : \Type} (d : Array A) : Array A \elim d
+    | nil => nil
+    | :: a d => d
+
+  \func dTail {n : Nat} {A : Fin (suc n) -> \Type} (d : DArray A) : DArray (\lam i => A (suc i)) \elim d
+    | :: a d => d
+
+  \func append \alias \infixl 6 ::- {A : \Type} (d : Array A) (a : A) : Array A \elim d
+    | nil => a :: nil
+    | :: a' arr => a' :: (arr ::- a)
+  \where {
+    \func to++ {A : \Type} {l : Array A} {a : A} : l ::- a = l ++ (a :: nil) \elim l
+      | nil => idp
+      | :: a1 arr => pmap {Array A} (a1 :: __) to++
+
+    \func compose++ {A : \Type} {l l' : Array A} {a : A} : l ::- a ++ l' = l ++ a :: l' \elim l
+      | nil => idp
+      | :: a1 arr => pmap {Array A} (a1 :: __) compose++
+
+    \func notNil {A : \Type} {l : Array A} {a : A} : Not (l ::- a = nil) \elim l
+      | nil => \case __
+      | :: a1 arr => \case __
+
+    \func heads= {A : \Type} {l l' : Array A} {a a' : A} (p : l ::- a = l' ::- a') : l = l' \elim l, l'
+      | nil, nil => idp
+      | nil, :: a1 arr => absurd $ notNil (inv $ pmap tail p)
+      | :: a1 arr, nil => absurd $ notNil (pmap tail p)
+      | :: a1 arr, :: a2 arr1 => pmap2 {A} {Array A} (__ :: __) (pmap (headOr a1) p) (heads= (pmap tail p))
+  }
+}
+
+\func ArrayOrder {A : \Set} : Preorder (Array A) \cowith
+  | <= => <=
+  | <=-reflexive => refl
+  | <=-transitive => trans
+\where {
+  \data  \infix 6 <= {A : \Type} (x y : Array A) \elim x, y
+    | nil, _ => nil<=_
+    | :: a t, :: a' t' => cons<=cons (a = a') (t <= t')
+
+  \func refl {A : \Type} {x : Array A} : x <= x \elim x
+    | nil => nil<=_
+    | :: a arr => cons<=cons idp refl
+
+  \func trans {A : \Type} {x y z : Array A} (h : x <= y) (h' : y <= z) : x <= z
+    \elim x, y, z, h, h'
+      | nil, _, _, _, _ => nil<=_
+      | :: a t, :: a1 t1, :: a' t', cons<=cons p h, cons<=cons p1 h' =>
+        cons<=cons (p *> p1) (trans h h')
+
+  \func <=-prefix {A : \Type} {x y : Array A} (h : x <= y) : \Sigma (z : Array A) (x ++ z = y)
+    \elim x, y, h
+      | nil, y, nil<=_ => (y, idp)
+      | :: a t, :: a' t', cons<=cons p h => \let (z, h') => <=-prefix h
+                                            \in (z, pmap2 {A} {Array A} (__ :: __) p h')
+}

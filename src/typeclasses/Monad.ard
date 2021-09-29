@@ -1,0 +1,129 @@
+\import Algebra.Meta
+\import Algebra.Monoid
+\import Data.List
+\import Data.Maybe
+\import Equiv
+\import Function
+\import Function.Meta
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Paths
+\import Paths.Meta
+\import sets.Elements
+\import sets.MySet
+\import typeclasses.Functor
+\import typeclasses.Identity
+
+\class Monad \extends Functor
+  | return : \Pi {A : \Type} (a : A) -> F A
+  | flatMap \alias \infixl 6 >>= : \Pi {A B : \Type} (fa : F A) (f : A -> F B) -> F B
+
+  -- laws
+  | left-id : \Pi {A B : \Type} {a : A} {f : A -> F B} -> return a >>= f = f a
+  | right-id : \Pi {A : \Type} {m : F A} -> m >>= return = m
+  | assoc : \Pi {A B C : \Type} {m : F A} {f : A -> F B} {g : B -> F C} -> (m >>= f) >>= g = m >>= (\lam x => f x >>= g)
+
+  | fmap f fa => fa >>= (return o f)
+  | functor-identity {A} => ext (\lam f => right-id)
+  | functor-composition {A} {B} {C} f g =>
+    \let
+      | q : (\lam x => (return o f) (g x)) = (\lam x => (return o g) x >>= (return o f)) => ext (\lam x => inv left-id)
+    \in ext
+        (\lam fa =>
+            fmap (f o g) fa                                    ==< idp                >==
+            fa >>= (return o (f o g))                          ==< idp                >==
+            fa >>= (\lam x => (return o f) (g x))              ==< pmap (fa >>= __) q >==
+            fa >>= (\lam x => (return o g) x >>= (return o f)) ==< inv assoc          >==
+            (fa >>= (return o g)) >>= (return o f)             ==< idp                >==
+            ((fmap f) o (fmap g)) fa                           `qed)
+
+\func IdentityMonad : Monad Identity \cowith
+  | return a => a
+  | flatMap a f => f a
+  | left-id {A} {B} {a} {f} => idp
+  | right-id {A} {m} => idp
+  | assoc {A} {B} {C} {m} {f} {g} => idp
+
+\func MonadMonoid (M : Monad) : TypeMonoid \cowith
+  | E => \Pi {A : \Type} (a : A) -> M.F A
+  | ide => return
+  | * f g {A} a => (f a) >>= g
+  | ide-left => exts (\lam {A} a => M.left-id)
+  | ide-right => exts (\lam {A} a => M.right-id)
+  | *-assoc => exts (\lam {A} a => M.assoc)
+
+  \where {
+    -- Moinoid on \Type instead of \Set
+
+    \class TypeMonoid (E : \Type)
+      | ide : E
+      | \infixl 7 * : E -> E -> E
+      | ide-left {x : E} : ide * x = x
+      | ide-right {x : E} : x * ide = x
+      | *-assoc {x y z : E} : (x * y) * z = x * (y * z)
+  }
+
+\instance ListMonad : Monad List
+  | return a => a :: nil
+  | flatMap => flatMap
+  | left-id => ++_nil
+  | right-id => right-id
+  | assoc => assoc
+
+  \where {
+    \func flatMap {A B : \Type} (l : List A) (f : A -> List B) : List B \elim l
+      | nil => nil
+      | :: a l => (f a) ++ (flatMap l f)
+
+    \func right-id {A : \Type} {l : List A} : flatMap l (\lam a => a :: nil) = l \elim l
+      | nil => idp
+      | :: a l => pmap2 (::) idp right-id
+
+    \func assoc {A B C : \Type} {l : List A} {f : A -> List B} {g : B -> List C} : flatMap (flatMap l f) g = flatMap l (\lam x => flatMap (f x) g)
+    \elim l
+      | nil => idp
+      | :: a l => rewrite flatmap_++ (pmap2 (++) idp assoc)
+
+    \func flatmap_++ {A B : \Type} {l l' : List A} {f : A -> List B} : flatMap (l ++ l') f = (flatMap l f) ++ (flatMap l' f)
+    \elim l
+      | nil => idp
+      | :: a l => rewrite ++-assoc (pmap2 (++) idp flatmap_++)
+  }
+
+\instance MaybeMonad : Monad Maybe
+  | return => just
+  | flatMap fa f => \case fa \with {
+    | just a => f a
+    | nothing => nothing
+  }
+  | left-id => idp
+  | right-id => mcases idp
+  | assoc {A B C : \Type} {m : Maybe A} {f : A -> Maybe B} {g : B -> Maybe C} => \case \elim m \with {
+    | just a => \case f a \as q, idp : f a = q \with {
+      | just a1, p => rewrite p idp
+      | nothing, p => rewrite p idp
+    }
+    | nothing => idp
+  }
+
+\func SetMonad : Monad (__ -> \Prop) \cowith
+  | return a => single a
+  | flatMap S f b => ∃ (a : Elements S) (b ∈ f a.1)
+  | left-id {_} {_} {a} {_} => extSet
+      (\lam e => \case \elim e \with {
+        | inP ((_, idp), e) => e
+      })
+      (\lam e => inP ((a, idp), e))
+  | right-id => extSet
+      (\lam {x} e => \case \elim e \with {
+        | inP ((_, xe), idp) => xe
+      })
+      (\lam {x} e => inP ((x, e), idp))
+  | assoc => extSet
+      (\lam {x} e => \case \elim e \with {
+        | inP ((b, inP (e, bfa)), xgb) => inP (e, inP ((b, bfa), xgb))
+      })
+      (\lam {x} e => \case \elim e \with {
+        | inP (e, inP ((b, bfa), xgb)) => inP ((b, inP (e, bfa)), xgb)
+      })

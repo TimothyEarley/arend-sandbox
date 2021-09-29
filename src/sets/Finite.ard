@@ -1,0 +1,200 @@
+\import Arith.Nat
+\import Data.Array
+\import Data.Or
+\import Equiv
+\import Equiv.Fiber
+\import Function
+\import Homotopy.Fibration
+\import Logic
+\import Logic.Meta
+\import LogicUtil
+\import Order.LinearOrder
+\import Order.PartialOrder
+\import Paths
+\import Paths.Meta
+\import Prelude \using (:: \as :::, nil \as vNil)
+\import Set.Fin
+\import Util
+\import sets.Elements
+\import sets.MySet
+\import sets.Sized
+\import sets.remove
+\import sets.union
+\import util.ArrayUtils
+\open LinearOrder (<=-dec)
+\open ArrayUtils (max)
+\open DArray (!!)
+-- the difference to sized is that we might not know the exact number of elements (only upper bound)
+
+\func Finite {A : \Set} (S : Ensemble A) : \Prop =>
+  ∃ (n : Nat) (Fin n ->> (Elements S))
+
+  \where {
+
+    -- TODO find out how much stronger this notion is (if at all)
+
+    \func finite' {A : \Set} (S : Ensemble A) : \Prop => ∃ (n : Nat) (Elements S = Fin n)
+
+    \func finite'=>finite {A : \Set} {S : Ensemble A} (f : finite' S) : Finite S \elim f
+      | inP (n, p) => inP (n, \new Surjection {
+        | f => transport id (inv p)
+        | isSurj e => inP (transport id p e, transport_inv_id id p e)
+      })
+
+    \func empty-finite {A : \Set} : Finite (∅ {A}) => inP (0, \new Surjection {
+      | f => \lam f => \case f \with {
+      }
+      | isSurj e => \case e \with {
+      (_, ())
+      }
+    })
+
+    \func single-finite {A : \Set} {a : A} : Finite (single a) =>
+      inP (1, \new Surjection {
+        | f _ => (a, idp)
+        | isSurj e => \case \elim e \with {
+          | (_, idp) => inP (0, idp)
+        }
+      })
+
+    \func array-finite {A : \Set} {n : Nat} {l : Array A n} : Finite (setOf l) =>
+      inP (n, \new Surjection {
+        | f => \lam f => (l !! f, inP (f, idp))
+        | isSurj => \lam y => \case \elim y \with {
+          | (a, inP (i, p)) => inP (i, ext p)
+        }
+      })
+
+
+    -- Idea, build the surjection by appending the surjection for S1 with the surjection for S2
+
+    \func finite-union {A : \Set} {S1 S2 : Ensemble A}
+                       (h1 : Finite S1) (h2 : Finite S2) : Finite (S1 ∪ S2) \elim h1, h2
+      | inP (n1, p1 : Fin n1 ->> Elements S1), inP (n2, p2 : Fin n2 ->> Elements S2) =>
+        inP (n1 Nat.+ n2,
+             \new Surjection {
+               | f => buildSurjectionFunc S1 S2 p1.f p2.f
+               | isSurj => surjFuncIsSurj S1 S2 p1 p2
+             })
+
+      \where {
+        \func buildSurjectionFunc {A : \Set} (S1 S2 : Ensemble A)
+                                  {n1 n2 : Nat}
+                                  (p1 : Fin n1 -> Elements S1)
+                                  (p2 : Fin n2 -> Elements S2)
+                                  (i : Fin (n1 Nat.+ n2))
+          : Elements (S1 ∪ S2)
+        \elim n1, n2, i
+          -- first index of S1
+          | suc n1, _, 0 => Elements.unionLeft S1 S2 (p1 0)
+          -- recurse through S1
+          | suc n1, _, suc i => buildSurjectionFunc S1 S2 (p1 o fsuc) p2 i
+          -- nothing in S1, so just index S2
+          | 0, n2, i => Elements.unionRight S1 S2 (p2 i)
+
+        \func surjFuncIsSurj {A : \Set} (S1 S2 : Ensemble A)
+                             {n1 n2 : Nat}
+                             (p1 : Fin n1 ->> Elements S1)
+                             (p2 : Fin n2 ->> Elements S2)
+                             (e : Elements (S1 ∪ S2))
+          : TruncP (Fib (buildSurjectionFunc S1 S2 p1.f p2.f) e)
+        \elim e
+          | (a, byLeft h) => surjLeft S1 S2 p1.f p2.f a h (p1.isSurj (a, h))
+          | (a, byRight h) => surjRight S1 S2 p1.f p2.f a h (p2.isSurj (a, h))
+
+        \func surjLeft {A : \Set} (S1 S2 : Ensemble A) {n1 n2 : Nat}
+                       (f1 : Fin n1 -> Elements S1)
+                       (f2 : Fin n2 -> Elements S2)
+                       (a : A) (h : a ∈ S1) (f : TruncP (Fib {Fin n1} {Elements S1} f1 (a, h)))
+          : TruncP (Fib {Fin (n1 Nat.+ n2)} {Elements (S1 ∪ S2)}
+            (buildSurjectionFunc S1 S2 f1 f2) (a, byLeft {S1 a} {S2 a} h))
+        \elim n1, f
+          | 0, inP ((), proof)
+          | suc n1, inP (zero, proof) => inP (0, ext (pmap __.1 proof))
+          | suc n1, inP (suc i, proof) => \case surjLeft S1 S2 {n1} (f1 o fsuc) f2 a h (inP (i, proof)) \with {
+            | inP (i', proof') => inP (suc i', proof')
+          }
+
+        \func surjRight {A : \Set} (S1 S2 : Ensemble A) {n1 n2 : Nat}
+                        (f1 : Fin n1 -> Elements S1)
+                        (f2 : Fin n2 -> Elements S2)
+                        (a : A) (h : a ∈ S2) (f : TruncP (Fib {Fin n2} {Elements S2} f2 (a, h)))
+          : TruncP (Fib {Fin (n1 Nat.+ n2)} {Elements (S1 ∪ S2)}
+            (buildSurjectionFunc S1 S2 f1 f2) (a, byRight {S1 a} {S2 a} h))
+        \elim n1, f
+          | 0, inP (i, proof) => inP (i, ext (pmap __.1 proof))
+          | suc n1, f => \case surjRight S1 S2 {n1} (f1 o fsuc) f2 a h f \with {
+            | inP (i, proof) => inP (suc i, proof)
+          }
+      }
+
+    \func smap-finite {A B : \Set} {S : Ensemble A} {f : A -> B} (Sfin : Finite S) : Finite (S smap f)
+    \elim Sfin
+      | inP (n, proof : Fin n ->> Elements S) => inP (n,
+                                                      \new Surjection {
+                                                        | f i => \let (a, aS) => proof i \in (f a, inP (a, idp, aS))
+                                                        | isSurj e => \case \elim e \with {
+                                                          | (_, inP (a, idp, aS)) => \case proof.isSurj (a, aS) \with {
+                                                            | inP (i, p) => inP (i, rewrite p idp)
+                                                          }
+                                                        }
+                                                      })
+
+    -- show that Nat is not finite
+
+    \func infinite'-set : \Sigma (A : \Set) (S : Ensemble A) (Not (finite' S)) =>
+      (Nat,
+       full,
+       \lam f => \case \elim f \with {
+         -- TODO clean up diff between Elements full and Nat
+         | inP (n, p) => helper
+             Elements.full-eq
+             full
+             (table {Nat} {full} p)
+             (transport (Array __ n) Elements.full-eq (table {Nat} {full} p))
+             idp
+             (table-is-complete full p)
+             (nat-array-cannot-be-complete  (transport (Array __ n) Elements.full-eq (table {Nat} {full} p)))
+       })
+
+      \where {
+        \func helper {A B : \Set} (p : A = B)
+                     (S : Ensemble A)
+                     {n : Nat}
+                     (v : Array A n) (vb : Array B n)
+                     (q : vb = transport (Array __ n) p v)
+                     (h : \Pi (a : A) -> Index a v)
+                     (h' : ∃ (x : B) (Not (Index x vb)))
+          : Empty \elim p, q, h'
+          | idp, idp, inP (x, h') => h' (h x)
+      }
+
+    \func table {A : \Set} {S : Ensemble A}
+                {n : Nat} (f : Sized S n) : Array (Elements S) n => mkArray (transport id (inv f))
+
+    \func table-is-complete {A : \Set} (S : Ensemble A) {n : Nat}
+                            (f : Sized S n) (e : Elements S)
+      : Index e (table {A} {S} f) => (Sized.getIndex f e, transport_inv_id id f e)
+
+    -- idea: the max + 1 is not in the array
+
+    \func nat-array-cannot-be-complete {n : Nat} (v : Array Nat n)
+      : ∃ (x : Nat) (Not (Index x v))
+    \elim n, v
+      | 0, Prelude.nil => inP (0, \lam i => \case i.1 \with {
+      })
+      | suc n, v => \let (m, h) => max v \in inP (suc m, \lam i => helper (h (suc m) i))
+
+      \where {
+        \func helper {a : Nat} (h : suc a <= a) : Empty \elim a
+          | 0 => \case <=-dec h \with {
+            | inl ()
+            | inr ()
+          }
+          | suc a => helper (suc<=suc.conv h)
+      }
+
+    \func finSet->finite {A : \Set} (F : FinSet A) : Finite (full {A})
+    \elim F
+      | (n, inP p) => finite'=>finite {_} {full} (inP (n, full.full=A *> p))
+  }

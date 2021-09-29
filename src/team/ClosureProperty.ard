@@ -1,0 +1,31 @@
+\import Logic
+\import sets.Add
+\import sets.MySet
+\import team.TeamProp
+\import util.ArrayUtils
+
+\func ClosureProperty (P : \Set) : \Type =>
+  \Pi (ops : Operators P) -> \Pi (t : Term P ops) -> \Prop
+  \where {
+    \func Preserves {P : \Set} (prop : ClosureProperty P) (op : Operator P)  : \Prop
+      => \Pi {ops : Operators P} (e : op ∈ ops)
+             (args : Array (Term P ops) op.arity) (ArrayUtils.All args (\lam t => prop ops t))
+      -> prop ops (term op e args)
+
+    \func composes {P : \Set} (prop : ClosureProperty P)
+                   (ops : Operators P) (h : All ops (Preserves prop))
+                   {op : Operator P} (h' : Preserves prop op)
+                   (t : Term P (add ops op)) : prop (add ops op) t \elim t
+      | term _ (byRight idp) args => h' {add ops op} (byRight idp) args (composeArgs prop ops h h' args)
+      | term op' (byLeft e) args => h (op', e) {add ops op} (byLeft e) args (composeArgs prop ops h h' args)
+
+      \where {
+        \func composeArgs {P : \Set} (prop : ClosureProperty P)
+                          (ops : Operators P) (h : All ops (Preserves prop))
+                          {op : Operator P} (h' : Preserves prop op)
+                          {n : Nat}
+                          (args : Array (Term P (add ops op)) n) : ArrayUtils.All args (\lam t => prop (add ops op) t) \elim n, args
+          | 0, nil => ()
+          | suc n, :: head tail => (composes prop ops h h' head, composeArgs prop ops h h' tail)
+      }
+  }

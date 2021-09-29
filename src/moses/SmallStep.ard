@@ -1,0 +1,227 @@
+\import Algebra.Group
+\import Algebra.Monoid
+\import Arith.Int
+\import Data.Or
+\import Logic
+\import Paths
+\import Paths.Meta
+\import sets.Elements
+\import sets.MySet
+\import moses.MOSES
+\import moses.Syntax
+\import sets.Complement
+\import sets.Finite
+\import sets.Intersect
+\import sets.pow
+\import sets.subset
+\import sets.union
+
+\data SmallSemAExp (a : AExp) (s : State) (a' : AExp) \elim a
+  | aNum n => arNum (a' = aNum n)
+  | aVar v => arVar (a' = aNum (s v))
+
+  | aPlus a1 a2 => arPlusLeft {a1' : AExp} (SmallSemAExp a1 s a1') (e : AExp.IsNotNum a1) (a' = aPlus a1' a2)
+  | aPlus (aNum n1) a2 => arPlusRight {a2' : AExp} (SmallSemAExp a2 s a2') (e : AExp.IsNotNum a2) (a' = aPlus (aNum n1) a2')
+  | aPlus (aNum n1) (aNum n2) => arPlus (a' = aNum (n1 + n2))
+
+  | aMinus a1 a2 => arMinusLeft {a1' : AExp} (SmallSemAExp a1 s a1') (e : AExp.IsNotNum a1) (a' = aMinus a1' a2)
+  | aMinus (aNum n1) a2 => arMinusRight {a2' : AExp} (SmallSemAExp a2 s a2') (e : AExp.IsNotNum a2) (a' = aMinus (aNum n1) a2')
+  | aMinus (aNum n1) (aNum n2) => arMinus (a' = aNum (n1 - n2))
+
+  | aTimes a1 a2 => arTimesLeft {a1' : AExp} (SmallSemAExp a1 s a1') (e : AExp.IsNotNum a1) (a' = aTimes a1' a2)
+  | aTimes (aNum n1) a2 => arTimesRight {a2' : AExp} (SmallSemAExp a2 s a2') (e : AExp.IsNotNum a2) (a' = aTimes (aNum n1) a2')
+  | aTimes (aNum n1) (aNum n2) => arTimes (a' = aNum (n1 * n2))
+
+\data WrapperSemAExp (a : AExp) (s : State) (n : Num)
+  | arSingleStep (SmallSemAExp a s (aNum n))
+  | arMultipleSteps (a' : AExp) (e : AExp.IsNotNum a') (SmallSemAExp a s a') (WrapperSemAExp a' s n)
+
+\func wrapperNum {n n' : Num} {s : State} (h : WrapperSemAExp (aNum n) s n') : n' = n \elim h
+  | arSingleStep (arNum p) => AExp.unANum p
+  | arMultipleSteps a' e (arNum idp) h => absurd e
+
+\class BinaryOp
+  | op : AExp -> AExp -> AExp
+  | opNotNum : \Pi {a b : AExp} -> AExp.IsNotNum (op a b)
+  | resultOp : Num -> Num -> Num
+  | leftRule : \Pi {a1 a1' a2 : AExp} {s : State}
+                   (h : SmallSemAExp a1 s a1')
+                   (e : AExp.IsNotNum a1) -> SmallSemAExp (op a1 a2) s (op a1' a2)
+  | rightRule : \Pi {a2 a2' : AExp} {n : Num} {s : State}
+                    (h : SmallSemAExp a2 s a2')
+                    (e : AExp.IsNotNum a2) -> SmallSemAExp (op (aNum n) a2) s (op (aNum n) a2')
+  | finishRule : \Pi {n1 n2 : Num} {s : State} ->
+      SmallSemAExp (op (aNum n1) (aNum n2)) s (aNum (resultOp n1 n2))
+
+
+  | leftRuleInv : \Pi {a1 a2 a' : AExp} {s : State} (e : AExp.IsNotNum a1)
+                      (SmallSemAExp (op a1 a2) s a') -> \Sigma (a1' : AExp) (SmallSemAExp a1 s a1')
+  | finishRuleInv : \Pi {n1 n2 n : Num} {s : State}
+                        (SmallSemAExp (op (aNum n1) (aNum n2)) s (aNum n)) -> n = resultOp n1 n2
+
+\where {
+  \instance PlusOp : BinaryOp {
+    | op => aPlus
+    | opNotNum {_} {_} => ()
+    | resultOp => +
+    | leftRule => arPlusLeft __ __ idp
+    | rightRule => arPlusRight __ __ idp
+    | finishRule {_} {_} {_} => arPlus idp
+    | finishRuleInv r => \case r \with {
+      | arPlusLeft s () p
+      | arPlusRight s () p
+      | arPlus p => AExp.unANum p
+    }
+  }
+    | leftRuleInv {a1} {a2} e s1 => \case \elim a1, \elim a2, \elim s1, e \with {
+      | a1, a2, arPlusLeft {a1'} s1 e1 p, _ => (a1', s1)
+      | aNum n1, a2, arPlusRight {a1'} s1 e1 p, ()
+      | aNum n1, aNum n2, arPlus p, ()
+    }
+
+  \instance MinusOp : BinaryOp {
+    | op => aMinus
+    | opNotNum {_} {_} => ()
+    | resultOp => -
+    | leftRule => arMinusLeft __ __ idp
+    | rightRule => arMinusRight __ __ idp
+    | finishRule {_} {_} {_} => arMinus idp
+    | finishRuleInv r => \case r \with {
+      | arMinusLeft s () p
+      | arMinusRight s () p
+      | arMinus p => AExp.unANum p
+    }
+  }
+    | leftRuleInv {a1} {a2} e s1 => \case \elim a1, \elim a2, \elim s1, e \with {
+      | a1, a2, arMinusLeft {a1'} s1 e1 p, _ => (a1', s1)
+      | aNum n1, a2, arMinusRight {a1'} s1 e1 p, ()
+      | aNum n1, aNum n2, arMinus p, ()
+    }
+
+  \instance TimesOp : BinaryOp {
+    | op => aTimes
+    | opNotNum {_} {_} => ()
+    | resultOp => *
+    | leftRule => arTimesLeft __ __ idp
+    | rightRule => arTimesRight __ __ idp
+    | finishRule {_} {_} {_} => arTimes idp
+    | finishRuleInv r => \case r \with {
+      | arTimesLeft s () p
+      | arTimesRight s () p
+      | arTimes p => AExp.unANum p
+    }
+  }
+    | leftRuleInv  {a1} {a2} e s1 => \case \elim a1, \elim a2, \elim s1, e \with {
+      | a1, a2, arTimesLeft {a1'} s1 e1 p, _ => (a1', s1)
+      | aNum n1, a2, arTimesRight {a1'} s1 e1 p, ()
+      | aNum n1, aNum n2, arTimes p, ()
+    }
+}
+\open BinaryOp
+
+\func flattenBinary
+  {O : BinaryOp}
+  {a1 a2 : AExp} {s : State} {n1 n2 : Num}
+  (h1 : WrapperSemAExp a1 s n1) (h2 : WrapperSemAExp a2 s n2)
+  : WrapperSemAExp (op a1 a2) s (resultOp n1 n2)
+  => flattenFirst h1 h2 (AExp.isNum? a1)
+
+  \where {
+    \func flattenFirst
+      {O : BinaryOp}
+      {a1 a2 : AExp} {s : State} {n1 n2 : Num}
+      (h1 : WrapperSemAExp a1 s n1) (h2 : WrapperSemAExp a2 s n2)
+      (isNumA1 : AExp.NumOrNot a1)
+      : WrapperSemAExp (op a1 a2) s (resultOp n1 n2)
+    \elim a1, h1, isNumA1
+
+      | a1, h1, inl (a1n, p) =>
+        \let
+        | q' => wrapperNum (rewriteI p h1)
+        | q : a1 = aNum n1 => rewrite q' p
+        \in rewrite q (flattenNext h2 (AExp.isNum? a2))
+
+      | a1, arSingleStep s1, inr e => arMultipleSteps
+          (op (aNum n1) a2)
+          opNotNum
+          (leftRule s1 e)
+          (flattenNext h2 (AExp.isNum? a2))
+
+      | a1, arMultipleSteps a' e s1 h1, inr e2 => arMultipleSteps
+          (op a' a2)
+          opNotNum
+          (leftRule s1 e2)
+          (flattenFirst h1 h2 (inr e))
+
+    \func flattenNext
+      {O : BinaryOp}
+      {a2 : AExp} {s : State} {n1 n2 : Num}
+      (h2 : WrapperSemAExp a2 s n2)
+      (isNumA2 : AExp.NumOrNot a2)
+      : WrapperSemAExp (op (aNum n1) a2) s (resultOp n1 n2)
+      \elim a2, h2, isNumA2
+
+        | a2, h2, inl (an2, p) =>
+          \let
+            | q' => wrapperNum (rewriteI p h2)
+            | q : a2 = aNum n2 => rewrite q' p
+          \in rewrite q (arSingleStep finishRule)
+        | aNum n, _, inr ()
+
+        | _, arSingleStep s1, inr e => arMultipleSteps
+            (op (aNum n1) (aNum n2))
+            opNotNum
+            (rightRule s1 e)
+            (arSingleStep finishRule)
+
+        | _, arMultipleSteps a' e s1 h2, inr e2 =>
+          arMultipleSteps
+              (op (aNum n1) a')
+              opNotNum
+              (rightRule s1 e2)
+              (flattenNext h2 (inr e))
+  }
+
+
+\func finishes {a a' : AExp} {s : State} (r : SmallSemAExp a s a') : \Sigma (n : Num) (WrapperSemAExp a s n)
+  \elim a, r
+    | aNum n, arNum p => (n, arSingleStep (arNum idp))
+    | aVar v, arVar p => (s v, arSingleStep (arVar idp))
+    | aPlus a1 a2, arPlusLeft r e idp =>
+      \let
+      | (n1, proof) => finishes r
+      \in {?}
+    | aPlus (aNum n1) a2, arPlusRight r e p => {?}
+    | aPlus (aNum n1) (aNum n2), arPlus p => {?}
+    | aMinus a1 a2, arMinusLeft r e p => {?}
+    | aMinus (aNum n1) a2, arMinusRight r e p => {?}
+    | aMinus (aNum n1) (aNum n2), arMinus p => {?}
+    | aTimes a1 a2, r => {?}
+
+\func splitBinary {O : BinaryOp}
+  {a1 a2 : AExp} {s : State} {n : Num}
+  (h : WrapperSemAExp (op a1 a2) s n) :
+  \Sigma (n1 n2 : Num)
+    (h1 : WrapperSemAExp a1 s n1)
+    (h2 : WrapperSemAExp a2 s n2)
+    (n = resultOp n1 n2)
+  \elim h
+    | arSingleStep s1 => \case \elim a1, AExp.isNum? a1, \elim a2, AExp.isNum? a2, s1 \with {
+      | a1, inr e, a2, _, s1 =>
+        \let | xxx => leftRuleInv e s1
+             | hmm => {?}
+        \in {?}
+
+      | _, inl (n1, p1), _, inl (n2, p2), s1 =>
+          (n1,
+          n2,
+          arSingleStep (rewrite p1 (arNum idp)),
+          arSingleStep (rewrite p2 (arNum idp)),
+          finishRuleInv {O} {n1} {n2} {n} {s} (rewriteI p1 (rewriteI p2 s1)))
+
+      | a1, inl (n1, p1), _, inr e, s1 => {?}
+
+
+    }
+    | arMultipleSteps a' e s1 h => {?}
+

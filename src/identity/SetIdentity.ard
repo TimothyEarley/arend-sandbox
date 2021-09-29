@@ -1,0 +1,10 @@
+\import LogicUtil
+\import Paths.Meta
+\import identity.Identity
+\import sets.MySet
+
+\instance SetIdentity {A : \Set} : Identity (A -> \Prop)
+  | Code S S' => \Pi (a : A) -> (a ∈ S) <-> (a ∈ S')
+  | code-refl S a => <->.refl
+  | code-decode c => ext (\lam a => ext (c a))
+

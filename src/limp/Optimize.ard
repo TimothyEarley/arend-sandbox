@@ -1,0 +1,75 @@
+\import Arith.Int
+\import Logic
+\import NatLike
+\import Paths
+\import Paths.Meta
+\import limp.LIMP
+\import limp.SemanticEquiv
+
+\func optimize_0plus {S : Signature} (a : AExp) : AExp \elim a
+  | num n => num n
+  | var e => var e
+  | ⊖ a b => (optimize_0plus a) ⊖ (optimize_0plus b)
+  | ⊙ a b => (optimize_0plus a) ⊙ (optimize_0plus b)
+
+
+  | ⊕ (num 0) b => optimize_0plus b
+  | ⊕ (num (neg 0)) b => optimize_0plus b
+
+  | ⊕ (num (neg (suc n))) b => (num (neg (suc n))) ⊕ (optimize_0plus b)
+  | ⊕ a b => (optimize_0plus a) ⊕ (optimize_0plus b)
+
+  \where {
+    \open IntRing
+
+    \func correct {S : Signature} {a : AExp} {s : State S} : aEval.calc (a, s) = aEval.calc (optimize_0plus a, s) \elim a
+      | num n1 => idp
+      | var e => idp
+      | ⊖ a b => pmap2 (__ + negative __) correct correct
+      | ⊙ a b => pmap2 (*) correct correct
+
+      | ⊕ (num 0) b => rewrite IntRing.zro-left correct
+      | ⊕ (num (neg 0)) b => rewrite IntRing.zro-left correct
+
+      | ⊕ (num (neg (suc n))) b => pmap2 (+) idp correct
+      | ⊕ (var e) b => pmap2 (+) idp correct
+      | ⊕ (⊕ a b) b1 => pmap2 (+) correct correct
+      | ⊕ (⊖ a b) b1 => pmap2 (+) (correct {S} {a ⊖ b}) correct
+      | ⊕ (⊙ a b) b1 => pmap2 (+) (correct {S} {a ⊙ b}) correct
+      | ⊕ (num (pos (suc n))) b => pmap (_ + __) correct
+  }
+
+\func optimize_skip {S : Signature} (c : Com) : Com \elim c
+  | skip => skip
+  | := e a => e := a
+  | # skip b => optimize_skip b
+  | # a b => optimize_skip a # optimize_skip b
+  | ite b then else => ite b (optimize_skip then) (optimize_skip else)
+  | while b c => while b (optimize_skip c)
+  | append e a => append e a
+  | :=L e e1 a => :=L e e1 a
+
+  \where {
+    \func correct {S : Signature} {c : Com} : c ComEq.~ optimize_skip c \elim c
+      | skip => ComEq.~-reflexive
+      | := e a => ComEq.~-reflexive
+      | # skip b => \lam s s' =>
+          (\lam ev => \case ev \with {
+            | r# (rsk idp) c1 => (correct {S} {b} s s').1 c1
+          },
+           \lam ev => \case (correct {S} {b} s s').2 ev \with {
+             | inP ev' => inP (r# (rsk idp) ev')
+           })
+
+      | # (:= e a) b => ComEq.seqEquiv ComEq.~-reflexive correct
+      | # (# a b) b1 => ComEq.seqEquiv correct correct
+      | # (ite b then else) b1 => ComEq.seqEquiv (ComEq.iteEquiv BExpEq.~-reflexive correct correct) correct
+      | # (while b c) b1 => ComEq.seqEquiv (ComEq.whileEquiv BExpEq.~-reflexive correct) correct
+      | # (append e a) b => ComEq.seqEquiv ComEq.~-reflexive correct
+      | # (:=L e e1 a) b => ComEq.seqEquiv ComEq.~-reflexive correct
+
+      | ite b then else => ComEq.iteEquiv BExpEq.~-reflexive correct correct
+      | while b c => ComEq.whileEquiv BExpEq.~-reflexive correct
+      | append e a => ComEq.~-reflexive
+      | :=L e e1 a => ComEq.~-reflexive
+  }

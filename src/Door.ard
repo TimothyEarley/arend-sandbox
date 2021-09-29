@@ -1,0 +1,23 @@
+\data DoorState
+  | opened
+  | closed
+  \where {
+    \func toggle (d : DoorState) : DoorState
+      | opened => closed
+      | closed => opened
+  }
+
+\data Door (s : DoorState) \elim s
+  | opened => OpenDoor
+  | closed => ClosedDoor
+
+\func close (d : Door opened) : Door closed
+  | OpenDoor => ClosedDoor
+
+\func open (d : Door closed) : Door opened
+  | ClosedDoor => OpenDoor
+
+\func openOrClose {s : DoorState} (d : Door s) : Door (DoorState.toggle s) \elim s, d
+  | opened, OpenDoor => close OpenDoor
+  | closed, ClosedDoor => open ClosedDoor
+

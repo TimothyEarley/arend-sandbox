@@ -1,0 +1,26 @@
+\import Data.Bool
+\import Set (Dec, decToBool, no, yes)
+\open MachineSpec (Reg)
+
+\record MachineSpec {
+  | registerCount : Nat -- plus one
+  | alphabetSize : Nat
+
+  \func Alphabet => Fin alphabetSize
+  \func Reg => Fin (suc registerCount)
+  \func String => Array Alphabet
+}
+
+
+\func LineNumber => Nat
+
+\data Instruction (spec : MachineSpec)
+  | add (register : spec.Reg) (c : spec.Alphabet)
+  | sub (register : spec.Reg) (c : spec.Alphabet)
+  | case (register : spec.Reg)
+         (emptyCase : LineNumber) (alphabetCase : spec.Alphabet -> LineNumber)
+  | print
+  | halt
+
+
+\func Program (spec : MachineSpec) => Array (Instruction spec)

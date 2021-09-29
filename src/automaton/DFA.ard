@@ -1,0 +1,21 @@
+\import Data.List
+\import automaton.Language
+\import automaton.Regular
+
+\record DFA
+  | Action : \Set
+  | State : \Set
+  | delta : \Pi State Action -> State
+  | start : State
+  | End : State -> \Prop
+
+\where {
+
+  \data accepts (d : DFA) (s : d.State) (u : Word d.Action) \elim u
+    | nil => isLast (d.End s)
+    | :: a tail => isStep (accepts d (d.delta s a) tail)
+
+  \func language (d : DFA) : Language d.Action
+    => \lam u => accepts d d.start u
+
+}

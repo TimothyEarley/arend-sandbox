@@ -1,0 +1,174 @@
+\import Data.Array
+\import Meta
+\import logik.AussagenLogik (⊧)
+\import Data.Bool \using (not \as bnot, or \as bor, and \as band)
+\import Data.Or
+\import Equiv
+\import sets.Add
+\import sets.Elements
+\import sets.Complement
+\import sets.Finite
+\import sets.Intersect
+\import sets.pow
+\import sets.subset
+\import sets.union
+\import Logic.Meta
+\import Set
+\import Util
+\import Logic
+\import LogicUtil
+\import Paths
+\import Paths.Meta
+\import sets.MySet
+\import util.So
+
+\data Formula (V : \Set) : \Set
+  | tt
+  | ff
+  | \coerce var V
+  | not (Formula V)
+  | \infixl 6 or (a b : Formula V)
+
+\cons \infixl 6 and {V : \Set} (a b : Formula V) : Formula V => not ((not a) or (not b))
+
+\cons \infix 6 ==> {V : \Set} (a b : Formula V) : Formula V => (not a) or b
+
+\func \infix 6 <==> {V : \Set} (a b : Formula V) : Formula V => (a ==> b) and (b ==> a)
+
+-- Semantics
+
+\func Belegung (V : \Set) => V -> Bool
+
+\func interpret {V : \Set} (J : Belegung V) (f : Formula V) : Bool \elim f
+  | tt => true
+  | ff => false
+  | var v => J v
+  | not f => bnot (interpret J f)
+  | or a b => bor (interpret J a) (interpret J b)
+
+\func models \alias \infix 5 ⊧ {V : \Set} (J : Belegung V) (f : Formula V) : \Prop => So (interpret J f)
+  \where {
+    \func rContradiction {V : \Set} {J : Belegung V} {f : Formula V}
+                         (h : J ⊧ f) (h' : J ⊭ f) {B : \Type} : B => absurd (h' h)
+
+    \func rAnd {V : \Set} {J : Belegung V} {A B : Formula V} (ja : J ⊧ A) (jb : J ⊧ B) : J ⊧ (A and B) =>
+      unfold (⊧) (rewrite (soTrue ja) (rewrite (soTrue jb) so))
+
+    \func rAnd1 {V : \Set} {J : Belegung V} {A B : Formula V} (j : J ⊧ A and B) : J ⊧ A =>
+      soAnd1 (rewriteF notNot (rewriteF notNot (transport So deMorganOr j)))
+
+    \func rAnd2 {V : \Set} {J : Belegung V} {A B : Formula V} (j : J ⊧ A and B) : J ⊧ B =>
+      soAnd2 (rewriteF notNot (rewriteF notNot (transport So deMorganOr j)))
+
+    \func rnotAnd1 {V : \Set} {J : Belegung V} {A : Formula V} (na : J ⊭ A) (B : Formula V) : J ⊭ (A and B) =>
+      \lam m => na (rAnd1 m)
+
+    \func rnotAnd2 {V : \Set} {J : Belegung V} (A : Formula V) {B : Formula V} (nb : J ⊭ B) : J ⊭ (A and B) =>
+      \lam m => nb (rAnd2 m)
+
+    \func r=>1 {V : \Set} {J : Belegung V} (A : Formula V) {B : Formula V} (jb : J ⊧ B) : J ⊧ (A ==> B) =>
+      \let goal : So (bor (interpret J (not A)) (interpret J B)) => rewrite (soTrue jb) (rewrite orTrue So.so)
+      \in goal
+
+    \func r=>2 {V : \Set} {J : Belegung V} (A : Formula V) (na : J ⊭ A) (B : Formula V) : J ⊧ (A ==> B) =>
+      \let goal : So (bor (bnot (interpret J A)) (interpret J B)) => rewrite (soFalse na) (rewrite (trueOr {interpret J B}) So.so)
+      \in goal
+
+    \func r=> {V : \Set} {J : Belegung V} {A B : Formula V} (h : (J ⊧ A) -> J ⊧ B) : J ⊧ (A ==> B) =>
+      \case J ⊧? A \with {
+        | yes e => r=>1 A (h e)
+        | no n => r=>2 A n B
+      }
+
+    \func r-mp {V : \Set} {J : Belegung V} (A : Formula V) {B : Formula V} (j : J ⊧ (A ==> B)) (ja : J ⊧ A) : J ⊧ B =>
+      \case J ⊧? B \with {
+        | yes e => e
+        | no n => \let
+          | p1 : interpret J (A ==> B) = true => soTrue j
+          | p2 : interpret J (A ==> B) = false => rewrite (soFalse n) (rewrite (soTrue ja) idp)
+                  \in absurd (true/=false ((inv p1) *> p2))
+      }
+
+    \func rNot {V : \Set} {J : Belegung V} {A : Formula V} (h : J ⊧ not A) : J ⊭ A =>
+      soNot h
+  }
+
+\func notModels \alias \infix 6 ⊭ {V : \Set} (J : Belegung V) (f : Formula V) : \Prop => Not (J ⊧ f)
+
+\func models? \alias \infix 6 ⊧? {V : \Set} (J : Belegung V) (f : Formula V) : Dec (J ⊧ f) =>
+  cases (interpret J f arg addPath) \with {
+    | Bool.true, p => yes (unfold (⊧) (rewrite p so))
+    | Bool.false, p => no (\lam (m : So (interpret J f)) => So.absurd (rewriteF p m))
+  }
+
+\func Formulae (V : \Set) : \Set => Formula V -> \Prop
+
+\func modelsSet \alias \infix 6 ⊧s {V : \Set} (J : Belegung V) (fs : Formulae V) : \Type => All fs (J ⊧ __)
+
+\func notModelsSet \alias \infix 6 ⊭s {V : \Set} (J : Belegung V) (fs : Formulae V) : \Type => Not (J ⊧s fs)
+
+\func entails \alias \infix 6 ⊧e {V : \Set} (Phi : Formulae V) (a : Formula V) : \Prop =>
+  \Pi (J : Belegung V) (J ⊧s Phi) -> J ⊧ a
+
+\func valid {V : \Set} (f : Formula V) : \Prop => \Pi (J : Belegung V) -> J ⊧ f
+
+\func unsat {V : \Set} (f : Formula V) : \Type => \Pi (J : Belegung V) -> J ⊭ f
+
+\func unsatSet {V : \Set} (s : Formulae V) : \Type => \Pi (J : Belegung V) -> J ⊭s s
+
+\func sat {V : \Set} (f : Formula V) : \Prop => ∃ (J : Belegung V) (J ⊧ f)
+
+\func satSet {V : \Set} (s : Formulae V) : \Prop => ∃ (J : Belegung V) (J ⊧s s)
+
+\func example {V : \Set} {A B C : Formula V} (e : (setOf (A :: B :: nil)) ⊧e C) : valid ((A and B) ==> C) =>
+  \lam J => \case J ⊧? A, J ⊧? B \with {
+    | yes ja, yes jb =>
+      \let jc => e J (\lam (a, inP (i, h)) => \case \elim i, h \with {
+        | 0, p => rewriteI p ja
+        | 1, p => rewriteI p jb
+      })
+      \in ⊧.r=>1 (A and B) jc
+    | _, no nb => ⊧.r=>2 (A and B) (⊧.rnotAnd2 A nb) C
+    | no na, _ => ⊧.r=>2 (A and B) (⊧.rnotAnd1 na B) C
+  }
+
+\func example' {V : \Set} {A B C : Formula V} (v : valid ((A and B) ==> C)) : (setOf (A :: B :: nil)) ⊧e C =>
+  \lam J m => \let
+    | vv => v J
+    | ja : J ⊧ A => m (A, inP (0, idp))
+    | jb : J ⊧ B => m (B, inP (1, idp))
+    | jab : J ⊧ (A and B) => ⊧.rAnd ja jb
+              \in ⊧.r-mp (A and B) vv jab
+
+\func entailsToUnsat {V : DecSet} {S : Formulae V} {a : Formula V} (e : S ⊧e a) : unsatSet (add S (not a)) =>
+  \lam J m => \let
+    | js : J ⊧s S => \lam s => m (s.1, byLeft s.2)
+    | jna : J ⊧ (not a) => m (not a, byRight idp)
+    | ja => e J js
+              \in (⊧.rNot jna) ja
+
+\func listable-entails {V : DecSet} {n : Nat} {l : Array (Formula V) n} {a : Formula V}
+  : valid (fold (and) tt l  ==> a) = (setOf l) ⊧e a =>
+  ext (\lam v J m => ⊧.r-mp (fold (and) tt l) (v J) (modelsSetToFold m),
+       \lam e J => ⊧.r=> (\lam m => e J (foldTomodelsSet m)))
+
+  \where {
+    \func modelsSetToFold {V : DecSet} {J : Belegung V.E}
+                          {n : Nat} {l : Array (Formula V.E) n}
+                          (h : J ⊧s setOf l)
+      : J ⊧ fold (and) tt l \elim n, l
+      | 0, nil => So.so
+      | suc n, :: a l => ⊧.rAnd (h (a, inP (0, idp))) (modelsSetToFold (\lam (e, inP in) => h (e, inP (fsuc in.1, in.2))))
+
+    \func foldTomodelsSet {V : DecSet} {J : Belegung V.E}
+                          {n : Nat} {l : Array (Formula V.E) n}
+                          (h : J ⊧ fold (and) tt l)
+      : J ⊧s setOf l \elim n, l
+      | 0, nil => \lam (e, inP (i, _)) => \case i
+      | suc n, :: a l => \lam (e, inP (i, p)) => \case \elim i, p \with {
+        | 0, p => rewriteI p (⊧.rAnd1 h)
+        | suc f, p => (foldTomodelsSet (⊧.rAnd2 h)) (e, inP (f, p))
+      }
+  }
+
+

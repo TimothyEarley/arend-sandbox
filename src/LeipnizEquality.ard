@@ -1,0 +1,73 @@
+\import Equiv
+\import Function
+\import Meta
+\import Paths
+\import Paths.Meta
+
+-- https://homepages.inf.ed.ac.uk/wadler/papers/leibniz/leibniz.pdf
+
+\data PropositionalishEquality {A : \Type} (a b : A)
+  | Refl (a = b)
+
+\func PropEqualsNormal {A : \Type} {a b : A} : QEquiv {PropositionalishEquality a b} {a = b} \cowith
+  | f => \case __ \with {
+    | Refl p => p
+  }
+  | ret p => Refl p
+  | ret_f => \case \elim __ \with {
+    | Refl p => idp
+  }
+  | f_sec _ => idp
+
+
+\func LeipnizEquality \alias \infix 6 ≐ {A : \Type} (a b : A)
+  => \Pi (C : A -> \Type) (C a) -> C b
+\where {
+  \func refl {A : \Type} {a : A} : a ≐ a
+    => \lam C c => c
+
+  \func trans {A : \Type} {a b c : A} (h : a ≐ b) (h2 : b ≐ c) : a ≐ c
+    => \lam C c1 => h2 C (h C c1)
+
+  \func symm {A : \Type} {a b : A} (h : a ≐ b) : b ≐ a
+    => \lam C c => h (C __ -> C a) id c
+}
+
+\func TCont (A : \Type) => \Pi (X : \Type) -> (A -> X) -> X
+\where {
+  \func Parametricity {A : \Type} => \Pi (t : TCont A)
+    {X X' : \Type} (R : X -> X' -> \Type) (k : A -> X) (k' : A -> X')
+    (kR : \Pi (a : A) -> R (k a) (k' a)) -> R (t X k) (t X' k')
+
+  \func TCont=T {A : \Type} {P : Parametricity {A}} : QEquiv {A} {TCont A} \cowith
+    | f a X f => f a
+    | ret f => f A id
+    | ret_f a => idp
+    | f_sec t => ext (\lam X k => P t (\lam a x => k a = x) id k (\lam a => idp))
+}
+
+\func ParamLeipniz {A : \Type} => \Pi {a b : A} (t : a ≐ b)
+                                (P P' : A -> \Type) (R : \Pi (c : A) (P c) (P' c) -> \Type)
+                                (Pa : P a) (P'a : P' a)
+                                (ra : R a Pa P'a) -> R b (t P Pa) (t P' P'a)
+
+\func LeipnizIsEqual {A : \Type} {a b : A} {param : ParamLeipniz {A}} : QEquiv {a ≐ b} {a = b} \cowith
+  | f => j
+  | ret => i
+  | ret_f ab => ext (helper param ab)
+  | f_sec => \case \elim a, \elim __ \with {
+    | _, idp => idp
+  }
+  \where {
+
+    \func i {A : \Type} {a b : A} (p : a = b) : a ≐ b \elim p
+      | idp => ≐.refl
+
+    \func j {A : \Type} {a b : A} (l : a ≐ b) : a = b
+      => l (a = __) idp
+
+    \func helper {A : \Type} {a b : A} (param : ParamLeipniz {A}) (a=b : a ≐ b) (P : A -> \Type) (Pa : P a) : i (j a=b) P Pa = a=b P Pa
+      => param a=b (a = __) P (\lam c Qc Pc => i Qc P Pa = Pc) idp Pa idp
+  }
+
+

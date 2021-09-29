@@ -1,0 +1,24 @@
+\import Data.List
+\import automaton.Language
+\import sets.MySet
+\import sets.union
+
+\data RegularExpression (A : Alphabet)
+  | none
+  | \coerce alpha A
+  | plus \alias \infix 6 + (a b : RegularExpression A)
+  | concat \alias \infix 6 ⋅ (a b : RegularExpression A)
+  | star \alias * (a : RegularExpression A)
+
+  \where {
+    \open Language \using (star \as lstar)
+
+    \func language {A : Alphabet} (re : RegularExpression A) : Language A \elim re
+      | none => ∅
+      | alpha a => single (a :: nil)
+      | + a b => (language a) ∪ (language b)
+      | ⋅ a b => (language a) ∘ (language b)
+      | * a => lstar (language a)
+  }
+
+\func RegularLanguage {A : Alphabet} (l : Language A) => \Sigma (re : RegularExpression A) (RegularExpression.language re = l)

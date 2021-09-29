@@ -1,0 +1,5 @@
+\import typeclasses.Functor
+
+\class Indexable \extends Functor
+  | indices {A : \Type} (l : F A) : \Type
+  | \infix 6 get {A : \Type} (l : F A) (i : indices l) : A

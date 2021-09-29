@@ -1,0 +1,39 @@
+\import Equiv
+\import Logic
+\import Paths.Meta
+\import sets.Elements
+\import sets.MySet
+\import sets.Complement
+\import sets.Intersect
+\import sets.pow
+\import sets.subset
+\import sets.union
+
+\func Elements {A : \Set} (S : Ensemble A) : \Set => \Sigma (a : A) (a ∈ S)
+
+  \where {
+    \func full-eq {A : \Set} : Elements (full {A}) = A => ext (\new QEquiv {
+      | f e => e.1
+      | ret a => (a, ())
+      | ret_f e => \case \elim e \with {
+        | (e1, ()) => idp
+      }
+      | f_sec _ => idp
+    })
+
+    \func unionLeft {A : \Set} (S1 S2 : Ensemble A)
+                    (e : Elements S1) : Elements (S1 ∪ S2)
+    \elim e
+      | (a, p) => (a, byLeft p)
+
+    \func unionRight {A : \Set} (S1 S2 : Ensemble A)
+                     (e : Elements S2) : Elements (S1 ∪ S2)
+    \elim e
+      | (a, p) => (a, byRight p)
+
+    \func elementsEmptyAbsurd \alias elements-∅-absurd {A : \Set} (e : Elements {A} ∅) {A : \Type} : A \elim e
+      | (x, ())
+
+    \func emptyElements-> {A : \Set} {S : Ensemble A} (h : \Pi (x : A) -> Not (S x)) {B : \Type} : Elements S -> B
+      => \lam e => absurd (h e.1 e.2)
+  }

@@ -1,0 +1,54 @@
+\import Data.Bool
+\import Data.Or
+\import Equiv
+\import Meta
+\import Paths
+\import Paths.Meta
+
+\func Unit => \Sigma
+
+\func NatF : \Type -> \Type => \lam R => Or Unit R
+\func ListF : \Type -> \Type -> \Type => \lam A R => Or Unit (\Sigma A R)
+
+\func Alg (F : \Type -> \Type) (X : \Type) : \Type => F X -> X
+
+\func isEvenAlg : Alg NatF Bool => \lam n => \case \elim n \with {
+  | inl a => true
+  | inr b => not b
+}
+
+\func natAlg : Alg NatF Nat => \lam n => \case \elim n \with {
+  | inl a => 0
+  | inr b => suc b
+}
+
+\func Fix (F : \Type -> \Type) : \Type => \Pi {X : \Type} (Alg F X) -> X
+
+\func fold {F : \Type -> \Type} {X : \Type} (alg : Alg F X) (d : Fix F) : X
+  => d alg
+
+
+\func FixedNatFIsNat : Fix NatF = Nat
+  => ext (\new QEquiv {
+    | f => NatF->Nat
+    | ret => Nat->NatF
+    | ret_f => compose1
+    | f_sec => compose2
+  })
+\where {
+  \func NatF->Nat (f : Fix NatF) : Nat
+    => fold {NatF} natAlg f
+
+  \func Nat->NatF (f : Nat) : Fix NatF \elim f
+    | 0 => __ (inl ())
+    | suc f => \lam a => a (inr (Nat->NatF f a))
+
+  \func compose1 (f : Fix NatF) : Nat->NatF (NatF->Nat f) = {Fix NatF} f
+    => {?}
+
+  \func compose2 (f : Nat) : NatF->Nat (Nat->NatF f) = {Nat} f \elim f
+    | 0 => idp
+    | suc f => pmap suc (compose2 f)
+}
+
+\func isEven : Fix NatF -> Bool => fold {NatF} isEvenAlg

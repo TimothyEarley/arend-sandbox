@@ -1,0 +1,352 @@
+\import Algebra.Meta
+\import Arith.Nat
+\import Data.Bool
+\import Equiv
+\import Function
+\import Logic
+\import Logic.Meta
+\import Mendler (Alg)
+\import Meta
+\import Order.StrictOrder
+\import Paths
+\import Paths.Meta
+\import Prelude
+\import Relation.Equivalence
+\import Util
+\import identity.Identity
+\import identity.NatIdentity
+\import typeclasses.Functor
+\import util.ArrayUtils
+
+\class Peano (N : \Set) {rel : Equivalence N}
+  | zero : N
+  | succ : N -> N
+  | s-injective : \Pi (n m : N) (succ n ~ succ m) -> n ~ m
+  | zero/=s : Not (∃ (n : N) (succ n ~ zero))
+  | induction : \Pi (P : N -> \Set) (n : N) (pZero : P zero) (pS : \Pi {n : N} (P n) -> P (succ n)) -> P n
+  | induction-zero : \Pi (P : N -> \Set) (pZero : P zero) (pS : \Pi {n : N} (P n) -> P (succ n)) -> induction P zero pZero pS = pZero
+  | induction-succ : \Pi (P : N -> \Set) (n : N) (pZero : P zero) (pS : \Pi {n : N} (P n) -> P (succ n)) -> induction P (succ n) pZero pS = pS (induction P n pZero pS)
+
+\func =-Equivalence {A : \Set} : Equivalence A \cowith
+  | ~ => =
+  | ~-reflexive => idp
+  | ~-symmetric => inv
+  | ~-transitive => *>
+
+\instance PeanoNat : Peano Nat {=-Equivalence}
+  | zero => 0
+  | succ => suc
+  | s-injective n m => unsuc
+  | zero/=s => \lam t => \case t \with {
+  inP (n, sn=0) => suc/=0 sn=0
+  }
+  | induction => nat-ind
+  | induction-zero => \lam P pZero pS => idp
+  | induction-succ => nat-ind-suc
+  \where {
+    \func nat-ind (P : Nat -> \Set) (n : Nat) (pZero : P 0) (pS : \Pi {n : Nat} (P n) -> P (suc n)) : P n \elim n
+      | 0 => pZero
+      | suc n => pS (nat-ind P n pZero pS)
+
+    \func nat-ind-zero (P : Nat -> \Set) (pZero : P 0) (pS : \Pi {n : Nat} (P n) -> P (suc n)) : nat-ind P 0 pZero pS = pZero =>
+      idp
+
+    \func nat-ind-suc (P : Nat -> \Set) (n : Nat) (pZero : P 0) (pS : \Pi {n : Nat} (P n) -> P (suc n)) : nat-ind P (suc n) pZero pS = pS (nat-ind P n pZero pS) \elim n
+      | 0 => idp
+      | suc n => pmap pS (nat-ind-suc P n pZero pS)
+  }
+
+\func toNat {N : Peano} (n : N) : Nat => N.induction (\lam _ => Nat) n 0 (\lam n => suc n)
+
+\func fromNat {N : Peano} (n : Nat)  : N => PeanoNat.induction (\lam _ => N) n zero (\lam n => succ n)
+
+\func natChar {N : Peano} : N.N = Nat => path (iso
+    (toNat {N})
+    fromNat
+    fromNat-toNat
+    toNat-fromNat
+)
+
+  \where {
+    \func toNat-fromNat {N : Peano} (x : Nat) : toNat (fromNat {N} x) = x =>
+      induction (\lam n => toNat (fromNat {N} n) = n) x
+          (N.induction-zero (\lam _ => Nat) 0 (\lam n => suc n))
+          (\lam {n} p => \let goal : toNat (succ (fromNat n)) = suc n => (N.induction-succ (\lam _ => Nat) (fromNat n) 0 (\lam n => suc n)) *> (pmap suc p) \in goal)
+
+    \func fromNat-toNat {N : Peano} (x : N) : fromNat (toNat {N} x) = x =>
+      induction (\lam n => fromNat (toNat {N} n) = n) x
+          (\let p : toNat N.zero = 0 => induction-zero (\lam _ => Nat) 0 (\lam n => suc n) \in rewrite p idp)
+          (\lam {n} p => \let p1 : toNat {N} (succ n) = suc (toNat {N} n) => induction-succ (\lam _ => Nat) n 0 (\lam n => suc n) \in rewrite p1 (pmap succ p))
+  }
+
+\module ArrayAsNat \where {
+  \func array-ind {A : \Type} (P : Array A -> \Set) (l : Array A) (z : P nil) (c : \Pi (a : A) (l' : Array A) (P l') -> P (a :: l')) : P l \elim l
+    | nil => z
+    | :: a l => c a l (array-ind P l z c)
+
+  \func ArrayPeano : Peano (Array (\Sigma)) {=-Equivalence} \cowith
+    | zero => nil
+    | succ => () :: __
+    | s-injective n m p => pmap ArrayUtils.tail p
+    | zero/=s => \case \elim __ \with {
+      | inP (n, ())
+    }
+    | induction P l z c => array-ind P l z (\lam a l' p => \case \elim a \with {
+    () => c p
+    })
+    | induction-zero => \lam P pZero pS => idp
+    | induction-succ => \lam P n pZero pS => idp
+}
+
+\module BinaryNat \where {
+  \data Bit | #0 | #1
+
+  \func Bin+ => Array Bit
+
+  \data Bin
+    | b0 | b1 Bin+ -- in reverse
+  \where {
+    \func tail (b : Bin) : Bin+
+      | b0 => nil
+      | b1 b => b
+  }
+
+  \func inc (b : Bin) : Bin \elim b
+    | b0 => b1 nil
+    | b1 b => b1 (inc+ b)
+    \where {
+      \func inc+ (b : Bin+) : Bin+ \elim b
+        | nil => #0 :: nil
+        | :: #0 l => #1 :: l
+        | :: #1 l => #0 :: (inc+ l)
+
+      \func inc+-not-nil {b : Bin+} (h : inc+ b = nil) {A : \Type} : A \elim b
+        | nil => contradiction
+        | :: #0 l => contradiction
+        | :: #1 l => contradiction
+
+      \func inc+-inj {n m : Bin+} (p : inc+ n = inc+ m) : n = m \elim n, m
+        | nil, nil => idp
+        | nil, :: #0 l => contradiction
+        | nil, :: #1 l => inc+-not-nil (inv (pmap ArrayUtils.tail p))
+        | :: #0 l, nil => contradiction
+        | :: #1 l, nil => inc+-not-nil (pmap ArrayUtils.tail p)
+        | :: #0 l, :: #1 l1 => contradiction
+        | :: #1 l, :: #0 l1 => contradiction
+        | :: #0 l, :: #0 l1 => pmap {Array Bit} (#0 :: __) (pmap ArrayUtils.tail p)
+        | :: #1 l, :: #1 l1 => pmap {Array Bit} (#1 :: __) (inc+-inj (pmap ArrayUtils.tail p))
+
+      \func inc-inj (n m : Bin) (p : inc n = inc m) : n = m  \elim n, m
+        | b0, b0 => idp
+        | b0, b1 b => inc+-not-nil (inv (pmap Bin.tail p))
+        | b1 b, b0 => inc+-not-nil (pmap Bin.tail p)
+        | b1 b, b1 b2 => pmap b1 (inc+-inj (pmap Bin.tail p))
+
+      \func inc/=b0 {b : Bin} (h : inc b = b0) {A : \Type} : A \elim b
+        | b0 => contradiction
+        | b1 b => contradiction
+    }
+
+  \func pred (b : Bin) : Bin
+    | b0 => b0 -- dec 0 = 0
+    | b1 nil => b0
+    | b1 (:: a b) => {?}
+    \where {
+      \func pred+ (b : Bin+) : Bin+ => {?}
+    }
+
+  \instance PeanoBin : Peano Bin {=-Equivalence}
+    | zero => b0
+    | succ => inc
+    | s-injective => inc.inc-inj
+    | zero/=s => \lam t => \case t \with {
+      | inP (n, p) => inc.inc/=b0 p
+    }
+    | induction => {?}
+    | induction-zero P pZero pS => {?}
+    | induction-succ P n pZero pS => {?}
+}
+
+\data NatP (R : \Set)
+  | zeroP
+  | succP (r : R)
+
+\instance NatPFunctor : SetFunctor NatP
+  | sfmap f a => \case a \with {
+    | zeroP => zeroP
+    | succP r => succP (f r)
+  }
+  | sfunctor-identity => ext (\lam n => mcases \with {
+    | zeroP => idp
+    | succP r => idp
+  })
+  | sfunctor-composition f g => ext (\lam n => \case \elim n \with {
+    | zeroP => idp
+    | succP r => idp
+  })
+
+\class Algebra (F : SetFunctor) (A : \Set)
+  | mu : F A -> A
+
+\class Alg-Hom {A B : \Set} {F : SetFunctor} (FA : Algebra F A) (FB : Algebra F B)
+  | ->-fun : A -> B
+  | mu-comm : \Pi (fa : F.F A) -> ->-fun (FA.mu fa) = FB.mu (F.sfmap ->-fun fa)
+
+\class InitialAlgebra \extends Algebra
+  | ini : \Pi {B : \Set} (FB : Algebra F B) -> Alg-Hom \this FB
+
+\func NatAlg : InitialAlgebra NatPFunctor Nat \cowith
+  | mu n => \case n \with {
+    | zeroP => 0
+    | succP r => suc r
+  }
+  | ini FB => \new Alg-Hom {
+    | ->-fun n => init-N {FB} n
+    | mu-comm => \case \elim __ \with {
+      | zeroP => idp
+      | succP r => idp
+    }
+  }
+  \where {
+    \func init-N {FA : Algebra NatPFunctor} (n : Nat) : FA.A \elim n
+      | 0 => FA.mu zeroP
+      | suc n => FA.mu (succP (init-N n))
+  }
+
+-- https://ncatlab.org/nlab/show/initial+algebra+of+an+endofunctor
+
+\func lambeksTheorem {F : SetFunctor} {A : \Set} {Alg : InitialAlgebra F A} : F A = A =>
+  \let
+    | a : Algebra F (F A) => \new Algebra {
+      | mu ffa => F.sfmap Alg.mu ffa
+    }
+    | a-hom => Alg.ini {F A} a
+    | i : A -> F A => ->-fun {a-hom}
+  \in
+
+    {-
+      F(X) -- F(i) --> F(F(X))
+       |                |
+       mu              F(mu)
+       |                |
+       v                v
+       X  ---- i -----> F(X)
+     -}
+
+    ext (\new QEquiv {
+      | f => Alg.mu
+      | ret => i
+      | ret_f => {?}
+      | f_sec y => {?}
+    })
+
+\class Dyn (A : \Set)
+  | basepoint : A
+  | self-map : A -> A
+  \where {
+    \func toAlgebra {A : \Set} (D : Dyn A) : Algebra NatPFunctor A \cowith
+      | mu n => \case n \with {
+        | zeroP => basepoint
+        | succP r => self-map r
+      }
+
+    \func fromAlgebra {A : \Set} (Alg : Algebra NatPFunctor A) : Dyn A \cowith
+      | basepoint => Alg.mu zeroP
+      | self-map => \lam a => Alg.mu (succP a)
+
+    \func DynIso {A : \Set} : Dyn A = Algebra NatPFunctor A => ext (\new QEquiv {
+      | f => toAlgebra
+      | ret => fromAlgebra
+      | ret_f x => ext (idp, idp)
+      | f_sec y => ext (ext (\case \elim __ \with {
+        | zeroP => idp
+        | succP r => idp
+      }))
+    })
+  }
+
+\func NatP=Nat : NatP Nat = Nat => lambeksTheorem {NatPFunctor} {Nat} {NatAlg}
+
+\func NatP=Nat' : NatP Nat = Nat => ext (\new QEquiv {
+  | f => \case __ \with {
+    | zeroP => Nat.zero
+    | succP r => suc r
+  }
+  | ret => \case __ \with {
+    | 0 => zeroP
+    | suc n => succP n
+  }
+  | ret_f => \case \elim __ \with {
+    | zeroP => idp
+    | succP r => idp
+  }
+  | f_sec => \case \elim __ \with {
+    | 0 => idp
+    | suc p0 => idp
+  }
+})
+
+
+-- TODO NatAlg is the _unique_ initial algebra ????
+
+\func MendlerNat => \Pi {X : \Type} (combine : \Pi {Q : \Type} (recover : Q -> X) (value : Q) -> X) (base : X) -> X
+  \where {
+    \func mendlerZero : MendlerNat => \lam {X} combine base => base
+
+    -- Note how the abstract Q becomes just "X" and so recover is the identity function!
+
+    \func mendlerSucc : MendlerNat -> MendlerNat => \lam m {X} combine base => combine (\lam x => x) (m combine base)
+
+    \func mendlerToNat : MendlerNat -> Nat => \lam m => m (\lam {Q} rec q => suc (rec q)) 0
+      \where {
+        \lemma test : mendlerToNat (mendlerSucc (mendlerSucc mendlerZero)) = 2 => idp
+      }
+
+    \func natToMendler (n : Nat) : MendlerNat
+      | 0 => mendlerZero
+      | suc n => mendlerSucc (natToMendler n)
+
+
+    -- idea: compute pairs  of (x, suc x)
+
+    \func mendlerPred : MendlerNat -> MendlerNat =>
+      \lam m => (m {\Sigma MendlerNat MendlerNat}
+          (\lam {Q} recover value =>
+              \let (prev, cur) => recover value \in
+                (cur, mendlerSucc cur)
+          ) (mendlerZero, mendlerZero)).1
+      \where {
+        \func test0 : mendlerPred (natToMendler 0) = {MendlerNat} (natToMendler 0) => idp
+
+        \func test1 : mendlerPred (natToMendler 1) = {MendlerNat} (natToMendler 0) => idp
+
+        \func test2 : mendlerPred (natToMendler 2) = {MendlerNat} (natToMendler 1) => idp
+
+        \func test3 : mendlerPred (natToMendler 3) = {MendlerNat} (natToMendler 2) => idp
+      }
+  }
+
+\func <-induction (E : Nat -> \Type) (h : \Pi (n : Nat) (\Pi (k : Nat) (k < n) -> E k) -> E n) (n : Nat) : E n =>
+  \let ihs => collectIHs h n \in h n
+      (\lam k k<n => \let indexed : E (safeFin k k<n) => ihs (safeFin k k<n) \in
+        transport E (safeFinCorrect {n} {k} {k<n}) indexed)
+  \where {
+    \func safeFin {n : Nat} (m : Nat) (h : m < n) : Fin n \elim n, m, h
+      | suc n, 0, NatSemiring.zero<suc => 0
+      | suc n, suc m, NatSemiring.suc<suc h => fsuc (safeFin m h)
+
+    \lemma safeFinCorrect {n m : Nat} {h : m < n} : safeFin m h = {Nat} m \elim n, m, h
+      | suc n, 0, NatSemiring.zero<suc => idp
+      | suc n, suc m, NatSemiring.suc<suc _x => pmap suc safeFinCorrect
+
+    \func collectIHs {E : Nat -> \Type} (h : \Pi (n : Nat) (\Pi (k : Nat) (k < n) -> E k) -> E n) (n : Nat)
+      : DArray {n} (E __) \elim n
+      | 0 => Prelude.nil
+      | suc n => \let e0 => h 0 (\case __, __) \in
+        e0 Prelude.:: (collectIHs {\lam z => E (suc z)}
+            (\lam k h' => h (suc k) (\case \elim __, __ \with {
+              | 0, NatSemiring.zero<suc => e0
+              | suc k', NatSemiring.suc<suc k'<k => h' k' k'<k
+            }))
+            n)
+  }

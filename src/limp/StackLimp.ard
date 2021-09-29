@@ -1,0 +1,84 @@
+\import Algebra.Group
+\import Algebra.Monoid
+\import Arith.Int
+\import Data.Array
+\import Data.Bool (Bool, false, if, true, not \as bnot)
+\import Data.Maybe
+\import LeipnizEquality
+\import Logic.Meta
+\import Order.LinearOrder
+\import Star
+\import limp.LIMP
+\import util.ArrayUtils
+\open ArrayUtils (??)
+\open LeipnizIsEqual (i)
+
+\data Instruction {S : Signature}
+  | LOADI Num
+  | LOAD Var
+  | ADD | SUB | TIMES
+  | STORE Var
+  | JMP Int -- offset
+  | JMPLESS Int
+  | JMPGE Int
+
+\func Stack : \Set => Array Num
+
+\func PC : \Set => Nat
+
+\func Config {S : Signature} => \Sigma PC (State S) Stack
+
+\func pc {S : Signature} (c : Config) : PC => c.1
+
+\func iexec {S : Signature} (i : Instruction) (c : Config {S}) : Config {S} \elim i, c
+  | LOADI n, (pc, s, stk) => (suc pc, s, n :: stk)
+  | LOAD e, (pc, s, stk) => (suc pc, s, (variables {s} e) :: stk)
+  | ADD, (pc, s, :: x (:: y stk)) => (suc pc, s, (y + x) :: stk)
+  | SUB, (pc, s, :: x (:: y stk)) => (suc pc, s, (y - x) :: stk)
+  | TIMES, (pc, s, :: x (:: y stk)) => (suc pc, s, (y * x) :: stk)
+  | STORE e, (pc, s, :: x stk) => (suc pc, substVar s e x, stk)
+  | JMP i, (pc, s, stk) => (jump pc i, s, stk)
+  | JMPLESS i, (pc, s, :: x (:: y stk)) => (if (y <? x) (jump pc i) (suc pc), s, stk)
+  | JMPGE i, (pc, s, :: x (:: y stk)) => (if (x <? y) (jump pc i) (suc pc), s, stk)
+
+  -- illegal instruction, stall
+  | ADD, (pc,s,nil) => (pc, s, nil)
+  | ADD, (pc,s,:: x nil) => (pc, s, x :: nil)
+  | SUB, (pc, s, nil) => (pc, s, nil)
+  | SUB, (pc, s, :: a nil) => (pc, s, a :: nil)
+  | TIMES, (pc, s, nil) => (pc, s, nil)
+  | TIMES, (pc, s, :: a nil) => (pc, s, a :: nil)
+  | STORE e, (pc, s, nil) => (pc, s, nil)
+  | JMPLESS i, (pc, s, nil) => (pc, s, nil)
+  | JMPLESS i, (pc, s, :: a nil) => (pc, s, a :: nil)
+  | JMPGE i, (pc, s, nil) => (pc, s, nil)
+  | JMPGE i, (pc, s, :: a nil) => (pc, s, a :: nil)
+
+  \where {
+    \func \infix 6 <? (a b : Int) : Bool => \case IntRing.trichotomy a b \with {
+      | less _x => true
+      | equals p => false
+      | greater _x => false
+    }
+
+    \func jump (pc : Nat) (offset : Int) : Nat => \case (suc pc) IntRing.+ offset \with {
+      | pos n => n
+      | neg n => 0
+    }
+  }
+
+\func exec1 {S : Signature} (instructions : Array Instruction)
+            (config config' : Config {S}) : \Prop =>
+  ∃ (i : Instruction) (instructions ?? (pc config) = just i) (config' = iexec i config)
+
+\func exec {S : Signature} (instructions : Array Instruction)
+  : (Config {S}) -> (Config {S}) -> \Set => Star (exec1 instructions)
+
+-- compile
+
+\func acomp {S : Signature} (a : AExp) : Array Instruction \elim a
+  | num n => LOADI n :: nil
+  | var x => LOAD x :: nil
+  | ⊕ a b => (acomp a) ++ (acomp b) ++ (ADD :: nil)
+  | ⊖ a b => (acomp a) ++ (acomp b) ++ (SUB :: nil)
+  | ⊙ a b => (acomp a) ++ (acomp b) ++ (TIMES :: nil)

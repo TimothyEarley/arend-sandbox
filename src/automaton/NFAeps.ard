@@ -1,0 +1,206 @@
+\import Arith.Nat
+\import Data.List
+\import Data.Or
+\import Function
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Paths
+\import Paths.Meta
+\import automaton.Language
+\import automaton.Regular
+\import identity.OrIdentity
+\import sets.MySet
+\import sets.union
+\import util.Or
+
+\record NFAeps
+  | Action : \Set
+  | State : \Set
+  | delta : (\Sigma State (Or Epsilon Action) State) -> \Prop
+  | start : State
+  | End : State -> \Prop
+
+  \where {
+    \data Epsilon
+      | epsilon
+
+    \truncated \data accepts (d : NFAeps) (q : d.State) (u : Word d.Action) : \Prop \elim u
+      | nil => isLast (d.End q)
+      | :: a tail => isStep (q' : d.State) (d.delta (q, inr a, q')) (accepts d q' tail)
+      | w => isEps (q' : d.State) (d.delta (q, inl epsilon, q')) (accepts d q' w)
+
+    \func language (nfae : NFAeps) : Language (nfae.Action) => accepts nfae nfae.start
+
+    \data run (d : NFAeps) (from to : d.State) (w : Word d.Action) \elim w
+      | nil => noStep (from = to)
+      | :: a tail => oneStep (q : d.State) (d.delta (from, inr a, q)) (run d q to tail)
+      | w => oneEps (q : d.State) (d.delta (from, inl epsilon, q)) (run d q to w)
+
+      \where {
+        \func toAccepts {d : NFAeps} {w : Word d.Action} {q q' : d.State}
+                        (h : run d q q' w)
+                        (e : d.End q')
+          : accepts d q w
+        \elim w, h
+          | nil, noStep idp => isLast e
+          | :: a tail, oneStep q'' de h => isStep q'' de (toAccepts h e)
+          | w, oneEps q'' de h => isEps q'' de (toAccepts h e)
+      }
+
+    \use \coerce fromRegularExpression {A : Alphabet} (re : RegularExpression A) : NFAeps { | Action => A } \elim re
+      | none => \new NFAeps {
+        | State => \Sigma
+        | delta => ∅
+        | start => ()
+        | End => ∅
+      }
+      | alpha a => \new NFAeps {
+        | State => Fin 2
+        | delta x => (Fin.fromNat 0, inr a, Fin.fromNat 1) = x
+        | start => 0
+        | End x => x = 1
+      }
+
+      -- maybe extract "sub automata" as a first class notion
+      | + a b => \new NFAeps {
+          | State => Or3 (\Sigma) (State {fromRegularExpression a}) (State {fromRegularExpression b})
+          | delta x => \case \elim x \with {
+            -- connect the new node via epsilons to the two new automata
+            | (in1 _, inl epsilon, in2 q') => q' = start {fromRegularExpression a}
+            | (in1 _, inl epsilon, in3 q') => q' = start {fromRegularExpression b}
+
+            | (in2 q, x, in2 q') => delta {fromRegularExpression a} (q, x, q')
+            | (in3 q, x, in3 q') => delta {fromRegularExpression b} (q, x, q')
+
+            | _ => Empty
+          }
+          | start => in1 ()
+          | End q => \case q \with {
+            | in1 q => Empty
+            | in2 q => End {fromRegularExpression a} q
+            | in3 q => End {fromRegularExpression b} q
+          }
+        }
+
+      | ⋅ a b => \let
+        | aNFA : NFAeps => fromRegularExpression a
+        | bNFA : NFAeps => fromRegularExpression b
+                 \in \new NFAeps {
+          -- concat the two automata
+          | State => Or aNFA.State bNFA.State
+          | delta x => \case \elim x \with {
+            | (inl q, inl epsilon, inr q') => \Sigma (aNFA.End q) (q' = bNFA.start)
+            | (inl q, a, inl q') => aNFA.delta (q, a, q')
+            | (inr q, a, inr q') => bNFA.delta (q, a, q')
+            | _ => Empty
+          }
+          | start => inl aNFA.start
+          | End x => \case \elim x \with {
+            | inl l => Empty
+            | inr r => bNFA.End r
+          }
+        }
+
+      | * a => {?}
+
+      \where {
+        \func respectsLanguage {A : Alphabet} {re : RegularExpression A} : RegularExpression.language re = language (fromRegularExpression re) =>
+          ext (\lam w => ext (helper1 w,
+                              helper2 w))
+
+        \func helper1 {A : Alphabet} {re : RegularExpression A} (w : Word A) (h : RegularExpression.language re w) : language re w
+        \elim re, h
+          | alpha a, idp => isStep 1 idp (isLast idp)
+          | + a b, byLeft a1 => isEps (in2 (start {a})) idp {?}
+          | + a b, byRight b1 => isEps (in3 (start {b})) idp {?}
+          | ⋅ a b, inP a1 => {?}
+          | * a, byLeft a1 => {?}
+          | * a, byRight b => {?}
+
+        \func helper2 {A : Alphabet} {re : RegularExpression A}
+                      (w : Word A) (h : language re w) : RegularExpression.language re w
+        \elim re, w, h
+          | none, _, isEps q' () a
+          | none, nil, isLast ()
+          | none, :: _ _, isStep _ () _
+
+          | alpha a, _, isEps _ p _ => usingOnly (pmap __.2 p) contradiction
+          | alpha a, nil, isLast ()
+          | alpha a, :: a1 nil, isStep q' d acc => pmap2 (::) (uninr (pmap __.2 d)) idp
+          | alpha a, :: a1 (:: a2 tail), isStep q' d (isStep q'1 d1 acc) => suc/=0 ((pmap __.3 d) *> (pmap __.1 (inv d1)))
+          | alpha a, :: a1 (:: a2 tail), isStep q' d (isEps q'1 d1 acc) => usingOnly (pmap __.2 d1) contradiction
+
+          | + a b, _, isEps (in1 q') () acc
+          | + a b, w, isEps (in2 q') idp acc => byLeft (helper2 w (helper_after_+_1 acc))
+          | + a b, w, isEps (in3 q') idp acc => byRight (helper2 w (helper_after_+_2 acc))
+          | + a b, nil, isLast ()
+          | + a b, :: a1 tail, isStep q' () acc
+
+          | ⋅ a b, w, h => \case helper_after_concat_1 w (start {fromRegularExpression a}) h \with {
+            | inP (v,v',p,h1,h2) => inP (v, v', p, helper2 v h1, helper2 v' h2)
+          }
+
+          | * a1, w, h => {?}
+
+        \func helper_after_+_1 {A : Alphabet} {a b : RegularExpression A}
+                               {w : Word A}
+                               {q : State {fromRegularExpression a}}
+                               (h : accepts (fromRegularExpression (a + b)) (in2 q) w)
+          : accepts (fromRegularExpression a) q w \elim w, h
+          | nil, isLast e => isLast e
+
+          | :: a1 tail, isStep (in1 q') () h
+          | :: a1 tail, isStep (in2 q') d h => isStep q' d (helper_after_+_1 h)
+          | :: a1 tail, isStep (in3 q') () h
+
+          | w, isEps (in1 q') () h
+          | w, isEps (in2 q') d h => isEps q' d (helper_after_+_1 h)
+          | w, isEps (in3 q') () h
+
+        \func helper_after_+_2 {A : Alphabet} {a b : RegularExpression A}
+                               {w : Word A}
+                               {q : State {fromRegularExpression b}}
+                               (h : accepts (fromRegularExpression (a + b)) (in3 q) w)
+          : accepts (fromRegularExpression b) q w \elim w, h
+          | nil, isLast e => isLast e
+
+          | :: a1 tail, isStep (in1 q') () h
+          | :: a1 tail, isStep (in2 q') () h
+          | :: a1 tail, isStep (in3 q') d h => isStep q' d (helper_after_+_2 h)
+
+          | w, isEps (in1 q') () h
+          | w, isEps (in2 q') () h
+          | w, isEps (in3 q') d h => isEps q' d (helper_after_+_2 h)
+
+-- The automaton behaves like the first one until it reaches the second one
+        \func helper_after_concat_1 {A : Alphabet} {a b : RegularExpression A}
+                                    (w : Word A)
+                                    (q : State {fromRegularExpression a})
+                                    (h : accepts (fromRegularExpression (a ⋅ b)) (inl q) w)
+          : ∃ (v v' : Word A) (w = v ++ v') (accepts a q v) (accepts b (start {fromRegularExpression b}) v')
+        \elim w, h
+          | nil, isLast ()
+          | :: head tail, isStep (inl q') d h => \case helper_after_concat_1 tail q' h \with {
+            | inP (v,v',p,h1,h2) => inP (head :: v, v', rewrite p idp, isStep q' d h1, h2)
+          }
+          | :: head tail, isStep (inr q') () h
+          | w, isEps (inl q') d h => \case helper_after_concat_1 w q' h \with {
+            | inP (v,v',p,h1,h2) => inP (v, v', p, isEps q' d h1, h2)
+          }
+          -- to second one
+          | w, isEps (inr q') d h => inP (nil, w, idp, isLast d.1, rewriteI d.2 (helper_after_concat_2 w q' h))
+
+--        The automaton behaves like the second one if it is in the second one
+        \func helper_after_concat_2 {A : Alphabet} {a b : RegularExpression A}
+                                    (w : Word A)
+                                    (q : State {fromRegularExpression b})
+                                    (h : accepts (fromRegularExpression (a ⋅ b)) (inr q) w)
+          : accepts b q w \elim w, h
+          | nil, isLast e => isLast e
+          | :: a1 tail, isStep (inl q') () h
+          | :: a1 tail, isStep (inr q') d h => isStep q' d (helper_after_concat_2 tail q' h)
+          | w, isEps (inl q') () h
+          | w, isEps (inr q') d h => isEps q' d (helper_after_concat_2 w q' h)
+      }
+  }

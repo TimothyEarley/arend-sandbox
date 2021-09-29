@@ -1,0 +1,136 @@
+\import Algebra.Group
+\import Algebra.Monoid
+\import Arith.Nat
+\import Arith.Int
+\import Data.Bool
+\import Data.Or
+\import DeriveDec.Meta
+\import LogicUtil
+\import Paths.Meta
+\import util.Maybe
+\import Paths
+\import sets.Elements
+\import sets.MySet
+\import Set
+\import Set.Hedberg
+\import moses.BigStep
+\import moses.Deterministic
+\import moses.Syntax
+\import sets.Complement
+\import sets.Finite
+\import sets.Intersect
+\import sets.pow
+\import sets.subset
+\import sets.union
+
+\func State => Var -> Num
+
+\func \infix 6 replace (s : State) (new : \Sigma Var Num) : State
+  => \lam v => \case v == new.1 \with {
+    | true => new.2
+    | false => s v
+  }
+
+\func SemEqBExp (b1 b2 : BExp)  => \Sigma
+  (\Pi (s : State) (SemBExp b1 s false) -> SemBExp b2 s false)
+  (\Pi (s : State) (SemBExp b2 s false) -> SemBExp b1 s false)
+  (\Pi (s : State) (SemBExp b1 s true) -> SemBExp b2 s true)
+  (\Pi (s : State) (SemBExp b2 s true) -> SemBExp b1 s true)
+
+\func aAndb=bAnda {a b : BExp} : SemEqBExp (bAnd a b) (bAnd b a) =>
+  (
+    \lam s sem => \case sem \with {
+      | rAndT sem1 sem2 p => rAndT sem2 sem1 p
+      | rAndF1 sem p => rAndF2 sem p
+      | rAndF2 sem p => rAndF1 sem p
+    },
+    \lam s sem => \case sem \with {
+      | rAndT sem1 sem2 p => rAndT sem2 sem1 p
+      | rAndF1 sem p => rAndF2 sem p
+      | rAndF2 sem p => rAndF1 sem p
+    },
+    \lam s sem => \case sem \with {
+      | rAndT sem1 sem2 p => rAndT sem2 sem1 p
+      | rAndF1 sem p => rAndF2 sem p
+      | rAndF2 sem p => rAndF1 sem p
+    },
+    \lam s sem => \case sem \with {
+      | rAndT sem1 sem2 p => rAndT sem2 sem1 p
+      | rAndF1 sem p => rAndF2 sem p
+      | rAndF2 sem p => rAndF1 sem p
+    })
+
+\func SemEqAExp (a1 a2 : AExp) =>
+  \Pi (s : State) (n : Num) -> (SemAExp a1 s n) <-> (SemAExp a2 s n)
+
+\func SemEqCom (c1 c2 : Com) =>
+  \Pi (s s' : State) -> (SemCom c1 s s') <-> (SemCom c2 s s')
+
+\func exampleSemEqCom {b : BExp} {c : Com} : SemEqCom (while b c) (ite b (seq c (while b c)) skip)
+  => \lam s s' =>
+      (\lam sem => \case \elim sem \with {
+        | rWhT sem s'' s1 s2 => rIfT sem (rSeq s'' s1 s2)
+        | rWhF sem p => rIfF sem (rsk p)
+      },
+       \lam sem => \case \elim sem \with {
+         | rIfT semB (rSeq s'' sem1 sem2) => rWhT semB s'' sem1 sem2
+         | rIfF semB (rsk p) => rWhF semB p
+       })
+
+-- Unique
+
+\func uiaNum {a b : Num} (p q : a = b) : p = q => Hedberg (\lam a b => \case decideEq a b \with {
+  | yes e => inl e
+  | no n => inr n
+}) a b p q
+
+\func uniqueSemAExp {a : AExp} {s : State} {n : Num} (sem1 sem2 : SemAExp a s n) : sem1 = sem2 \elim a, sem1, sem2
+  | aNum n, rNum p, rNum p1 => pmap rNum (uiaNum p p1)
+  | aVar v, rVar p, rVar p1 => pmap rVar (uiaNum p p1)
+  | aPlus a a1, rPlus n1 semA1 n2 semA2 idp, rPlus n3 semA3 n4 semA4 p1 =>
+    \let p : n1 = n3 => detAExp semA1 semA3
+         | p' : n2 = n4 => detAExp semA2 semA4
+         \in \case \elim n3, \elim n4, p, p', \elim p1, \elim semA3, \elim semA4 \with {
+      | _, _, idp, idp, p1, semA3, semA4 => path (\lam i => rPlus n1 ((uniqueSemAExp semA1 semA3) @ i) n2 ((uniqueSemAExp semA2 semA4) @ i) ((uiaNum idp p1) @ i))
+    }
+  | aMinus a a1, rMinus n1 semA1 n2 semA2 idp, rMinus n3 semA3 n4 semA4 p1 =>
+    \let p : n1 = n3 => detAExp semA1 semA3
+         | p' : n2 = n4 => detAExp semA2 semA4
+    \in \case \elim n3, \elim n4, p, p', \elim p1, \elim semA3, \elim semA4 \with {
+      | _, _, idp, idp, p1, semA3, semA4 => path (\lam i => rMinus n1 ((uniqueSemAExp semA1 semA3) @ i) n2 ((uniqueSemAExp semA2 semA4) @ i) ((uiaNum idp p1) @ i))
+    }
+
+  | aTimes a a1, rTimes n1 semA1 n2 semA2 idp, rTimes n3 semA3 n4 semA4 p1 =>
+    \let p : n1 = n3 => detAExp semA1 semA3
+         | p' : n2 = n4 => detAExp semA2 semA4
+    \in \case \elim n3, \elim n4, p, p', \elim p1, \elim semA3, \elim semA4 \with {
+      | _, _, idp, idp, p1, semA3, semA4 => path (\lam i => rTimes n1 ((uniqueSemAExp semA1 semA3) @ i) n2 ((uniqueSemAExp semA2 semA4) @ i) ((uiaNum idp p1) @ i))
+    }
+
+
+-- induction principles
+
+\func derivationInductionAExp
+  (P : \Pi {a : AExp} {s : State} {n : Num} (SemAExp a s n) -> \Type)
+
+  (h1 : \Pi (s : State) (n : Num) -> P {aNum n} {s} {n} (rNum idp))
+  (h2 : \Pi (s : State) (x : Var) -> P {aVar x} {s} {s x} (rVar idp))
+  (h3 : \Pi (s : State) (n1 n2 : Num) (a1 a2 : AExp) (H1 : SemAExp a1 s n1) (H2 : SemAExp a2 s n2) (P H1) (P H2)
+    -> P {aPlus a1 a2} {s} {n1 + n2} (rPlus n1 H1 n2 H2 idp))
+  (h4 : \Pi (s : State) (n1 n2 : Num) (a1 a2 : AExp) (H1 : SemAExp a1 s n1) (H2 : SemAExp a2 s n2) (P H1) (P H2)
+    -> P {aTimes a1 a2} {s} {n1 * n2} (rTimes n1 H1 n2 H2 idp))
+  (h5 : \Pi (s : State) (n1 n2 : Num) (a1 a2 : AExp) (H1 : SemAExp a1 s n1) (H2 : SemAExp a2 s n2) (P H1) (P H2)
+    -> P {aMinus a1 a2} {s} {n1 - n2} (rMinus n1 H1 n2 H2 idp))
+
+  (a : AExp) (s : State) (n : Num) (H : SemAExp a s n) : P H \elim a, H
+  | aNum n, rNum idp => h1 s n
+  | aVar v, rVar idp => h2 s v
+  | aPlus a a1, rPlus n1 semA1 n2 semA2 idp   => h3 s n1 n2 a a1 semA1 semA2
+      (derivationInductionAExp P h1 h2 h3 h4 h5 a s n1 semA1)
+      (derivationInductionAExp P h1 h2 h3 h4 h5 a1 s n2 semA2)
+  | aTimes a a1, rTimes n1 semA1 n2 semA2 idp => h4 s n1 n2 a a1 semA1 semA2
+      (derivationInductionAExp P h1 h2 h3 h4 h5 a s n1 semA1)
+      (derivationInductionAExp P h1 h2 h3 h4 h5 a1 s n2 semA2)
+  | aMinus a a1, rMinus n1 semA1 n2 semA2 idp => h5 s n1 n2 a a1 semA1 semA2
+      (derivationInductionAExp P h1 h2 h3 h4 h5 a s n1 semA1)
+      (derivationInductionAExp P h1 h2 h3 h4 h5 a1 s n2 semA2)

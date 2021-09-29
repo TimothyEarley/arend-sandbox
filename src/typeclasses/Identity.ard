@@ -1,0 +1,1 @@
+\func Identity (A : \Type) : \Type => A

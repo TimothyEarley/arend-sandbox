@@ -1,0 +1,44 @@
+\import Algebra.Domain.Euclidean
+\import Equiv
+\import Logic
+\import Paths.Meta
+\import sets.Card
+\import sets.Elements
+\import sets.Finite
+\import sets.MySet
+\import sets.remove
+\import sets.subset
+\import sets.union
+\import team.ClosureProperty
+\import team.TeamProp
+\import util.ArrayUtils
+\open IntEuclidean (mod)
+
+\func unionClosed {P : \Set} : ClosureProperty P =>
+  \lam ops t => \Pi {X1 X2 : Team P} (X1 ⊧ t) (X2 ⊧ t) -> (X1 ∪ X2) ⊧ t
+
+  \where {
+
+    -- TODO replace with finite?
+
+    \func finiteUnion {P : \Set} {ops : Operators P} {t : Term P ops}
+                      (h : unionClosed ops t) (S : Ensemble (Team P))
+                      (setsModel : \Pi {X : Team P} (X ∈ S) -> X ⊧ t)
+                      {n : Nat}
+                      (setsFin : Card S n)
+                      (emptyModel : ∅ ⊧ t)
+      : ⋃ S ⊧ t
+    \elim n, setsFin
+      | 0, empty-card idp => rewrite ⋃.emptyBigUnion emptyModel
+      | suc n, add-card S' {a} nIn setsFin p =>
+        \let
+          | sub : S' ⊆ S => rewrite p (byLeft __)
+          | S'model => finiteUnion
+              h
+              S'
+              (\lam {X} e => setsModel (sub e))
+              setsFin
+              emptyModel
+          | aModel : a ⊧ t => setsModel (rewrite p (byRight idp))
+        \in rewrite p (rewrite ⋃.addToUnion (h S'model aModel))
+  }

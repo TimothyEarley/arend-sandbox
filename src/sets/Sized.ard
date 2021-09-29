@@ -1,0 +1,202 @@
+\import Data.Bool
+\import Equiv
+\import Function
+\import Identity
+\import Logic
+\import Logic.Meta
+\import SetTheory.OD
+\import Util
+\import identity.FinIdentity
+\import Meta
+\import Paths
+\import Paths.Meta
+\import Set
+\import identity.DecMaps
+\import sets.Add
+\import sets.Disjoint
+\import sets.Elements
+\import sets.MySet
+\import sets.remove
+\import sets.union
+
+-- a very strong notion of size?
+
+
+\func Sized {A : \Set} (S : Ensemble A) (n : Nat) : \Set => Elements S = Fin n
+  \where {
+    \func dec= {A : \Set} (S : Ensemble A) {a a' : A}
+               (e : a ∈ S) (e' : a' ∈ S)
+               {n : Nat} (s : Sized S n)
+      : Dec (a = a') =>
+      \let
+        | i => getIndex s (a, e)
+        | i' => getIndex s (a', e')
+      \in \case i fin≟ i' \with {
+        | yes i=i' => yes (\let
+          | q1 => pmap (getElement s) i=i'
+          | q2 => rewriteF index->element (rewriteF index->element q1)
+                           \in pmap __.1 q2)
+        | no i/=i' => no (\lam a=a' => i/=i' (\let
+          | q1 : (a, e) = {Elements S} (a', e') => ext a=a'
+          | q2 => pmap (getIndex s) q1
+                                              \in q2))
+      }
+
+    \instance decSet {A : \Set} {S : Ensemble A} {n : Nat} (h : Sized S n) : DecSet (Elements S)
+      | decideEq x y => decMap (dec= {A} S x.2 y.2 h) (\lam p => ext p, \lam p => pmap __.1 p)
+
+    \func first {A : \Set} (S : Ensemble A) {n : Nat} (h : Sized S (suc n)) : Elements S => getElement {_} {_} {suc n} h 0
+
+    \func getIndex {A : \Set} {S : Ensemble A} {n : Nat} (s : Sized S n) (a : Elements S) : Fin n => transport id s a
+
+    \func getElement {A : \Set} {S : Ensemble A} {n : Nat} (s : Sized S n) (i : Fin n) : Elements S =>
+      transport id (inv s) i
+
+    \func element->index {A : \Set} {S : Ensemble A} {n : Nat} {s : Sized S n} {i : Fin n} : getIndex s (getElement s i) = i =>
+      transport_id_inv id s i
+
+    \func index->element {A : \Set} {S : Ensemble A} {n : Nat} {s : Sized S n} {a : Elements S} : getElement s (getIndex s a) = a =>
+      transport_inv_id id s a
+
+    \func removeFirst {A : \Set} (S : Ensemble A) {n : Nat} (s : Sized S (suc n))
+      : Sized (remove S (first S s).1) n => ext (\new QEquiv {
+      | f e =>
+        -- index minus one
+        fpred (getIndex s (e.1, e.2.1))
+        -- proof that the index is not zero (since we removed that part)
+            (\lam p => \let
+              | p' => pmap (getElement s) p
+              | el= => rewriteF index->element p'
+                       \in e.2.2 (pmap __.1 (inv el=)))
+      | ret i =>
+        -- element at index + 1
+        \let el => getElement s (fsuc i)
+        \in
+          (el.1, (el.2, \lam p =>
+          -- proof that it cannot be the first element
+              \let
+                | first=el : first S s = el => ext p
+                | p' => pmap (getIndex s) first=el
+                | zero=suc => rewriteF element->index (rewriteF element->index p')
+              \in contradiction))
+
+
+      | ret_f (x : Elements (remove S (first S s).1)) => \case \elim x \with {
+        | (x, (h, h')) =>
+          \let goal : (getElement s (fsuc (fpred (getIndex s (x, h)) (\lam p =>
+              \let
+                | p' => pmap (getElement s) p
+                | el= => rewriteF index->element p'
+              \in h' (pmap __.1 (inv el=))
+          )))).1 = x => rewrite fsucfpred (rewrite index->element idp)
+          \in
+            ext goal
+      }
+
+      | f_sec (i : Fin n) => transportInv {\Sigma (a : Fin (suc n)) (a /= 0)} (\lam t => fpred t.1 t.2 = i)
+          {(getIndex s (getElement s (fsuc i)),
+            \lam p => \let p' => rewrite element->index p \in contradiction)}
+          {(fsuc i, \lam p => contradiction)}
+          (ext (rewrite element->index idp)) idp
+    })
+
+
+
+    \func addNewDisjoint {A : \Set} (S : Ensemble A) (a : A)
+                         {n : Nat} (s : Sized S n)
+      : Sized (S ⊎ single a) (suc n) => path (iso {Elements (S ⊎ single a)} {Fin (suc n)}
+        (\lam e => \case e \with {
+          | ((false, _), x) => 0
+          | ((true, a'), x) => suc (getIndex s (a', ⊎.elLeft {_} {S} x))
+        })
+        (\lam f => \case \elim f \with {
+          | 0 => ((false, a), byRight (so, idp))
+          | suc f => \let (a', a'S) => getElement s f \in ((true, a'), byLeft (so, a'S))
+        })
+        (\lam e => cases e \with {
+          | ((false, _), byRight (so, q)) => ext (ext (idp, q))
+          | ((true, _), byLeft (so, a'S)) => ext (ext (idp, pmap __.1 index->element))
+          | ((false, _),byLeft ((), _))
+          | ((true, _),byRight ((), _))
+        })
+        (\lam f => cases f \with {
+          | 0 => idp
+          | suc f1 => pmap fsuc element->index
+        }))
+
+    \func addNew {A : DecSet} {S : Ensemble A} {a : A}
+                 {n : Nat} (s : Sized S n)
+                 (h : a ∉ S)
+      : Sized (add S a) (suc n) => ext (\new QEquiv {
+      -- the new item gets index 0
+      | f => newGetIndex S s
+      | ret => newGetElement S s
+      | ret_f => newIndex->newElement
+      | f_sec => newElement->newIndex h
+    })
+      \where {
+        \func newGetIndex {A : DecSet} (S : Ensemble A) {a : A} {n : Nat} (s : Sized S n)
+                          (e : Elements (add S a)) : Fin (suc n) => \case decideEq e.1 a \with {
+          | yes yh => 0
+          | no nh => suc (getIndex s (add.existingElement e nh))
+        }
+
+        \func newGetElement {A : \Set} (S : Ensemble A) {a : A} {n : Nat} (s : Sized S n)
+                            (f : Fin (suc n)): Elements (add S a)
+        \elim f
+          | zero => (a, byRight idp)
+          | suc f => sigmaMap id (byLeft __) (getElement s f)
+
+        \func newIndex->newElement {A : DecSet} {S : Ensemble A} {a : A} {n : Nat} {s : Sized S n}
+                                   (e : Elements (add S a))
+          : newGetElement S s (newGetIndex S s e) = e => unfold newGetIndex (cases (A.decideEq e.1 a) \with {
+          | yes yh => ext (inv yh)
+          | no nh => rewrite index->element (ext idp)
+        })
+
+        \func newElement->newIndex {A : DecSet} {S : Ensemble A} {a : A} {n : Nat} {s : Sized S n}
+                                   (h : a ∉ S) (f : Fin (suc n))
+          : newGetIndex S {a} s (newGetElement S s f) = f
+        \elim f
+          | 0 => unfold newGetIndex (rewrite (decideEq=_reduce idp) idp)
+          | suc f => unfold newGetIndex (mcases \with {
+            | yes yh => absurd (h (rewriteF yh (getElement s f).2))
+            | no nh => pmap fsuc element->index
+          })
+      }
+
+    \func sizedZeroIsEmpty {A : \Set} {S : Ensemble A} (h : Sized S 0) : S = ∅ =>
+      extSet (\lam {x} xS => \case getIndex h (x, xS) \with {
+      }) (\lam {x} e => \case e \with {
+      })
+
+    \func emptySized {A : \Set} : Sized (∅ {A}) 0 =>
+      path (iso {Elements ∅} {Fin 0} (\lam h => absurd h.2) (\lam f => \case f \with {
+      })
+          (\lam h => absurd h.2) (\lam f => \case f \with {
+          }))
+
+    \func singleSized {A : \Set} {a : A} : Sized (single a) 1 =>
+      path (iso {Elements (single a)} {Fin 1} (\lam _ => 0) (\lam _ => (a, idp))
+          (\lam x => ext x.2)
+          (\lam y => cases y idp))
+
+    -- addNew propagates DecSet
+
+    \func unionDisjointSized {A : DecSet} {S S' : Ensemble A} (d : Disjoint S S')
+                             {n m : Nat}
+                             (h : Sized S n) (h' : Sized S' m) : Sized (S ∪ S') (n Nat.+ m)
+    \elim m
+      | 0 => rewrite (sizedZeroIsEmpty h') (rewrite ∪.right-empty h)
+      | suc m => \let h'' => removeFirst S' h'
+                      | a => first S' h'
+                      | r : Sized (S ∪ (remove S' a.1)) (n Nat.+ m) => unionDisjointSized (Disjoint.afterRemove d) h h''
+                      | goal' : Sized (add (S ∪ (remove S' a.1)) a.1) (suc (n Nat.+ m)) => addNew r (\lam _x => \case \elim _x \with {
+                        | byLeft aS => d a.1 (aS, a.2)
+                        | byRight aS'' => aS''.2 idp
+                      })
+                      | goal : Sized (S ∪ (add (remove S' a.1) a.1)) (suc (n Nat.+ m)) => rewrite add.withUnion goal'
+                 \in rewrite (remove.addBack a.2 (decSet h')) goal
+  }
+
+\func SizedSet (A : \Set) => \Sigma (n : Nat) (Sized (full {A}) n)

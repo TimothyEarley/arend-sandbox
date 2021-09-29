@@ -1,0 +1,219 @@
+\import Algebra.Group
+\import Algebra.Monoid
+\import Arith.Int
+\import Arith.Nat
+\import Data.Bool
+\import DeriveDec.Meta
+\import Function
+\import Logic
+\import Logic.Meta
+\import LogicUtil
+\import Order.Lattice
+\import Star
+\import identity.BoolIdentity
+\import identity.DecMaps
+\import identity.FinIdentity
+\import identity.SigmaIdentity
+\import util.Int
+\import util.Maybe
+\import Meta
+\import sets.Elements
+\import sets.MySet
+\import Paths
+\import Paths.Meta
+\import Set (Dec, decToBool, decideEq, no, yes)
+\import sets.Complement
+\import sets.Finite
+\import sets.Intersect
+\import sets.pow
+\import sets.subset
+\import sets.union
+\import util.True
+
+\func Point => \Sigma (x y : Fin 5)
+  \where {
+    \func fromInt (p : \Sigma Int Int) : Point => (coerceToFin p.1, coerceToFin p.2)
+
+    \func toInt (p : Point) : \Sigma Int Int => (pos p.1, pos p.2)
+  }
+
+-- computable nightmare
+
+\func pointEq? \alias \infix 6 point≟ (p1 p2 : Point) : Dec (p1 = p2) => \case p1.1 fin≟ p2.1, p1.2 fin≟ p2.2 \with {
+  | yes e, yes e1 => yes (ext (e, e1))
+  | no n, _ => no (\lam p => n (pmap __.1 p))
+  | _, no n => no (\lam p => n (pmap __.2 p))
+}
+
+  \where {
+    \func test : decToBool ((1, 1) point≟ (1, 1)) = true => idp
+  }
+
+\record State
+  | monkey : Point
+  | box : Point
+  | hasBanana : Bool
+
+\data Direction | north | east | south | west
+
+\data Action
+  | move Direction
+  | push
+  | climbOn
+  | climbOff Direction
+  | grab
+
+\func Transition (from : State) (via : Action) (to : State) : \Prop \elim from, via, to
+  | (monkey, box, hasBanana), move d, (monkey', box', hasBanana') => \Sigma (box = box')
+                                                                            (hasBanana = hasBanana')
+                                                                            (validMove monkey monkey' d)
+  | (monkey, box, hasBanana), push, (monkey', box', hasBanana') => \Sigma (monkey' = box)
+                                                                          (hasBanana = hasBanana')
+                                                                          (box' = pushBox monkey box)
+                                                                          (nextToEachother monkey box)
+  | (monkey, box, hasBanana), climbOn, (monkey', box', hasBanana') => \Sigma (monkey' = box)
+                                                                             (hasBanana' = hasBanana)
+                                                                             (box' = box)
+                                                                             (nextToEachother monkey box)
+
+  | (monkey, box, hasBanana), climbOff d, (monkey', box', hasBanana') => \Sigma (monkey = box)
+                                                                                (box' = box)
+                                                                                (hasBanana' = hasBanana)
+                                                                                (validMove monkey monkey' d)
+  | (monkey, box, hasBanana), grab, (monkey', box', hasBanana') => \Sigma (hasBanana = false) (hasBanana' = true)
+                                                                          (box' = box) (monkey' = monkey)
+                                                                          (monkey = box) (box = (2, 2))
+
+
+  \where {
+    \func validMove (from to : Point) (d : Direction) : \Prop \elim from, to, d
+      | (x,y), (x',y'), north => \Sigma (x' = x) (isSafeSuc y y')
+      | (x,y), (x',y'), east => \Sigma (isSafeSuc x x') (y' = y)
+      | (x,y), (x',y'), south => \Sigma (x' = x) (isSafeSuc y' y)
+      | (x,y), (x',y'), west => \Sigma (isSafeSuc x' x) (y' = y)
+
+    \func validMove? (from to : Point) (d : Direction) : Dec (validMove from to d) \elim from, to, d
+      | (x,y), (x',y'), north => decMap2 (x' fin≟ x) (isSafeSuc? y y') <->.refl <->.refl
+      | (x,y), (x',y'), east => decMap2 (isSafeSuc? x x') (y' fin≟ y) <->.refl <->.refl
+      | (x,y), (x',y'), south => decMap2 (x' fin≟ x) (isSafeSuc? y' y) <->.refl <->.refl
+      | (x,y), (x',y'), west => decMap2 (isSafeSuc? x' x) (y' fin≟ y) <->.refl <->.refl
+
+    -- i' = fsuc i
+
+    \func isSafeSuc {n : Nat} (i i' : Fin n) : \Prop \elim n, i, i'
+      | suc n, zero, zero => Empty
+      | suc n, zero, suc i' => \case \elim n, \elim i' \with {
+        | suc n, zero => \Sigma -- is one bigger than i
+        | suc n, suc i' => Empty -- is at least two bigger
+      }
+      | suc n, suc i, zero => Empty
+      | suc n, suc i, suc i' => isSafeSuc i i'
+
+    \func isSafeSuc? {n : Nat} (i i' : Fin n) : Dec (isSafeSuc i i') \elim n, i, i'
+      | suc n, zero, zero => no absurd
+      | suc n, zero, suc i' => \case \elim n, \elim i' \with {
+        | suc n, zero => yes ()
+        | suc n, suc i' => no absurd
+      }
+      | suc n, suc i, zero => no absurd
+      | suc n, suc i, suc i' => isSafeSuc? i i'
+
+    \func nextToEachother (a b : Point) : \Prop \elim a, b
+      | (x,y), (x',y') => (\Sigma (x = x') (isSafeSuc y y')) ||
+      (\Sigma (x = x') (isSafeSuc y' y)) ||
+      (\Sigma (y = y') (isSafeSuc x x')) ||
+      (\Sigma (y = y') (isSafeSuc x' x))
+
+    \func nextToEachother? (a b : Point) : Dec (nextToEachother a b) \elim a, b
+      | (x,y), (x',y') => \case x fin≟ x', y fin≟ y', isSafeSuc? y y', isSafeSuc? y' y, isSafeSuc? x x', isSafeSuc? x' x \with {
+        | yes x=x', _, yes sucyy', _, _, _ => yes (byLeft (x=x', sucyy'))
+        | yes x=x', _, _, yes sucy'y, _, _ => yes (byRight (byLeft (x=x', sucy'y)))
+        | _, yes y=y', _, _, yes sucxx', _ => yes (byRight (byRight (byLeft (y=y', sucxx'))))
+        | _, yes y=y', _, _, _, yes sucx'x => yes (byRight (byRight (byRight (y=y', sucx'x))))
+
+        | no x/=x', no y/=y', _, _, _, _ => no (\lam h => \case h \with {
+          | byLeft a => x/=x' a.1
+          | byRight (byLeft a) => x/=x' a.1
+          | byRight (byRight (byLeft a)) => y/=y' a.1
+          | byRight (byRight (byRight a)) => y/=y' a.1
+        })
+
+        | _, _, no !sucyy', no !sucy'y, no !sucxx', no !sucx'x => no (\lam h => \case h \with {
+          | byLeft a => !sucyy' a.2
+          | byRight (byLeft a) => !sucy'y a.2
+          | byRight (byRight (byLeft a)) => !sucxx' a.2
+          | byRight (byRight (byRight a)) => !sucx'x a.2
+        })
+
+        | _, no y/=y', no !sucyy', no !sucy'y, _, _ => no (\lam h => \case h \with {
+          | byLeft a => !sucyy' a.2
+          | byRight (byLeft a) => !sucy'y a.2
+          | byRight (byRight (byLeft a)) => y/=y' a.1
+          | byRight (byRight (byRight a)) => y/=y' a.1
+        })
+
+        | no x/=x', _, _, _, no !sucxx', no !sucx'x => no (\lam h => \case h \with {
+          | byLeft a => x/=x' a.1
+          | byRight (byLeft a) => x/=x' a.1
+          | byRight (byRight (byLeft a)) => !sucxx' a.2
+          | byRight (byRight (byRight a)) => !sucx'x a.2
+        })
+      }
+
+    {-
+
+    O O O O O O O
+    O O M B O O O
+    O O O O O O O
+
+    B - M + B ? 2 B - M
+
+    (x, y) (a, b) ->
+
+     -}
+
+    \func pushBox (monkey box : Point) : Point
+      -- 2 * box - monkey
+      => \let (mx, my) => Point.toInt monkey
+              | (bx, by) => Point.toInt box
+         \in Point.fromInt (2 * bx - mx, 2 * by - my)
+
+    \func transition? (from : State) (action : Action) (to : State) : Dec (Transition from action to) \elim from, action, to
+      | (monkey, box, banana), move d, (monkey', box', banana') =>
+        decMap3 (box point≟ box') (banana bool≟ banana') (validMove? monkey monkey' d) <->.refl <->.refl <->.refl
+      | (monkey, box, banana), push, (monkey', box', banana') =>
+        decMap4 (monkey' point≟ box) (banana bool≟ banana') (box' point≟ pushBox monkey box) (nextToEachother? monkey box) <->.refl <->.refl <->.refl <->.refl
+      | (monkey, box, banana), climbOn, (monkey', box', banana') =>
+        decMap4 (monkey' point≟ box) (banana' bool≟ banana) (box' point≟ box) (nextToEachother? monkey box) <->.refl <->.refl <->.refl <->.refl
+      | (monkey, box, banana), climbOff d, (monkey', box', banana') =>
+        decMap4 (monkey point≟ box) (box' point≟ box) (banana' bool≟ banana) (validMove? monkey monkey' d) <->.refl <->.refl <->.refl <->.refl
+      | (monkey, box, banana), grab, (monkey', box', banana') =>
+        decMap6 (banana bool≟ false) (banana' bool≟ true) (box' point≟ box) (monkey' point≟ monkey) (monkey point≟ box) (box point≟ (2, 2))
+            <->.refl <->.refl <->.refl <->.refl <->.refl <->.refl
+
+    \func test : True (transition?
+                      (\new State (3, 4) (2, 1) false)
+                      (move south)
+                      (\new State (3, 3) (2, 1) false))
+      => Yes
+
+    \func Step (from to : State) => \Sigma (a : Action) (Transition from a to)
+    \func step {from to : State} (a : Action) (h : True (transition? from a to)) : Step from to
+      => (a, toWitness h)
+
+    \func Moves (from to : State) => Star Step from to
+
+    \func example : Moves (\new State (3, 4) (2, 1) false) (\new State (3, 4) (2, 2) true) =>
+      (\new State (3, 4) (2, 1) false) ~~< (move south, (idp, idp, (idp, ()))) >~>
+      (\new State (3, 3) (2, 1) false) ~~< (move south, (idp, idp, (idp, ()))) >~>
+      (\new State (3, 2) (2, 1) false) ~~< (move south, (idp, idp, (idp, ()))) >~>
+      (\new State (3, 1) (2, 1) false) ~~< (move south, (idp, idp, (idp, ()))) >~>
+      (\new State (3, 0) (2, 1) false) ~~< (move west, (idp, idp, ((), idp))) >~>
+      (\new State (2, 0) (2, 1) false) ~~< (push, (idp, idp, idp, byLeft (idp, ()))) >~>
+      (\new State (2, 1) (2, 2) false) ~~< (climbOn, (idp, idp, idp, byLeft (idp, ()))) >~>
+      (\new State (2, 2) (2, 2) false) ~~< (grab, (idp, idp, idp, idp, idp, idp)) >~>
+      (\new State (2, 2) (2, 2) true) ~~< (climbOff north, (idp, idp, idp, (idp, ()))) >~>
+      (\new State (2, 3) (2, 2) true) ~~< (move north, (idp, idp, (idp, ()))) >~>
+      (\new State (2, 4) (2, 2) true) ~~< (move east, (idp, idp, ((), idp))) >~>
+      (\new State (3, 4) (2, 2) true) `stop
+  }

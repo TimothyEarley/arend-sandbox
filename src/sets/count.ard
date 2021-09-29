@@ -1,0 +1,10 @@
+\import Equiv
+
+\module Count \where {
+  \func count (A : \Type) => \Sigma (k : Nat) (Equiv {Fin k} {A})
+
+  \func canonicalFinCount (k : Nat) : count (Fin k)
+    => (k, idEquiv)
+
+
+}

@@ -1,0 +1,59 @@
+\import Algebra.Group
+\import Algebra.Monoid
+\import Arith.Int
+\import Arith.Nat
+\import Data.Bool
+\import Logic
+\import Order.PartialOrder
+\import moses.MOSES
+\import moses.Syntax
+
+\data SemAExp (a : AExp) (s : State) (n : Num) \elim a
+  | aNum n' => rNum (n = n')
+  | aVar v => rVar (n = s v)
+  | aPlus a1 a2 => rPlus (n1 : Num) (semA1 : SemAExp a1 s n1)
+                         (n2 : Num) (semA2 : SemAExp a2 s n2)
+                         (n = n1 + n2)
+  | aMinus a1 a2 => rMinus (n1 : Num) (semA1 : SemAExp a1 s n1)
+                           (n2 : Num) (semA2 : SemAExp a2 s n2)
+                           (n = n1 - n2)
+  | aTimes a1 a2 => rTimes (n1 : Num) (semA1 : SemAExp a1 s n1)
+                           (n2 : Num) (semA2 : SemAExp a2 s n2)
+                           (n = n1 * n2)
+
+\data SemBExp (b : BExp) (s : State) (t : Bool) \elim b
+  | bTrue => rTrue (t = true)
+  | bFalse => rFalse (t = false)
+  | bEq a1 a2 => rEqT (n1 : Num) (SemAExp a1 s n1)
+                      (n2 : Num) (SemAExp a2 s n2)
+                      (n1 = n2)
+                      (t = true)
+  | bEq a1 a2 => rEqF (n1 : Num) (SemAExp a1 s n1)
+                      (n2 : Num) (SemAExp a2 s n2)
+                      (Not (n1 = n2))
+                      (t = false)
+  | bLeq a1 a2 => rLeqT (n1 : Num) (SemAExp a1 s n1)
+                        (n2 : Num) (SemAExp a2 s n2)
+                        (n1 <= n2)
+                        (t = true)
+  | bLeq a1 a2 => rLeqF (n1 : Num) (SemAExp a1 s n1)
+                        (n2 : Num) (SemAExp a2 s n2)
+                        (Not (n1 <= n2))
+                        (t = false)
+  | bNot b => rNotT (SemBExp b s false) (t = true)
+  | bNot b => rNotF (SemBExp b s true) (t = false)
+  | bAnd b1 b2 => rAndT (SemBExp b1 s true) (SemBExp b2 s true) (t = true)
+  | bAnd b1 b2 => rAndF1 (SemBExp b1 s false) (t = false)
+  | bAnd b1 b2 => rAndF2 (SemBExp b2 s false) (t = false)
+  | bOr b1 b2 => rOrT1 (SemBExp b1 s true) (t = true)
+  | bOr b1 b2 => rOrT2 (SemBExp b2 s true) (t = true)
+  | bOr b1 b2 => rOrF (SemBExp b1 s false) (SemBExp b2 s false) (t = true)
+
+\data SemCom (c : Com) (s : State) (s' : State) \elim c
+  | skip => rsk (s = s')
+  | assign v a => r:= (n : Num) (SemAExp a s n) (s' = s replace (v, n))
+  | seq c1 c2 => rSeq (s'' : State) (SemCom c1 s s'') (SemCom c2 s'' s')
+  | ite b then else => rIfT (SemBExp b s true) (SemCom then s s')
+  | ite b then else => rIfF (SemBExp b s false) (SemCom else s s')
+  | while b c => rWhT (semB : SemBExp b s true) (s'' : State) (sem1 : SemCom c s s'') (sem2 : SemCom (while b c) s'' s')
+  | while b c => rWhF (semB : SemBExp b s false) (s = s')

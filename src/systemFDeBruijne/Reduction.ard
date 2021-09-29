@@ -1,0 +1,26 @@
+\import Star
+\import systemFDeBruijne.SystemF
+\import systemFDeBruijne.Type
+
+\data Value {c : Context} {K : Kind} {T : FType c.kc K} (t : c ⊢ T) : \Prop
+  \elim K, T, t
+    | *, --> A B, lam t => V-Lam
+    | *, ForAllTy k T, forAll t => V-FA
+
+
+\data Reduction {c : Context} {K : Kind} {T : FType c.kc K} (t : c ⊢ T)
+  \elim K, t
+  | *, ⋅ f arg => F-App1 (Reduction f)
+  | *, ⋅ f arg => F-App2 (Reduction arg) (Value f)
+  | *, ⋅ (lam body) arg => F-Beta (Value arg)
+  | K, ⋅⋅ (forAll body) Arg => F-TBeta
+  | K, ⋅⋅ f arg => F-TApp1 (Reduction f)
+
+-- oh oh
+\func reduce  {c : Context} {K : Kind} {T : FType c.kc K} {t : c ⊢ T} (r : Reduction t) : c ⊢ T
+
+\func ReducesStep \alias \infix 5 ->1 {c : Context} {K : Kind} {T : FType c.kc K} (t t' : c ⊢ T) =>
+  \Sigma (r : Reduction t) (reduce r = t')
+
+\func Reduces \alias \infix 5 ->* {c : Context} {K : Kind} {T : FType c.kc K} (t t' : c ⊢ T)
+  => Star (->1) t t'

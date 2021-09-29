@@ -1,0 +1,145 @@
+\import Arith.Int
+\import Data.Bool (Bool, not \as bnot, and \as band, false, or \as bor, if, so, true)
+\import Data.Maybe
+\import Data.Or
+\import Logic
+\import Logic.Meta
+\import LogicUtil
+\import Meta
+\import Order.LinearOrder
+\import Paths
+\import Paths.Meta
+\import Set \hiding (#)
+\import Util
+\import identity.IntIdentity
+\import identity.NatIdentity
+\import limp.LIMP
+\import typeclasses.Monad
+\import util.Maybe (map, unjust)
+\import util.So
+
+-- uniform
+
+\func Terminates {S : Signature} (c : Com) : \Prop => \Pi (s : State S) -> ∃ (s' : State S) ((c, s) cEval s')
+
+\lemma inGeneralNotTerminating {S : Signature} : Not (\Pi (c : Com) -> Terminates c) => \lam f =>
+    \case f loop State.default \with {
+      | inP (s', ev) => loopNotDerivable ev
+    }
+  \where {
+    \func loop {S : Signature} : Com => while tt skip
+
+    \func loopNotDerivable {S : Signature}
+                           {s s' : State S}
+                           (h : (loop, s) cEval s') : Empty \elim h
+      | rwht _ {s''} h1 h2 => loopNotDerivable h2
+      | rwhf (rtrue ()) p
+  }
+
+\func fueledEval {S : Signature} (c : Com) (fuel : Nat) (s : State S) : Maybe (State S)
+\elim fuel
+  -- out of fuel
+  | 0 => nothing
+
+  -- keep going
+  | suc fuel => \case \elim c \with {
+    | skip => just s
+    | := e a => just (substVar s e (evalAExp a s))
+    | # a b => (fueledEval a fuel s) >>= (fueledEval b fuel)
+    | ite b then else => if (evalBExp b s) (fueledEval then fuel s) (fueledEval else fuel s)
+    | while b c => if (evalBExp b s) ((fueledEval c fuel s) >>= (fueledEval (while b c) fuel)) (just s)
+    | append v a => just (substList s v (cEval.appendList (s.lists v) (evalAExp a s)))
+    | :=L v lv a => (cEval.select (s.lists lv) (evalAExp a s)) map (substVar s v)
+  }
+
+  \where {
+    \func evalAExp {S : Signature} (a : AExp) (s : State S) : Num \elim a
+      | num n => n
+      | var e => s.variables e
+      | ⊕ a b => (evalAExp a s) IntRing.+ (evalAExp b s)
+      | ⊖ a b => (evalAExp a s) IntRing.+ IntRing.negative (evalAExp b s)
+      | ⊙ a b => (evalAExp a s) IntRing.* (evalAExp b s)
+
+      \where {
+        \func sound {S : Signature} {a : AExp} {s : State S} : (a, s) aEval (evalAExp a s) \elim a
+          | num n => rNum idp
+          | var e => rVar idp
+          | ⊕ a b => rPlus sound sound idp
+          | ⊖ a b => rMinus sound sound idp
+          | ⊙ a b => rTimes sound sound idp
+      }
+
+    \func evalBExp {S : Signature} (b : BExp) (s : State S) : Bool \elim b
+      | tt => Bool.true
+      | ff => Bool.false
+      | eq a b => (evalAExp a s) == (evalAExp b s)
+      | leq a b => (evalAExp a s) <=?? (evalAExp b s)
+      | not b => bnot (evalBExp b s)
+      | and a b => band (evalBExp a s) (evalBExp b s)
+      | or a b => bor (evalBExp a s) (evalBExp b s)
+      \where {
+        \func \infix 6 <=?? (a b : Num) : Bool => decToBool (a int<=? b)
+
+        \func sound {S : Signature} {b : BExp} {s : State S} : (b, s) bEval (evalBExp b s) \elim b
+          | tt => rtrue so
+          | ff => rfalse so
+          | eq a b => \case decideEq (evalAExp a s) (evalAExp b s) \with {
+            | yes e => reqt (soYes e) evalAExp.sound evalAExp.sound e
+            | no n => reqf (soNo n) evalAExp.sound evalAExp.sound n
+          }
+          | leq a b => \case (evalAExp a s) int<=? (evalAExp b s) \with {
+            | yes e => rleqt (soYes e) evalAExp.sound evalAExp.sound e
+            | no n => rleqf (soNo n) evalAExp.sound evalAExp.sound n
+          }
+          | not b => cases (evalBExp b s arg addPath) \with {
+            | false, p => rnott so (rewriteI p evalBExp.sound)
+            | true, p => rnotf so (rewriteI p evalBExp.sound)
+          }
+          | and a b => cases (evalBExp a s arg addPath, evalBExp b s arg addPath) \with {
+            | false, p, _, _ => randf1 so (rewriteI p sound)
+            | _, _, false, q => randf2 (rewrite andFalse so) (rewriteI q sound)
+            | true, p, true, q => randt so (rewriteI p sound) (rewriteI q sound)
+          }
+          | or a b => cases (evalBExp a s arg addPath, evalBExp b s arg addPath) \with {
+            | false, p, false, q => rorf so (rewriteI p sound) (rewriteI q sound)
+            | _, _, true, q => rort2 (rewrite orTrue so) (rewriteI q sound)
+            | true, p, _, _ => rort1 so (rewriteI p sound)
+          }
+      }
+
+    \func sound
+      {S : Signature}
+      {c : Com}
+      {s s' : State S}
+      {fuel : Nat}
+      (h : fueledEval c fuel s = just s')
+      : (c, s) cEval s'
+    \elim fuel
+      | 0 => contradiction
+      | suc fuel => \case \elim c, \elim h \with {
+        | skip, h => rsk (inv (unjust h))
+        | := e a, h => r:= evalAExp.sound (inv (unjust h))
+        | # a b, h => cases (fueledEval a fuel s arg addPath) \with {
+          | just s'', q => r# (sound q) (sound (rewriteF q h))
+          | nothing, q => using (rewriteF q h) contradiction
+        }
+        | ite b then else, h => cases (evalBExp b s arg addPath) \with {
+          | false, p => riff (rewriteI p evalBExp.sound) (sound (rewriteF p h))
+          | true, p => rift (rewriteI p evalBExp.sound) (sound (rewriteF p h))
+        }
+        | while b c, h => cases (evalBExp b s arg addPath) \with {
+          | false, p => rwhf (rewriteI p evalBExp.sound) (unjust (inv (rewriteF p h)))
+          | true, p => \let h' => rewriteF p h \in cases (fueledEval c fuel s arg addPath) \with {
+            | just s1, cEvalOnce => \let h2 : fueledEval (while b c) fuel s1 = just s' => rewriteF cEvalOnce h' \in
+              rwht (rewriteI p evalBExp.sound) (sound cEvalOnce) (sound h2)
+            | nothing, p1 => using (rewriteF p1 h') contradiction
+          }
+        }
+        | append e a, h => rAp evalAExp.sound (unjust (inv h))
+        | :=L v lv a, h => cases (cEval.select (s.lists lv) (evalAExp a s) arg addPath) \with {
+          | just index, p => rSt evalAExp.sound {index} p (inv (unjust (rewriteF p h)))
+          | nothing, p => using (rewriteF p h) contradiction
+        }
+      }
+  }
+

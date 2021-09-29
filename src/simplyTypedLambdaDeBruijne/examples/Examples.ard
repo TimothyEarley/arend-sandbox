@@ -1,0 +1,11 @@
+\import simplyTypedLambdaDeBruijne.GeneralContext
+\import simplyTypedLambdaDeBruijne.Lambda
+
+\module Examples \where {
+
+
+  \func lamID {A : Type} : ∅ ⊢ A --> A => lam (var (Z idp))
+
+
+
+}

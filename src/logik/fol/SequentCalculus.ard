@@ -1,0 +1,126 @@
+\import Logic
+\import Meta
+\import Misc
+\import Paths
+\import Paths.Meta
+\import Set
+\import Util
+\import logik.fol.FOL
+\import logik.fol.Semantics
+\import sets.Add
+\import sets.MySet
+\import util.ArrayUtils
+\open Formula*
+\open Formula (Subst, sub, subTerm, subTerms, subst)
+\open Semantics (Interpretation, evaluate, ⊫)
+\open Term (AnyFreeVar, FreeVar)
+
+\module SequenCalulus \where {
+
+
+  -- TODO finite axioms
+
+  \data SequentProof \alias \infix 6 ⊢ {L : Language} (axioms : Ensemble (Formula 0)) (toShow : Formula 0)
+  \elim toShow
+    | toShow => Ass (toShow ∈ axioms)
+    | toShow => PC (psi : Formula 0) (add axioms psi ⊢ toShow) (add axioms (notH psi) ⊢ toShow)
+    | toShow => Ctr (psi : Formula 0)
+                    (add axioms (notH toShow) ⊢ psi) (add axioms (notH toShow) ⊢ (notH psi))
+
+    -- TODO ...
+
+    | equal x y => E-Refl (x = y)
+    | toShow => E-Subst (t t' : Term 0) (equal t t' ∈ axioms)
+                        (phi : Formula 1)
+                        (axioms ⊢ sub phi t)
+                        (p : toShow = sub phi t')
+
+  \func entails \alias \infix 6 ⊫e {L : Language} (from : Ensemble (Formula 0)) (to : Formula 0) =>
+    \Pi (I : Interpretation 0) (h : \Pi {f : Formula 0} (f ∈ from) -> I ⊫ f) -> I ⊫ to
+
+  -- TODO how should the classical requirement be handled?
+
+  \func proofIsEntails
+    {L : Language} {from : Ensemble (Formula 0)} {to : Formula 0}
+    (decidable : \Pi (I : Interpretation 0) (f : Formula 0) -> Dec (I ⊫ f))
+    (h : from ⊢ to) : from ⊫e to
+  \elim to, h
+    | to, Ass e => \lam I h => h e
+    | to, PC psi h1 h2 => \lam I h =>
+        \let dec : Dec (I ⊫ psi) => decidable I psi
+        \in \case dec \with {
+          | yes e => proofIsEntails decidable h1 I (\case __ \with {
+            | byLeft a => h a
+            | byRight p => rewriteI p e
+          })
+          | no n => proofIsEntails decidable h2 I (\case __ \with {
+            | byLeft a => h a
+            | byRight p => rewriteI p n
+          })
+        }
+    | to, Ctr psi h1 h2 => \lam I h => \case decidable I to \with {
+      | yes e => e
+      | no n => \let
+        | Ipsi => proofIsEntails decidable h1 I (\case __ \with {
+          | byLeft a => h a
+          | byRight p => rewriteI p n
+        })
+        | InotPsi => proofIsEntails decidable h2 I (\case __ \with {
+          | byLeft a => h a
+          | byRight p => rewriteI p n
+        })
+                \in absurd (InotPsi Ipsi)
+    }
+    | equal x y, E-Refl idp => \lam I h => idp
+    | to, E-Subst t t' e phi h idp => \lam I h1 => \let
+      | p => h1 e
+      | IphiT => proofIsEntails decidable h I h1
+                                                   \in subModel IphiT p
+
+  \func subModel {L : Language} {I : Interpretation 0} {phi : Formula 1} {t t' : Term 0}
+                 (h : I ⊫ sub phi t) (e : evaluate I t = evaluate I t')
+    : I ⊫ sub phi t'
+    => substModel (\lam {f : Fin 1} f1 => \case \elim f \with {
+      | zero => e
+    }) h
+  \where {
+    \func substModel {L : Language} {n m : Nat} {I : Interpretation m} {phi : Formula n}
+                     {s s' : Subst n m} (freeSame : \Pi {f : Fin n} (Formula.FreeVar phi f) -> evaluate I (s f) = evaluate I (s' f))
+                     (h : I ⊫ subst s phi)
+      : I ⊫ subst s' phi
+      \elim phi
+        | equal x y => (evalSubst x (\lam fr => inv (freeSame (byLeft fr)))) *> h *> (evalSubst y (\lam fr => freeSame (byRight fr)))
+        | atomic r d => transport (Semantics.rel {I.1} r)
+            {?} -- (evalMultipleSubst d freeSame)
+            h
+        | impH x phi => \lam mo => \let xs : I ⊫ subst s x => substModel (\lam fr => inv (freeSame (byLeft fr))) mo
+                                   \in substModel (\lam fr => freeSame (byRight fr)) (h xs)
+        | notH phi => \lam mo => h (substModel (\lam fr => inv (freeSame fr)) mo)
+        | forallH phi => \lam x => substModel (\lam {f : Fin (suc n)} f1 => \case \elim f \with {
+          | 0 => idp
+          | suc f => {?}
+        }) (h x)
+
+    \func evalSubst {L : Language} {n m : Nat} {I : Interpretation m} (t : Term n)
+                    {s s' : Subst n m} (h : \Pi {f : Fin n} (FreeVar t f) -> evaluate I (s f) = evaluate I (s' f))
+      : evaluate I (subTerm s t) = evaluate I (subTerm s' t)
+      \elim t
+        | var f => h idp
+        | apply f d => pmap {Array (Semantics.Universe {I.1}) (functionArity f)} (Semantics.funcs f)
+            {evaluate.multiple I (subTerms s d)} {evaluate.multiple I (subTerms s' d)}
+            {?} -- (evalMultipleSubst d h)
+
+    \func evalMultipleSubst {L : Language} {n m : Nat} {I : Interpretation m} {l : Nat} (d : Array (Term n) l)
+                            {s s' : Subst n m} (h : \Pi {f : Fin n} (AnyFreeVar d f) -> evaluate I (s f) = evaluate I (s' f))
+      : evaluate.multiple I (subTerms s d) = evaluate.multiple I (subTerms s' d)
+      \elim l, d
+        | 0, nil => idp
+        | suc l, :: a d => pmap2
+            {Semantics.Universe {I.1}}
+            {Array (Semantics.Universe {I.1}) l}
+            (::)
+            (evalSubst a (\lam fr => h (byLeft fr)))
+            {evaluate.multiple I (subTerms s d)} {evaluate.multiple I (subTerms s' d)}
+            {?} -- (evalMultipleSubst d (\lam fr => h (byRight fr)))
+  }
+}

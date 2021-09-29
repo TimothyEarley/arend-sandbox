@@ -1,0 +1,101 @@
+\import Arith.Nat
+\import Function
+\import Logic
+\import Paths
+\import Paths.Meta
+\import Set
+\import sets.Add
+\import sets.Disjoint
+\import sets.Finite
+\import sets.MySet
+\import sets.Sized
+\import sets.remove
+\import sets.subset
+\import sets.union
+
+\truncated \data Card {A : \Set} (S : Ensemble A) (n : Nat) : \Prop \elim n
+  | 0 => empty-card (S = ∅)
+  | suc n => add-card (S' : Ensemble A) {a : A} (a ∉ S') (Card S' n) (S = add S' a)
+
+  \where {
+    \use \coerce fromSized {A : \Set} {S : Ensemble A} {n : Nat} (h : Sized S n) : Card S n
+    \elim n
+      | 0 => empty-card (Sized.sizedZeroIsEmpty h)
+      | suc n =>
+        \let (a, aIn) => Sized.first S h
+        \in
+          add-card
+              (remove S a)
+              {a}
+              (remove.removed-not-element S)
+              (fromSized (Sized.removeFirst S h))
+              (remove.addBack aIn (Sized.decSet h))
+
+    -- here we run into the decidability issues / truncated stuff
+    \func toSized {A : DecSet} {S : Ensemble A} {n : Nat} (h : Card S n) : TruncP (Sized S n)
+    \elim n, h
+      | 0, empty-card idp => inP Sized.emptySized
+      | suc n, add-card S' nIn h idp => TruncP.map (toSized h) (Sized.addNew __ nIn)
+
+    \func toFinite {A : \Set} {S : Ensemble A} {n : Nat} (h : Card S n) : Finite S
+      \elim n, h
+        | 0, empty-card idp => Finite.empty-finite
+        | suc n, add-card S' n1 h idp => Finite.finite-union (toFinite h) Finite.single-finite
+
+    \func singleCard {A : \Set} {a : A} : Card (single a) 1 => add-card ∅ id (empty-card idp) single.isAddToEmpty
+
+    \func unionCard {A : \Set} {S S' : Ensemble A} (d : Disjoint S S')
+                    {n n' : Nat}
+                    (h : Card S n) (h' : Card S' n') : Card (S ∪ S') (n Nat.+ n')
+    \elim n', h'
+      | 0, empty-card idp => rewrite ∪.right-empty h
+      | suc n', add-card S'1 {a} nIn h' p =>
+        \let sub : S'1 ⊆ S' => rewrite p (\lam e => byLeft e)
+        \in
+          add-card (S ∪ S'1) {a}
+              (∪.not-in-union' {A} {S} {S'1} (Disjoint.isInRight d (rewrite p (byRight idp))) nIn)
+              (unionCard (Disjoint.fromSubset d ⊆.refl sub) h h')
+              (rewrite p add.withUnion)
+
+    \func smapCard {A B : \Set} {S : Ensemble A} {f : A -> B}
+                   (inj : \Pi (a : A) (a ∈ S) -> f a ∉ ((remove S a) smap f))
+                   {n : Nat} (h : Card S n)
+      : Card (S smap f) n
+    \elim n, h
+      | 0, empty-card idp => empty-card smap.empty-smap
+      | suc n, add-card S' {a} nIn h p =>
+        \let
+          | aS : a ∈ S => rewrite p (byRight idp)
+          | sub : S' ⊆ S => rewrite p (\lam e => byLeft e)
+          | q : S' = remove S a => rewrite p (remove.removeAgain nIn)
+        \in
+          add-card (S' smap f) {f a}
+              (rewrite q (inj a aS))
+              (smapCard (\lam a' in (inP fh) => inj a' (sub in) (inP (fh.1, fh.2, (sub fh.3.1, fh.3.2)))) h)
+              (rewrite p smap.add-smap)
+
+    \func removeCard {A : \Set} {S : Ensemble A} {n : Nat} {a : A}
+                     (h : Card S (suc n)) (in : a ∈ S) : Card (remove S a) n
+    \elim n, h, in
+      | 0, add-card _ nIn (empty-card idp) idp, byLeft ()
+      | 0, add-card _ nIn (empty-card idp) idp, byRight idp =>
+        rewrite ∪.left-empty (empty-card remove.fromSingleToEmpty)
+      | suc n, add-card S' {a'} nIn h idp, byLeft aS' =>
+        \let a/=a' : a /= a' => \lam p => nIn (transport S' p aS')
+        \in add-card (remove S' a) {a'} (\lam (a'S', _) => nIn a'S') (removeCard h aS') (remove.permuteWithAdd a/=a')
+      | suc n, add-card S' nIn h idp, byRight idp =>
+        rewriteI (remove.removeAgain nIn) h
+
+    \func splitIntoSinglesCard {A : \Set} {S : Ensemble A} {n : Nat} (h : Card S n)
+      : Card (single.splitIntoSingles S) n
+      \elim n, h
+        | 0, empty-card idp => empty-card single.splitIntoSingles.emptySplit
+        | suc n, add-card S' nIn h idp =>
+            add-card
+                (single.splitIntoSingles S')
+                (\lam s => \case s \with {
+                  | inP (a', e, p) => nIn (rewrite (single.extract p) e)
+                })
+                (splitIntoSinglesCard h)
+                single.splitIntoSingles.addSplit
+  }

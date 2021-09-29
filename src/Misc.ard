@@ -1,0 +1,73 @@
+\import Algebra.Meta
+\import Data.Or
+\import Equiv
+\import Logic
+\import Paths
+\import Paths.Meta
+
+\lemma doubleNegationLEM {A : \Type} : Not (Not (Or A (Not A))) => \lam n => n (inr (\lam a => n (inl a)))
+
+\func Or->|| {A B : \Type} : (Or A B) ->> (A || B) \cowith
+  | f x => \case x \with {
+    | inl a => byLeft a
+    | inr b => byRight b
+  }
+  | isSurj x => \case \elim x \with {
+    | byLeft a => inP (inl a, idp)
+    | byRight b => inP (inr b, idp)
+  }
+
+\func eckmannHilton {X : \Set}
+              (+ * : X -> X -> X)
+              (o i : X)
+              (left-id-+ : Left-id + o)
+              (right-id-+ : Right-id + o)
+              (left-id-* : Left-id * i)
+              (right-id-* : Right-id * i)
+              (h : \Pi {x y z w : X} -> * (+ x y) (+ z w) = + (* x z) (* y w))
+  : \Sigma
+  (i = o) (+ = *) (Assoc +) (Comm +) =>
+  \let
+    | i=o => equation
+        i {inv right-id-*}
+        (* i i) {pmap2 * (inv right-id-+) (inv left-id-+)}
+        (* (+ i o) (+ o i)) {h}
+        (+ (* i o) (* o i)) {pmap2 + left-id-* right-id-*}
+        (+ o o) {left-id-+}
+        o
+    | x+y=x*y => \lam x y => equation
+      (+ x y) {pmap2 + (inv right-id-*) (inv left-id-*)}
+      (+ (* x i) (* i y)) {inv h}
+      (* (+ x i) (+ i y)) {pmap2 * (pmap (+ x) i=o) (pmap (+ __ y) i=o)}
+      (* (+ x o) (+ o y)) {pmap2 * right-id-+ left-id-+}
+      (* x y )
+    | assoc+ : Assoc + => \lam {x} {y} {z} => equation
+        (+ x (+ y z)) {x+y=x*y x (+ y z)}
+        (* x (+ y z)) {pmap (* __ _) (inv right-id-+)}
+        (* (+ x o) (+ y z)) {h}
+        (+ (* x y) (* o z)) {pmap (\lam v => + _ (* v _)) (inv i=o)}
+        (+ (* x y) (* i z)) {pmap (+ _ __) left-id-*}
+        (+ (* x y) z) {pmap (+ __ _) (inv (x+y=x*y x y))}
+        (+ (+ x y) z)
+    | comm+ : Comm + => \lam {x} {y} => equation
+        (+ x y) {pmap2 + (inv left-id-+) (inv right-id-+)}
+        (+ (+ o x) (+ y o)) {x+y=x*y _ _}
+        (* (+ o x) (+ y o)) {h}
+        (+ (* o y) (* x o)) {pmap2 + (pmap (* __ _) (inv i=o)) (pmap (* _ __) (inv i=o))}
+        (+ (* i y) (* x i)) {pmap2 + left-id-* right-id-*}
+        (+ y x)
+  \in
+    (i=o,
+     ext x+y=x*y,
+     assoc+,
+     comm+)
+
+  \where {
+    \func Left-id {X : \Set} (f : X -> X -> X) (e : X) : \Prop => \Pi {x : X} -> f e x = x
+
+    \func Right-id {X : \Set} (f : X -> X -> X) (e : X) : \Prop => \Pi {x : X} -> f x e = x
+
+    \func Assoc {X : \Set} (f : X -> X -> X) : \Prop => \Pi {x y z : X} -> f x (f y z) = f (f x y) z
+
+    \func Comm {X : \Set} (f : X -> X -> X) : \Prop => \Pi {x y : X} -> f x y = f y x
+  }

@@ -1,0 +1,62 @@
+\import Arith.Nat
+\import Data.Bool
+\import Function
+\import Logic
+\import Order.LinearOrder
+\import Order.PartialOrder
+\import Paths
+\import Set
+\import Util
+\import identity.DecMaps
+\import identity.Identity
+\import util.Nat
+
+\instance NatIdentity : Identity.Decidable Nat
+  | Code => Code
+  | code-refl => code-refl
+  | code-encode => code-encode
+  | code-decode => code-decode
+  | code-decide => code-decide
+  \where {
+    \func Code (a b : Nat) : \Prop
+      | 0, 0 => \Sigma
+      | 0, suc b => Empty
+      | suc a, 0 => Empty
+      | suc a, suc b => Code a b
+
+    \func code-refl (a : Nat) : Code a a
+      | 0 => ()
+      | suc a => code-refl a
+
+    \func code-decode {a b : Nat} (c : Code a b) : a = b
+      | {0}, {0}, c => idp
+      | {suc a}, {suc b}, c => pmap suc (code-decode c)
+
+    \func code-encode {a b : Nat} (p : a = b) : Code a b \elim p
+      | idp => code-refl a
+
+    \func code-decide (a b : Nat) : Dec (Code a b)
+      | 0, 0 => yes ()
+      | 0, suc b => no id
+      | suc a, 0 => no id
+      | suc a, suc b => \case code-decide a b \with {
+        | yes e => yes e
+        | no e => no e
+      }
+  }
+
+\func unsuc {n m : Nat} (p : suc n = suc m) : n = m
+  => code-decode (NatIdentity.code-encode p)
+
+
+-- use instead of generic one if you want to compute
+\func eqNat \alias \infix 6 nat≟ (x y : Nat) : Dec (x = y)
+  => decMap (NatIdentity.code-decide x y) (code-decode, code-encode)
+
+-- order
+\func \infix 6 <=? (a b : Nat) : Dec (a <= b)
+  \elim a, b
+    | 0, _ => yes zero<=_
+    | suc a, 0 => no not<=0
+    | suc a, suc b => decMap (a <=? b) (suc<=suc, suc<=suc.conv)
+

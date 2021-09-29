@@ -1,0 +1,36 @@
+\import Data.Bool
+\import Function
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Set
+\import identity.DecMaps
+\import identity.Identity
+
+\instance BoolIdentity : Identity.Decidable Bool
+  | Code a b => \case a, b \with {
+    | false, false => \Sigma
+    | false, true => Empty
+    | true, false => Empty
+    | true, true => \Sigma
+  }
+  | code-refl a => cases a ()
+  | code-decode {a} {b} c => cases (a, b, c) idp
+  | code-decide a b => \case \elim a, \elim b \with {
+    | false, false => yes ()
+    | false, true => no id
+    | true, false => no id
+    | true, true => yes ()
+  }
+
+-- use instead of generic one if you want to compute
+\func eqBool \alias \infix 6 bool≟  (x y : Bool) : Dec (x = y) \elim x, y
+  | false, false => yes idp
+  | false, true => no (\lam p => contradiction)
+  | true, false => no (\lam p => contradiction)
+  | true, true => yes idp
+
+\func eqBool? \alias \infix 6 bool≟≟  (x y : Bool) : Bool => decToBool (x bool≟ y)
+\where {
+  \func test : false bool≟≟ true = false => idp
+}

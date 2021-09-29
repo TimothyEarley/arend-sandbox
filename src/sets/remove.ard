@@ -1,0 +1,61 @@
+\import Function
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Paths
+\import Paths.Meta
+\import Set
+\import sets.Add
+\import sets.Elements
+\import sets.MySet
+
+\func remove {A : \Set} (S : Ensemble A) (a : A) : Ensemble A
+  => \lam x => \Sigma (S x) (a /= x)
+
+\where {
+
+  \func removed-not-element {A : \Set} (S : Ensemble A) {a : A} : a ∉ remove S a
+    => \lam r => r.2 idp
+
+  \func addBack {A : \Set} {S : Ensemble A} {a : A} (h : a ∈ S) (D : DecSet (Elements S)) : S = add (remove S a) a
+    => extSet
+        (\lam {x} e => \case D.decideEq (a, h) (x, e) \with {
+          | yes a=x => byRight (pmap __.1 a=x)
+          | no n => byLeft (e, \lam p => n (ext p))
+        })
+        (\lam {x} e => \case e \with {
+          | byLeft (xS, _) => xS
+          | byRight x=a => rewriteI x=a h
+        })
+
+  \func removeAgain {A : \Set} {S : Ensemble A} {a : A} (h : a ∉ S) : S = remove (add S a) a
+    => extSet
+        (\lam {x} e => (byLeft e, \lam p => h (rewrite p e)))
+        (\lam {x} (xInAdd, a/=x) => \case xInAdd \with {
+          | byLeft xS => xS
+          | byRight x=a => contradiction
+        })
+
+
+  \func alreadyGone {A : \Set} {S : Ensemble A} {a : A} (h : a ∉ S) : S = remove S a
+    => extSet
+        (\lam xS => (xS, \lam a=x => h (transportInv S a=x xS)))
+        (\lam (xS, _) => xS)
+
+  \func fromSingleToEmpty {A : \Set} {a : A} : remove (single a) a = ∅
+    => extSet
+        (\lam {x} (e, n) => n e)
+        (\lam {x} e => absurd e)
+
+  \func permuteWithAdd {A : \Set} {S : Ensemble A} {a a' : A} (p : a /= a')
+    : remove (add S a') a = add (remove S a) a'
+    => extSet
+        (\lam {x} (e1, a/=x) => \case e1 \with {
+          | byLeft xS => byLeft (xS, a/=x)
+          | byRight x=a' => byRight x=a'
+        })
+        (\lam {x} e => \case e \with {
+          | byLeft (xS, a/=x) => (byLeft xS, a/=x)
+          | byRight a'=x => (byRight a'=x, rewriteI a'=x p)
+        })
+}

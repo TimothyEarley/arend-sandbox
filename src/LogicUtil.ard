@@ -1,0 +1,54 @@
+\import Data.Bool
+\import Data.Or
+\import Function
+\import Logic
+\import Logic.Meta
+\import Relation.Equivalence
+\import Util
+\import util.Maybe
+\import Meta
+\import Order.LinearOrder
+\import Paths
+\import Paths.Meta
+\import Set
+
+\func \infix 6 <-> (A B : \Type) => \Sigma (A -> B) (B -> A)
+
+  \where {
+    \func refl {A : \Type} : A <-> A => (id, id)
+  }
+
+\func \infix 6 <--> (A B : \Type) : \Prop => \Sigma (A -> (TruncP B)) (B -> (TruncP A))
+  \where {
+    \func refl {A : \Type} : A <--> A => (inP, inP)
+
+    \func symm {A B : \Type} (h : A <--> B) : B <--> A => (h.2, h.1)
+
+    \func trans {A B C : \Type} (h : A <--> B) (h' : B <--> C) : A <--> C =>
+      (\lam a => \case h.1 a  \return TruncP C \with {
+        | inP b => h'.1 b
+      },
+       \lam c => \case h'.2 c \return TruncP A \with {
+         | inP c => h.2 c
+       })
+  }
+
+\func invN {A : \Type} {a b : A} (h : Not (a = b)) : Not (b = a) => h o inv
+
+\func orTrue {b : Bool} : or b true = true \elim b
+  | true => idp
+  | false => idp
+
+\func trueOr {b : Bool} : or true b = true \elim b
+  | true => idp
+  | false => idp
+
+\func andFalse {b : Bool} : b and false = false \elim b
+  | false => idp
+  | true => idp
+
+\func deMorganOr {a b : Bool} : not (a or b) = (not a) and (not b)
+  => cases (a, b) idp
+
+\func notNot {a : Bool} : not (not a) = a
+  => cases a idp

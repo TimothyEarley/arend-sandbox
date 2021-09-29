@@ -1,0 +1,229 @@
+\import Data.Or
+\import Star
+\import simplyTypedLambdaDeBruijne.GeneralContext
+
+\data ExtendedType
+  | \infixl 6 --> (A B : ExtendedType)
+  | PNat
+  | Product \alias \infixl 6 ⋇ (A B : ExtendedType)
+  | Sum \alias \infixl 6 ⊎ (A B : ExtendedType)
+  | Unit
+  | EmptyType
+  | ListOf (A : ExtendedType)
+
+\func ExtendedContext => Context ExtendedType
+
+
+\data ExtendedTerm \alias \infix 5 ⊩ (c : ExtendedContext) (A : ExtendedType)
+  \elim A
+    | T => var (c ∋ T)
+    | --> A B => lam (c ∕ A ⊩ B)
+    | T => app \alias \infix 6 ⋅ {A : ExtendedType} (f : c ⊩ A --> T) (arg : c ⊩ A)
+
+    | PNat => natOf Nat
+
+    | ⋇ A B => pair (c ⊩ A) (c ⊩ B)
+    | A => fst {B : ExtendedType} (c ⊩ A ⋇ B)
+    | B => snd {A : ExtendedType} (c ⊩ A ⋇ B)
+
+    | ⊎ A B => isLeft (c ⊩ A)
+    | ⊎ A B => isRight (c ⊩ B)
+    | T => caseSum {A B : ExtendedType} (c ⊩ A ⊎ B) (elimA : c ∕ A ⊩ T) (elimB : c ∕ B ⊩ T)
+
+    | Unit => unit
+
+    | ListOf A => nil
+    | ListOf A => cons (head : c ⊩ A) (tail : c ⊩ ListOf A)
+    -- TODO lists are a bit useless without recursion
+    | T => caseList {A : ExtendedType} (l : c ⊩ ListOf A) (elimNil : c ⊩ T) (elimCons : c ∕ A ∕ ListOf A ⊩ T)
+
+    | T => let {A : ExtendedType} (x : c ⊩ A) (in : c ∕ A ⊩ T)
+
+
+\data ExtendedValue {gamma : ExtendedContext} {A : ExtendedType} (t : gamma ⊩ A) : \Prop \elim A, t
+  | --> A B, lam t => V-lam
+  | PNat, natOf n => V-PNat
+  | ⋇ A B, pair a b => V-Product (ExtendedValue a) (ExtendedValue b)
+  | ⊎ A B, isLeft a => V-Sum1 (ExtendedValue a)
+  | ⊎ A B, isRight b => V-Sum2 (ExtendedValue b)
+  | Unit, unit => V-Unit
+  | ListOf A, nil => V-Nil
+  | ListOf A, cons head tail => V-Cons (ExtendedValue head) (ExtendedValue tail)
+
+\data ExtendedReduction {gamma : ExtendedContext} {A : ExtendedType} (t : gamma ⊩ A)
+\elim A, t
+  | A, ⋅ f arg => R-App1 (ExtendedReduction f)
+  | A, ⋅ f arg => R-App2 (ExtendedReduction arg) (ExtendedValue f)
+  | A, ⋅ (lam body) arg => R-Beta (ExtendedValue arg)
+  | ⋇ A B, pair a b => R-Pair1 (ExtendedReduction a)
+  | ⋇ A B, pair a b => R-Pair2 (ExtendedReduction b) (ExtendedValue a)
+  | A, fst t => R-PairFst (ExtendedValue t)
+  | A, fst t => R-PairFst' (ExtendedReduction t)
+  | A, snd t => R-PairSnd (ExtendedValue t)
+  | A, snd t => R-PairSnd' (ExtendedReduction t)
+  | ⊎ A B, isLeft t => R-Sum1 (ExtendedReduction t)
+  | ⊎ A B, isRight t => R-Sum2 (ExtendedReduction t)
+  | A, caseSum c a b => R-CaseSum (ExtendedValue c)
+  | A, caseSum c a b => R-CaseSum' (ExtendedReduction c)
+  | ListOf A, cons h t => R-Cons1 (ExtendedReduction h)
+  | ListOf A, cons h t => R-Cons2 (ExtendedReduction t) (ExtendedValue h)
+  | A, caseList l h c => R-CaseList (ExtendedValue l)
+  | A, caseList l h c => R-CaseList' (ExtendedReduction l)
+  | A, let x in => R-In (ExtendedValue x)
+  | A, let x in => R-In' (ExtendedReduction x)
+
+
+\where {
+  -- TODO show deterministic
+
+  \func decide {A : ExtendedType} (t : ∅ ⊩ A) : Or (ExtendedReduction t) (ExtendedValue t)
+    \elim A, t
+      | T, var ()
+      | --> A B, lam t => inr V-lam
+      | T, ⋅ f arg => \case decide f, decide arg \with {
+        | inl a, _ => inl (R-App1 a)
+        | inr b, inl a => inl (R-App2 a b)
+        | inr b, inr b1 => \case \elim f, b \with {
+          | lam t, V-lam => inl (R-Beta b1)
+        }
+      }
+      | PNat, natOf n => inr V-PNat
+      | ⋇ A B, pair t1 t2 => \case decide t1, decide t2 \with {
+        | inl a, _ => inl (R-Pair1 a)
+        | inr b, inl a => inl (R-Pair2 a b)
+        | inr b, inr b1 => inr (V-Product b b1)
+      }
+      | A, fst t => \case decide t \with {
+        | inl a => inl (R-PairFst' a)
+        | inr b => \case \elim t, b \with {
+          | pair a b1, b => inl (R-PairFst b)
+        }
+      }
+      | B, snd t => \case decide t \with {
+        | inl a => inl (R-PairSnd' a)
+        | inr b => \case \elim t, b \with {
+          | pair a b1, b => inl (R-PairSnd b)
+        }
+      }
+      | ⊎ A B, isLeft t => \case decide t \with {
+        | inl a => inl (R-Sum1 a)
+        | inr b => inr (V-Sum1 b)
+      }
+      | ⊎ A B, isRight t => \case decide t \with {
+        | inl a => inl (R-Sum2 a)
+        | inr b => inr (V-Sum2 b)
+      }
+      | ListOf A, nil => inr V-Nil
+      | ListOf A, cons h t => \case decide h, decide t \with {
+        | inl a, _ => inl (R-Cons1 a)
+        | inr b, inl a => inl (R-Cons2 a b)
+        | inr b, inr b1 => inr (V-Cons b b1)
+      }
+      | T, caseSum t elimA elimB => \case decide t \with {
+        | inl a => inl (R-CaseSum' a)
+        | inr b => inl (R-CaseSum b)
+      }
+      | T, caseList l elimNil elimCons => \case decide l \with {
+        | inl a => inl (R-CaseList' a)
+        | inr b => inl (R-CaseList b)
+      }
+      | Unit, unit => inr V-Unit
+      | A, let x in => \case decide x \with {
+        | inl a => inl (R-In' a)
+        | inr b => inl (R-In b)
+      }
+}
+
+\instance ExtendedSubst : SubstOperations (⊩)
+  | rename => rename
+  | extends => extends
+  | subst => subst
+  | s-var l => var l
+  \where {
+  \func rename {gamma delta : ExtendedContext} (h : Rename gamma delta)
+               {A : ExtendedType} (t : gamma ⊩ A) : delta ⊩ A
+    \elim A, t
+      | T, var l => var (h l)
+      | --> A B, lam t => lam (rename (extend h) t)
+      | T, ⋅ f arg => (rename h f) ⋅ (rename h arg)
+      | PNat, natOf n => natOf n
+      | ⋇ A B, pair t1 t2 => pair (rename h t1) (rename h t2)
+      | A, fst t => fst (rename h t)
+      | B, snd t => snd (rename h t)
+      | ⊎ A B, isLeft t => isLeft (rename h t)
+      | ⊎ A B, isRight t => isRight (rename h t)
+      | T, caseSum t elimA elimB => caseSum (rename h t) (rename (extend h) elimA) (rename (extend h) elimB)
+      | T, caseList l a b => caseList (rename h l) (rename h a) (rename (extend (extend h)) b)
+      | T, let x in => let (rename h x) (rename (extend h) in)
+      | Unit, unit => unit
+      | ListOf A, nil => nil
+      | ListOf A, cons head tail => cons (rename h head) (rename h tail)
+
+  \func extends {gamma delta : ExtendedContext} (h : Subst {_} {⊩} gamma delta)
+                {B : ExtendedType} : Subst {_} {⊩} (gamma ∕ B) (delta ∕ B)
+    => \lam {A} l => \case \elim l \with {
+      | Z p => var (Z p)
+      | S l => rename S (h l)
+    }
+
+  \func subst {gamma delta : ExtendedContext} (s : Subst {_} {⊩} gamma delta)
+              {A : ExtendedType} (t : gamma ⊩ A) : delta ⊩ A
+    \elim A, t
+      | T, var l => s l
+      | --> A B, lam t => lam (subst (extends s) t)
+      | T, ⋅ f arg => (subst s f) ⋅ (subst s arg)
+      | PNat, natOf n => natOf n
+      | ⋇ A B, pair t1 t2 => pair (subst s t1) (subst s t2)
+      | A, fst t => fst (subst s t)
+      | B, snd t => snd (subst s t)
+      | ⊎ A B, isLeft t => isLeft (subst s t)
+      | ⊎ A B, isRight t => isRight (subst s t)
+      | T, caseSum t elimA elimB => caseSum (subst s t) (subst (extends s) elimA) (subst (extends s) elimB)
+      | T, caseList l elimNil elimCons => caseList (subst s l) (subst s elimNil) (subst (extends (extends s)) elimCons)
+      | T, let x in => let (subst s x) (subst (extends s) in)
+      | Unit, unit => unit
+      | ListOf A, nil => nil
+      | ListOf A, cons head tail => cons (subst s head) (subst s tail)
+
+}
+
+
+\func extendedReduce {gamma : ExtendedContext} {A : ExtendedType}
+             {t : gamma ⊩ A} (r : ExtendedReduction t) : gamma ⊩ A
+  \elim A, t, r
+    | A, ⋅ f arg, R-App1 r => (extendedReduce r ) ⋅ arg
+    | A, ⋅ f arg, R-App2 r e => f ⋅ (extendedReduce r)
+    | A, ⋅ (lam body) arg, R-Beta e => sub body arg
+    | ⋇ A B, pair a b, R-Pair1 r => pair (extendedReduce r) b
+    | ⋇ A B, pair a b, R-Pair2 r e => pair a (extendedReduce r)
+    | A, fst t, R-PairFst v => \case \elim t, v \with {
+      | pair a b, V-Product e e1 => a
+    }
+    | A, fst t, R-PairFst' r => fst (extendedReduce r)
+    | A, snd t, R-PairSnd v => \case \elim t, v \with {
+      | pair a b, V-Product e e1 => b
+    }
+    | A, snd t, R-PairSnd' r => snd (extendedReduce r)
+    | ⊎ A B, isLeft t, R-Sum1 r => isLeft (extendedReduce r)
+    | ⊎ A B, isRight t, R-Sum2 r => isRight (extendedReduce r)
+    | T, caseSum t elimA elimB, R-CaseSum e => \case \elim t, e \with {
+      | isLeft a, V-Sum1 e1 => sub elimA a
+      | isRight b, V-Sum2 e1 => sub elimB b
+    }
+    | T, caseSum t elimA elimB, R-CaseSum' r => caseSum (extendedReduce r) elimA elimB
+    | T, caseList l elimNil elimCons, R-CaseList e => \case \elim l, e \with {
+      | nil, V-Nil => elimNil
+      | cons head tail, V-Cons e1 e2 => sub2 elimCons head tail
+    }
+    | T, caseList l elimNil elimCons, R-CaseList' r => caseList (extendedReduce r) elimNil elimCons
+    | T, let x in, R-In e => sub in x
+    | T, let x in, R-In' r => let (extendedReduce r) in
+    | ListOf A, cons head tail, R-Cons1 r => cons (extendedReduce r) tail
+    | ListOf A, cons head tail, R-Cons2 r e => cons head (extendedReduce r)
+
+\func ExtendedReducesStep \alias \infix 5 ->1_e {gamma : ExtendedContext} {A : ExtendedType} (t t' : gamma ⊩ A) =>
+  \Sigma (r : ExtendedReduction t) (extendedReduce r = t')
+
+\func idpStep {gamma : ExtendedContext} {A : ExtendedType} {t : gamma ⊩ A} {r : ExtendedReduction t} : t ->1_e (extendedReduce r) => (r, idp)
+
+\func Reduces \alias \infix 5 ->*_e {gamma : ExtendedContext} {A : ExtendedType} (t t' : gamma ⊩ A) => Star (->1_e) t t'

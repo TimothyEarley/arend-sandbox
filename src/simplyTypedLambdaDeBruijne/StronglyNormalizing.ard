@@ -1,0 +1,223 @@
+\import Data.Or
+\import Logic
+\import Meta
+\import Paths
+\import Paths.Meta
+\import Set \hiding (#)
+\import Star
+\import simplyTypedLambdaDeBruijne.GeneralContext \hiding (extends, rename, subst)
+\import simplyTypedLambdaDeBruijne.Lambda
+\import simplyTypedLambdaDeBruijne.Reduction
+\import simplyTypedLambdaDeBruijne.Substitute
+
+\func Normal {c : SimpleContext} {T : Type} (t : c ⊢ T) : \Prop => Not (Reduction t)
+
+  \where {
+    \func value {c : SimpleContext} {T : Type} {t : c ⊢ T} (v : Value t) : Normal t
+    \elim T, t, v
+      | Natural, zero, V-zero => \lam r => \case r
+      | Natural, succ c1, V-Succ v => \lam r => \case r \with {
+        | R-Succ r1 => value v r1
+      }
+      | --> A B, lam t, V-lam => \lam r => \case r
+
+    \func aVar {c : SimpleContext} {T : Type} {l : c ∋ T} : Normal (var l) => \lam r => \case r
+  }
+
+-- Normal, but not value, is stuck
+-- this should not happen in a typed setting
+
+\func Stuck {c : SimpleContext} {T : Type} (t : c ⊢ T) => \Sigma (Normal t) (Not (Value t))
+
+\func typedInEmptyCtxNotStuck {T : Type} (t : ∅ ⊢ T) (s : Stuck t) : Empty
+\elim T, t, s
+  | Natural, zero, (n, nv) => nv V-zero
+  | Natural, succ t, (n, nv) => typedInEmptyCtxNotStuck t (\lam r => n (R-Succ r), \lam v => nv (V-Succ v))
+  | T, var (), _
+  | --> A B, lam t, (n, nv) => nv V-lam
+  | B, ⋅ t1 t2, (n, nv) => n Reduction.appCanReduce
+
+\data StronglyNormalizing {c : SimpleContext} {T : Type} (t : c ⊢ T) : \Set
+  | allReductionsNormalize (\Pi (r : Reduction t) -> StronglyNormalizing (reduce r))
+  \where {
+    \func normal {c : SimpleContext} {T : Type} {t : c ⊢ T} (n : Normal t) : StronglyNormalizing t =>
+      allReductionsNormalize (\lam r => absurd (n r))
+
+    \func value {c : SimpleContext} {T : Type} {t : c ⊢ T} (v : Value t) : StronglyNormalizing t =>
+      normal (Normal.value v)
+
+    \func afterStep {c : SimpleContext} {T : Type} {t t' : c ⊢ T} (sn : StronglyNormalizing t)
+                    (s : t ->1 t') : StronglyNormalizing t'
+    \elim sn, s
+      | allReductionsNormalize h, (r, idp) => h r
+
+    \func underSucc {c : SimpleContext} {t : c ⊢ Natural} (sn : StronglyNormalizing t) : StronglyNormalizing (succ t)
+    \elim sn
+      | allReductionsNormalize h => allReductionsNormalize
+          (\lam r => \case \elim r \with {
+            | R-Succ r => underSucc (h r)
+          })
+
+    -- TODO move
+    \func reductionOrNormal  {c : SimpleContext} {T : Type} (t : c ⊢ T) : Or (Reduction t) (Normal t)
+      \elim T, t
+        | Natural, zero => inr (Normal.value V-zero)
+        | Natural, succ t => \case reductionOrNormal t \with {
+          | inl a => inl (R-Succ a)
+          | inr b => inr (\lam r => \case r \with {
+            | R-Succ r1 => b r1
+          })
+        }
+        | T, var l => inr Normal.aVar
+        | --> A B, lam t => inr (Normal.value V-lam)
+        | B, ⋅ t1 t2 => \case reductionOrNormal t1, reductionOrNormal t2 \with {
+          | inl a, _ => inl (R-App1 a)
+          | inr b, inl a => \case Value.isValue t1 \with {
+            | yes e => inl (R-App2 a e)
+            -- stuck:
+            | no n => inr (\lam r => \case \elim t1, r, b, n \with {
+              | t1, R-App1 r1, b, n => b r1
+              | t1, R-App2 r1 v, b, n => n v
+              | lam t1, R-Beta v, b, n => n V-lam
+            })
+          }
+          | inr b, inr b1 => \case \elim t1, Value.isValue t2, b \with {
+            | lam t, yes v, b => inl (R-Beta v)
+            | lam t, no n, b => inr (\lam r => \case r \with {
+              | R-App1 r1 => b r1
+              | R-App2 r1 v => b1 r1
+              | R-Beta v => n v
+            })
+            | var l, v, b => inr (\lam r => \case r \with {
+              | R-App1 r1 => b r1
+              | R-App2 r1 v1 => b1 r1
+            })
+            | ⋅ t t3, v, b => inr (\lam r => \case r \with {
+              | R-App1 r1 => b r1
+              | R-App2 r1 v1 => b1 r1
+            })
+          }
+        }
+
+    \func evaluate {c : SimpleContext} {T : Type} (t : c ⊢ T) (sn : StronglyNormalizing t) : \Sigma (t' : c ⊢ T) (t ->* t') (Normal t')
+      \elim sn
+        | allReductionsNormalize h => \case reductionOrNormal t \with {
+        | inr n => (t, refl idp, n)
+        | inl r => \let e => evaluate (reduce r) (h r) \in (e.1, (r, idp) ~> e.2, e.3)
+      }
+  }
+
+\func SSubst => Subst {Type} {⊢}
+
+\func L {gamma : SimpleContext} {T : Type} (t : gamma ⊢ T) : \Set
+\elim T
+  | Natural => StronglyNormalizing t
+  | --> A B => \Sigma (StronglyNormalizing t) (\Pi (t' : gamma ⊢ A) (lt : L t') -> L (t ⋅ t'))
+
+\where {
+
+  \func preserve->1 {gamma : SimpleContext} {T : Type} {t t' : gamma ⊢ T} (l : L t) (r : t ->1 t') : L t'
+    \elim T, t, r
+      | Natural, t, (r, idp) => \case L->SN l \with {
+        | allReductionsNormalize h => h r
+      }
+      | B, ⋅ t1 t2, (R-App1 r, idp) => {?}
+      | B, ⋅ t1 t2, (R-App2 r v, idp) => {?}
+      | B, ⋅ (lam t1) t2, (R-Beta v, idp) => {?}
+
+      | T, var l1, ((), _)
+      | --> A B, lam t, ((), _)
+
+  \func preserve->* {gamma : SimpleContext} {T : Type} {t t' : gamma ⊢ T} (l : L t) (s : t ->* t') : L t'
+    \elim s
+      | refl idp => l
+      | ~> r s => preserve->* (preserve->1 l r) s
+
+  \func reverse->* {gamma : SimpleContext} {T : Type} {t t' : gamma ⊢ T} (l : L t') (s : t ->* t') : L t
+    => {?}
+
+
+  \func normal {gamma : SimpleContext} {T : Type} {t : gamma ⊢ T} (n : Normal t) : L t
+    \elim T
+      | Natural => StronglyNormalizing.normal n
+      | --> A B => (StronglyNormalizing.normal n,
+                    \lam t' lt =>
+                      \let | (nt', st, z') => StronglyNormalizing.evaluate t' (L->SN lt)
+                           | lt' => preserve->* lt st
+                           | st' : t ⋅ t' ->* t ⋅ nt' => {?}
+                           | goal : L (t ⋅ nt') => {?}
+                      \in reverse->* goal st')
+}
+
+\func L->SN {gamma : SimpleContext} {T : Type} {t : gamma ⊢ T} (l : L t) : StronglyNormalizing t
+\elim T
+  | Natural => l
+  | --> A B => l.1
+
+\func Lc {c c' : SimpleContext} (s : SSubst c c') : \Set => \Pi {T : Type} (l : c ∋ T) -> L (s l)
+
+\func fundamentalTheoremOfLogicalRelations
+  {gamma gamma' : SimpleContext} {T : Type} (t : gamma ⊢ T) (s : SSubst gamma gamma') (lc : Lc s)
+  : L (subst s t)
+\elim T, t
+  | Natural, zero => StronglyNormalizing.value V-zero
+  | Natural, succ t => StronglyNormalizing.underSucc (fundamentalTheoremOfLogicalRelations t s lc)
+  | T, var l => \let h => lc l \in rewrite substVar h
+  | --> A B, lam t => (StronglyNormalizing.value V-lam,
+                       \lam t' lt =>
+                      \let foo => fundamentalTheoremOfLogicalRelations t (extendsWith s t') (extendsWithLc s lc lt)
+                      \in {?})
+  | B, ⋅ t1 t2 => \let
+    | h => (fundamentalTheoremOfLogicalRelations t1 s lc).2 (subst s t2) (fundamentalTheoremOfLogicalRelations t2 s lc)
+                  \in rewrite substApp h
+
+  \where {
+    \func substApp {c c' : SimpleContext} {s : SSubst c c'}
+                   {T T' : Type} {t1 : c ⊢ T --> T'} {t2 : c ⊢ T}  : subst s (t1 ⋅ t2) = (subst s t1) ⋅ (subst s t2)
+    \elim T'
+      | Natural => idp
+      | --> A B => idp
+
+    \func substVar  {c c' : SimpleContext} {s : SSubst c c'}
+                    {T : Type} {l : c ∋ T} : subst s (var l) = s l
+    \elim T
+      | Natural => idp
+      | --> A B => idp
+
+    \func extendsWith {c c' : SimpleContext} (s : SSubst c c') {T : Type} (t : c' ⊢ T)
+      : SSubst (c ∕ T) c' => \lam {A} l => \case l \with {
+      | Z p => rewriteI p t
+      | S l => s l
+    }
+
+    \func extendsWithLc {c c' : SimpleContext} (s : SSubst c c') {T : Type} {t : c' ⊢ T} (lc : Lc s) (h : L t) : Lc (extendsWith s t) =>
+      \lam {A} l => \case \elim A, \elim l \with {
+        | A, Z idp => h
+        | A, S l => lc l
+      }
+  }
+
+\func typedTermsStronglyNormalize {gamma : SimpleContext} {T : Type} (t : gamma ⊢ T) : StronglyNormalizing t =>
+  L->SN (rewriteI idSubstDoesNothing (fundamentalTheoremOfLogicalRelations t idSubst idSubstLc))
+  \where {
+    \func idSubst {c : SimpleContext} : SSubst c c => \lam {A} l => var l
+
+    \func extendId {c : SimpleContext} {A : Type} : extends idSubst = {SSubst (c ∕ A) (c ∕ A)} idSubst =>
+      ext (\lam {A1} l => \case \elim l \with {
+        | Z p => idp
+        | S l => rewrite rename.renameVar idp
+      })
+
+    \func idSubstLc {c : SimpleContext} : Lc (idSubst {c}) => \lam {T} l => \case \elim T, \elim l \with {
+      | Natural, l => StronglyNormalizing.normal Normal.aVar
+      | --> A B, l => (StronglyNormalizing.normal Normal.aVar, {?})
+    }
+
+    \func idSubstDoesNothing {c : SimpleContext} {T : Type} {t : c ⊢ T} : subst idSubst t = t
+    \elim T, t
+      | Natural, zero => idp
+      | Natural, succ t => pmap succ idSubstDoesNothing
+      | T, var l => rewrite fundamentalTheoremOfLogicalRelations.substVar idp
+      | --> A B, lam t => rewrite (extendId {c} {A}) (pmap lam idSubstDoesNothing)
+      | B, ⋅ t1 t2 => rewrite fundamentalTheoremOfLogicalRelations.substApp (pmap2 (⋅) idSubstDoesNothing idSubstDoesNothing)
+  }

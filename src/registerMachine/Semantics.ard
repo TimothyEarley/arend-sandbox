@@ -1,0 +1,69 @@
+\import Data.Bool
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Paths
+\import Paths.Meta
+\import Prelude
+\import Set
+\import Star
+\import Util
+\import identity.FinIdentity
+\import registerMachine.Program
+\import util.ArrayUtils
+\import util.Maybe
+\open MachineSpec (String)
+\open ArrayUtils (??, arrayOf, set)
+
+\record Configuration (spec : MachineSpec)
+  | line : Nat
+  | registers : Array spec.String (suc spec.registerCount)
+  | output : Array spec.String
+
+  \where {
+    \func start {spec : MachineSpec} (input : spec.String) : Configuration spec \cowith
+      | line => 0
+      | registers => input :: arrayOf nil
+      | output => nil
+  }
+
+\func stepInstruction {spec : MachineSpec} (i : Instruction spec) (c : Configuration spec) : Configuration spec \elim i
+  | add register c1 => \new Configuration {
+    | line => suc c.line
+    | registers => set c.registers register (c1 :: (c.registers register))
+    | output => c.output
+  }
+  | sub register c1 => \new Configuration {
+    | line => suc c.line
+    | registers => set c.registers register (subString (c.registers register) c1)
+    | output => c.output
+  }
+  | case register emptyCase alphabetCase => \new Configuration {
+    | line => \case (c.registers register) \with {
+      | nil => emptyCase
+      | :: a l => alphabetCase a
+    }
+    | registers => c.registers
+    | output => c.output
+  }
+  | print => \new Configuration {
+    | line => suc c.line
+    | registers => c.registers
+    | output => (c.registers 0) :: c.output
+  }
+  | halt => c
+
+  \where {
+    \func subString {spec : MachineSpec} (s : spec.String) (a : spec.Alphabet) : spec.String \elim s
+      | nil => nil
+      | :: a' l => \case a' fin≟ a \with {
+        | yes _ => l
+        | no _ => a' :: l
+      }
+  }
+
+\func programmStep {spec : MachineSpec} (p : Program spec) (c : Configuration spec) : Configuration spec =>
+  stepInstruction ((p ?? c.line) orElse halt) c
+
+\func runs {spec : MachineSpec} (p : Program spec) (c c' : Configuration spec) : \Type =>
+  Star (programmStep p __ = __) c c'

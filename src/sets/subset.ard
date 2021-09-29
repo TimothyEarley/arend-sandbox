@@ -1,0 +1,39 @@
+\import Function
+\import Paths.Meta
+\import sets.Elements
+\import sets.MySet
+\import sets.Complement
+\import sets.Intersect
+\import sets.subset
+\import sets.union
+
+\func subset \alias \infix 5 ⊆ {A : \Set} (a b : Ensemble A) : \Prop => \Pi {x : A} (x ∈ a) -> x ∈ b
+
+  \where {
+    \func empty-is-subset \alias ∅-is-⊆ {A : \Set} {S : Ensemble A} : ∅ ⊆ S => \lam e => \case e \with {
+    }
+
+    \func refl {A : \Set} {x : Ensemble A} : x ⊆ x => \lam e => e
+
+    \func trans {A : \Set} {a b c : Ensemble A} (h : a ⊆ b) (h' : b ⊆ c) : a ⊆ c => \lam ax => h' (h ax)
+
+    \func anti-sym {A : \Set} {a b : Ensemble A} (h : a ⊆ b) (h' : b ⊆ a) : a = b => ext (\lam x => ext (h, h'))
+
+    \func toFunction {A : \Set} {S S' : Ensemble A} (s : S ⊆ S') : (Elements S) -> (Elements S') =>
+      \lam e => (e.1, s e.2)
+
+    \func of-empty \alias ⊆∅-is-∅ {A : \Set} {S : Ensemble A} (h : S ⊆ ∅) : S = ∅ =>
+      anti-sym h (∅-is-⊆ {A} {S})
+
+    \func of-intersection-right \alias of-∩-right {A : \Set} {S S' : Ensemble A} : S ∩ S' ⊆ S'
+      => \lam {x} e => e.2
+
+    \func of-intersection-left \alias of-∩-left {A : \Set} {S S' : Ensemble A} : S ∩ S' ⊆ S
+      => \lam {x} e => e.1
+
+    \func refl-is-id {A : \Set} {x : Ensemble A} (s : x ⊆ x) : s = {\Pi {y : A} (y ∈ x) -> y ∈ x} (\lam {y} e => e)
+      => ext
+
+    \func preCompose {A : \Set} {x y : Ensemble A} (s : x ⊆ y) {B : \Type} (f : Elements y -> B) : Elements x -> B
+      => \lam e => f (toFunction s e)
+  }

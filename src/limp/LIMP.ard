@@ -1,0 +1,208 @@
+\import Arith.Int
+\import Data.Bool \using (not \as bnot)
+\import Data.List
+\import Data.Maybe
+\import Function
+\import Logic
+\import Logic.Meta
+\import LogicUtil
+\import Order.PartialOrder
+\import Relation.Equivalence
+\import Set
+\import identity.FinIdentity
+\import identity.Identity
+\import util.ArrayUtils
+\import Meta
+\import Order.StrictOrder
+\import Paths
+\import Paths.Meta
+\import sets.Elements
+\import sets.MySet
+\import sets.Complement
+\import sets.Finite
+\import sets.Intersect
+\import sets.pow
+\import sets.subset
+\import sets.union
+
+\func Num => Int
+
+\class Signature
+  | Var : DecSet
+  | LVar : DecSet
+
+\data AExp {S : Signature}
+  | num Num
+  | var S.Var
+  | oplus \alias \infix 6 ⊕ (a b : AExp)
+  | ominus \alias \infix 6 ⊖ (a b : AExp)
+  | otimes \alias \infix 6 ⊙ (a b : AExp)
+  \where {
+    \use \coerce fromNat {S : Signature} (n : Nat) : AExp {S} => num n
+  }
+
+\data BExp {S : Signature}
+  | tt
+  | ff
+  | \infix 6 eq (a b : AExp)
+  | \infix 6 leq (a b : AExp)
+  | \infix 6 not (BExp)
+  | \infix 6 and (a b : BExp)
+  | \infix 6 or (a b : BExp)
+
+\data Com {S : Signature}
+  | skip
+  | assign \alias \infix 6 := Var AExp
+  | seq \alias \infix 6 # (a b : Com)
+  | ite (BExp) (then else : Com)
+  | while BExp Com
+  | append LVar AExp
+  | assignL \alias \infix 6 :=L Var LVar AExp
+
+
+-- Semantics
+
+\record State (Sig : Signature)
+  | variables : Var -> Num
+  | lists : LVar -> List Num
+
+  \where {
+    \func default {S : Signature} : State S \cowith
+      | variables v => 0
+      | lists l => nil
+  }
+
+\func AExpJudgement (S : Signature) => \Sigma (AExp {S}) (State S)
+
+\func BExpJudgement (S : Signature) => \Sigma (BExp {S}) (State S)
+
+\func ComJudgement (S : Signature) => \Sigma (Com {S}) (State S)
+
+\open IntRing
+\open ArrayUtils (set)
+
+\data AExpDerivation \alias \infix 6 aEval {S : Signature} (j : AExpJudgement S) (n : Num) \elim S, j
+  | S, (⊕ a b, state) => rPlus  {n1 n2 : Num} ((a, state) aEval {S} n1) ((b, state) aEval {S} n2) (n = n1 + n2)
+  | S, (⊖ a b, state) => rMinus {n1 n2 : Num} ((a, state) aEval {S} n1) ((b, state) aEval {S} n2) (n = n1 + (negative n2))
+  | S, (⊙ a b, state) => rTimes {n1 n2 : Num} ((a, state) aEval {S} n1) ((b, state) aEval {S} n2) (n = n1 * n2)
+  | S, (var v, state) => rVar (variables {state} v = n)
+  | S, (num n', state) => rNum (n = n')
+
+  \where {
+    \func calc {S : Signature} (j : AExpJudgement S) : Num \elim j
+      | (num n, s) => n
+      | (var e, s) => (variables {s}) e
+      | (⊕ a b, s) => calc (a, s) + calc (b, s)
+      | (⊖ a b, s) => calc (a, s) + negative (calc (b, s))
+      | (⊙ a b, s) => calc (a, s) * calc (b, s)
+
+    \func calc_correct {S : Signature} {j : AExpJudgement S} {n : Num} : (j aEval n) <-> (calc j = n) =>
+      (eval=>calc, calc=>eval)
+      \where {
+        \func eval=>calc {S : Signature} {j : AExpJudgement S} {n : Num} (h : j aEval n) : calc j = n \elim j, h
+          | (⊕ a b,state), rPlus h1 h2 p => (pmap2 (+) (eval=>calc h1) (eval=>calc h2)) *> (inv p)
+          | (⊖ a b,state), rMinus h1 h2 p => (pmap2 (__ + negative __) (eval=>calc h1) (eval=>calc h2)) *> (inv p)
+          | (⊙ a b,state), rTimes h1 h2 p => (pmap2 (*) (eval=>calc h1) (eval=>calc h2)) *> (inv p)
+          | (var v,state), rVar p => p
+          | (num n',state), rNum p => inv p
+
+        \func calc=>eval {S : Signature} {j : AExpJudgement S} {n : Num} (h : calc j = n) : j aEval n \elim j
+          | (num n1, s) => rNum (inv h)
+          | (var e, s) => rVar h
+          | (⊕ a b, s) => rPlus (calc=>eval idp) (calc=>eval idp) (inv h)
+          | (⊖ a1 b1, s) => rMinus (calc=>eval idp) (calc=>eval idp) (inv h)
+          | (⊙ a1 b1, s) => rTimes (calc=>eval idp) (calc=>eval idp) (inv h)
+      }
+  }
+
+\data BExpDerivation \alias \infix 6 bEval {S : Signature} (j : BExpJudgement S) (b : Bool) \elim S, j
+  | S, (tt, state) => rtrue (So b)
+  | S, (ff, state) => rfalse (So (bnot b))
+
+  | S, (eq x y, state) => reqt (So b) {n1 n2 : Num} ((x, state) aEval {S} n1) ((y, state) aEval {S} n2) (n1 = n2)
+  | S, (eq x y, state) => reqf (So (bnot b)) {n1 n2 : Num} ((x, state) aEval {S} n1) ((y, state) aEval {S} n2) (Not (n1 = n2))
+
+  | S, (leq x y, state) => rleqt (So b) {n1 n2 : Num} ((x, state) aEval {S} n1) ((y, state) aEval {S} n2) (n1 <= n2)
+  | S, (leq x y, state) => rleqf (So (bnot b)) {n1 n2 : Num} ((x, state) aEval {S} n1) ((y, state) aEval {S} n2) (Not (n1 <= n2))
+
+  | S, (not x, state) => rnott (So b) ((x, state) bEval {S} false)
+  | S, (not x, state) => rnotf (So (bnot b)) ((x, state) bEval {S} true)
+
+  | S, (and x y, state) => randf1 (So (bnot b)) ((x, state) bEval {S} false)
+  | S, (and x y, state) => randf2 (So (bnot b)) ((y, state) bEval {S} false)
+  | S, (and x y, state) => randt  (So b) ((x, state) bEval {S} true) ((y, state) bEval {S} true)
+
+  | S, (or x y, state) => rort1 (So b) ((x, state) bEval {S} true)
+  | S, (or x y, state) => rort2 (So b) ((y, state) bEval {S} true)
+  | S, (or x y, state) => rorf  (So (bnot b)) ((x, state) bEval {S} false) ((y, state) bEval {S} false)
+
+\func substVar {S : Signature} (state : State S) (v : Var) (n : Num) : State S \cowith
+  | variables v' => \case v == v' \with {
+    | true => n
+    | false => state.variables v'
+  }
+  | lists => state.lists
+  \where {
+    \func get {S : Signature} {s : State S} {n : Num} {x : Var} : variables {substVar s x n} x = n =>
+      unfold (\case decideEq x x \as d, idp : decideEq x x = d \with {
+        | yes e, q => rewrite q idp
+        | no n1, p => contradiction
+      })
+
+    \func combine {S : Signature} {s : State S} {n n' : Num} {x : Var} :
+      substVar (substVar s x n) x n' = substVar s x n' => ext
+        (ext (\lam e => unfold (\case decToBool (decideEq x e) \as d, idp : decToBool (decideEq x e) = d \with {
+          | true, q => rewrite q idp
+          | false, q => rewrite q idp
+        })))
+  }
+
+\func substList {S : Signature} (state : State S) (v : LVar) (l : List Num) : State S \cowith
+  | variables => state.variables
+  | lists v' => \case v == v' \with {
+    | true => l
+    | false => state.lists v'
+  }
+
+\data ComDerivation \alias \infix 6 cEval {S : Signature} (j : ComJudgement S) (state' : State S) : \Set \elim S, j
+  | S, (skip, state) => rsk (state' = state)
+  | S, (:= X a, state) => r:= {n : Num} ((a, state) aEval {S} n) (state' = substVar {S} state X n)
+  | S, (# x y, state) => r# {state'' : State S} ((x, state) cEval {S} state'') ((y, state'') cEval {S} state')
+  | S, (ite b t e, state) => rift ((b, state) bEval {S} true) ((t, state) cEval {S} state')
+  | S, (ite b t e, state) => riff ((b, state) bEval {S} false) ((e, state) cEval {S} state')
+  | S, (while b c, state) => rwht ((b, state) bEval {S} true) {state'' : State S} ((c, state) cEval {S} state'') ((while b c, state'') cEval {S} state')
+  | S, (while b c, state) => rwhf ((b, state) bEval {S} false) (state' = state)
+  | S, (:=L X l a, state) => rSt {n : Num} ((a, state) aEval {S} n) {e : Num} (select (lists {state} l) n = just e) (state' = substVar {S} state X e)
+  | S, (append l a, state) => rAp {n : Num} ((a, state) aEval {S} n) (state' = substList {S} state l (appendList (lists {state} l) n))
+
+  \where {
+    \func select (l : List Num) (n : Num) : Maybe Num
+    \elim l, n
+      | nil, _ => nothing
+      | :: a l, pos 0 => just a
+      | :: a l, pos (suc n) => select l (pos n)
+      | :: a l, neg 0 => just a
+      | :: a l, neg (suc n) => nothing
+
+    \func appendList (l : List Num) (n : Num) : List Num => l ++ (n :: nil)
+  }
+
+-- Helpers for fin state
+
+\func finSig (nVar nLVar : Nat) : Signature \cowith
+  | Var => FinIdentity {nVar}
+  | LVar => FinIdentity {nLVar}
+
+\func finState {nVar nLVar : Nat} (v : Array Num nVar) (l : Array (List Num) nLVar) : State  \cowith
+  | Sig => finSig nVar nLVar
+  | variables => v
+  | lists => l
+
+\func finSubst {nVar nLVar : Nat} {v : Array Num nVar} {l : Array (List Num) nLVar} {x : Fin nVar} {n : Num}
+  : substVar {finSig nVar nLVar} (finState v l) x n = finState (set v x n) l =>
+  ext (ext (\lam e => unfold (mcases {2, 3} \with {
+    | yes e1, yes e2 => idp
+    | yes e1, no n1 => absurd (n1 (code-decode e1))
+    | no n1, yes e1 => absurd (n1 (code-encode e1))
+    | no n1, no n2 => idp
+  })))

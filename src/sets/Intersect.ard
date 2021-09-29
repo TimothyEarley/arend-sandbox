@@ -1,0 +1,4 @@
+\import sets.MySet
+\import sets.Complement
+
+\func intersect \alias \infix 6 ∩ {A : \Set} (a b : Ensemble A) : Ensemble A => \lam x => \Sigma (x ∈ a) (x ∈ b)

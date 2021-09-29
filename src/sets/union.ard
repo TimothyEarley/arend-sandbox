@@ -1,0 +1,138 @@
+\import Data.Bool
+\import Data.Or
+\import Equiv
+\import Logic
+\import Logic.Meta
+\import LogicUtil
+\import Meta
+\import Paths.Meta
+\import sets.Add
+\import sets.Disjoint
+\import sets.Elements
+\import sets.Finite
+\import sets.MySet
+\import sets.Complement
+\import sets.Intersect
+\import sets.union
+
+\func union \alias \infixl 6 ∪ {E : \Set} (a b : Ensemble E) : Ensemble E => \lam e => (e ∈ a) || (e ∈ b)
+
+  \where {
+    \func left-empty {E : \Set} {a : Ensemble E} : ∅ ∪ a = a => extSet
+        (\lam e => \case \elim e \with {
+          | byLeft ()
+          | byRight h => h
+        })
+        (byRight __)
+
+    \func right-empty {E : \Set} {a : Ensemble E} : a ∪ ∅ = a => rewrite comm left-empty
+
+    \func comm {E : \Set} {a b : Ensemble E} : a ∪ b = b ∪ a => ext (\lam e => ||-comm)
+
+    \func assoc {E : \Set} {a b c : Ensemble E} : (a ∪ b) ∪ c = a ∪ (b ∪ c) => ext (\lam e => ||-assoc)
+
+    \func cancel {E : \Set} (a : Ensemble E) : a ∪ a = a => ext (\lam e => ||-collapse)
+
+    \func union-smap {A B : \Set} (a b : Ensemble A) (f : A -> B) : (a ∪ b) smap f = (a smap f) ∪ (b smap f) =>
+      ext (\lam x => propExt
+          (\lam h => \case \elim x, \elim h \with {
+            | _, inP (y, idp, byLeft ay) => byLeft (inP (y, idp, ay))
+            | _, inP (y, idp, byRight by) => byRight (inP (y, idp, by))
+          })
+          (\lam h => \case \elim x, \elim h \with {
+            | _, byLeft (inP (y, idp, ay)) => inP (y, idp, byLeft ay)
+            | _, byRight (inP (y, idp, by)) => inP (y, idp, byRight by)
+          }))
+
+    \func union-cross {E : \Set} (a b c d : Ensemble E) : (a ∪ b) ∪ (c ∪ d) = (a ∪ c) ∪ (b ∪ d) =>
+      ext (\lam e => propExt
+          (\lam h => \case \elim h \with {
+            | byLeft (byLeft x) => byLeft (byLeft x)
+            | byLeft (byRight x) => byRight (byLeft x)
+            | byRight (byLeft x) => byLeft (byRight x)
+            | byRight (byRight x) => byRight (byRight x)
+          })
+          (\lam h => \case \elim h \with {
+            | byLeft (byLeft x) => byLeft (byLeft x)
+            | byLeft (byRight x) => byRight (byLeft x)
+            | byRight (byLeft x) => byLeft (byRight x)
+            | byRight (byRight x) => byRight (byRight x)
+          })
+      )
+
+    \func not-in-union {E : \Set} {A B : Ensemble E} {x : E} (h : x ∉ (A ∪ B)) : \Sigma (x ∉ A) (x ∉ B) =>
+      (\lam s => h (byLeft s),
+       \lam s => h (byRight s))
+
+    \func not-in-union' {E : \Set} {A B : Ensemble E} {x : E}
+                        (h1 : x ∉ A) (h2 : x ∉ B) : x ∉ (A ∪ B) =>
+      \lam u => \case \elim u \with {
+        | byLeft a => h1 a
+        | byRight b => h2 b
+      }
+  }
+
+\func bigUnion \alias ⋃ {A : \Set} (S : Ensemble (Ensemble A)) : Ensemble A
+  => \lam a => ∃ (S' : Ensemble A) (S' ∈ S) (a ∈ S')
+\where {
+  \func emptyBigUnion {A : \Set} : ⋃ ∅ = ∅ {A}
+    => show-empty (\lam (x, inP e) => e.2)
+
+  \func addToUnion {A : \Set} {S : Ensemble (Ensemble A)} {S' : Ensemble A} : ⋃ (add S S') = ⋃ S ∪ S'
+    => extSet
+        (\lam {x} (inP (X, el, el')) => \case el \with {
+          | byLeft XS => byLeft (inP (X, XS, el'))
+          | byRight X=S' => byRight (rewrite X=S' el')
+        })
+        (\lam {x} e => \case e \with {
+          | byLeft (inP xUS) => inP (xUS.1, byLeft xUS.2, xUS.3)
+          | byRight xS' => inP (S', byRight idp, xS')
+        })
+}
+
+\func ||-comm {A B : \Type} : A || B = B || A => propExt ||-swap ||-swap
+
+\func ||-swap {A B : \Type} (h : A || B) : B || A \elim h
+  | byLeft a => byRight a
+  | byRight b => byLeft b
+
+\func ||-assoc {A B C : \Type} : (A || B) || C = A || B || C => propExt
+    (\lam h => \case \elim h \with {
+      | byLeft (byLeft a) => byLeft a
+      | byLeft (byRight b) => byRight (byLeft b)
+      | byRight c => byRight (byRight c)
+    })
+    (\lam h => \case \elim h \with {
+      | byLeft a => byLeft (byLeft a)
+      | byRight (byLeft b) => byLeft (byRight b)
+      | byRight (byRight c) => byRight c
+    })
+
+\func ||-collapse {A : \Prop} : A || A = A => propExt
+    (\lam h => \case \elim h \with {
+      | byLeft a => a
+      | byRight a => a
+    })
+    byLeft
+
+\func disjointUnion \alias \infix 6 ⊎ {A : \Set} (S S' : Ensemble A) : Ensemble (\Sigma Bool A)
+  => \lam (b, a) => (\Sigma (So b) (a ∈ S)) || (\Sigma (So (not b)) (a ∈ S'))
+
+\where {
+  -- TODO show that this is equiv to (S smap (true, __)) ∪ (S' smap (false, __))
+
+  \func rec {A : \Set} {S S' : Ensemble A} {a : A} {b : Bool} (el : (b, a) ∈ (S ⊎ S')) : Or (a ∈ S) (a ∈ S')
+    \elim b
+      | false => inr (elRight {A} {S} el)
+      | true => inl (elLeft {A} {S} el)
+
+  \func elLeft {A : \Set} {S S' : Ensemble A} {a : A} (h : (true, a) ∈ (S ⊎ S')) : a ∈ S
+    \elim h
+      | byLeft h => h.2
+      | byRight h => using h.1 contradiction
+
+  \func elRight {A : \Set} {S S' : Ensemble A} {a : A} (h : (false, a) ∈ (S ⊎ S')) : a ∈ S'
+  \elim h
+    | byLeft h => using h.1 contradiction
+    | byRight h => h.2
+}

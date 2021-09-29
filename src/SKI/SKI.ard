@@ -1,0 +1,105 @@
+\import Data.Bool
+\import Logic.Meta
+\import Meta
+\import Paths
+\import Paths.Meta
+\import Set
+\import Star
+\import identity.DecMaps
+\import unitypedLambda.Lambda
+\import util.Maybe
+\open SKI.Term (term≟)
+
+\module SKI \where {
+
+  -- reductions as equalities is interesting, but sym is not actually correct
+  \data Term
+    | S
+    | K
+    | App \alias \infixl 6 ⋅ Term Term
+  \where {
+    \func termEq \alias \infix 4 term≟ (s s' : Term) : Dec (s = s')
+      | S, S => yes idp
+      | S, K => no contradiction
+      | S, ⋅ s'1 s'2 => no contradiction
+      | K, S => no contradiction
+      | K, K => yes idp
+      | K, ⋅ s'1 s'2 => no contradiction
+      | ⋅ s1 s2, S => no contradiction
+      | ⋅ s1 s2, K => no contradiction
+      | ⋅ s1 s2, ⋅ s'1 s'2 => \case s1 term≟ s'1, s2 term≟ s'2 \with {
+        | yes e, yes e1 => yes (pmap2 (⋅) e e1)
+        | no n, _ => no (\lam p => n (pmap (\case __ \with {
+          | S => S
+          | K => K
+          | ⋅ t t1 => t
+        }) p))
+        | _, no n => no (\lam p => n (pmap (\case __ \with {
+          | S => S
+          | K => K
+          | ⋅ t t1 => t1
+        }) p))
+      }
+  }
+
+  \data Reduction (s : Term) \elim s
+    | ⋅ (⋅ (⋅ S _) _) _ => R-S
+    | ⋅ (⋅ K _) _ => R-K
+    | ⋅ s1 s2 => R-Left (Reduction s1)
+    | ⋅ s1 s2 => R-Right (Reduction s2)
+
+  \func reduce {s : Term} (r : Reduction s) : Term \elim s, r
+    | ⋅ (⋅ (⋅ S x) y) z, R-S => (x ⋅ z) ⋅ (y ⋅ z)
+    | ⋅ (⋅ K x) y, R-K => x
+    | ⋅ x y, R-Left r => (reduce r) ⋅ y
+    | ⋅ x y, R-Right r => x ⋅ (reduce r)
+\where {
+  \func reduceLeft {s t : Term}
+                   {r : Reduction s} : reduce {s ⋅ t} (R-Left r) = (reduce r) ⋅ t \elim s
+    | S => idp
+    | K => idp
+    | ⋅ S s2 => idp
+    | ⋅ K s2 => idp
+    | ⋅ (⋅ S s3) s2 => idp
+    | ⋅ (⋅ K s3) s2 => idp
+    | ⋅ (⋅ (⋅ s1 s4) s3) s2 => idp
+
+  \func reduceRight {s t : Term}
+                   {r : Reduction t} : reduce {s ⋅ t} (R-Right r) = s ⋅ (reduce r) \elim s
+    | S => idp
+    | K => idp
+    | ⋅ S s2 => idp
+    | ⋅ K s2 => idp
+    | ⋅ (⋅ S s3) s2 => idp
+    | ⋅ (⋅ K s3) s2 => idp
+    | ⋅ (⋅ (⋅ s1 s4) s3) s2 => idp
+}
+
+  \func Reduces \alias \infix 2 ->SKI (s s' : Term) => Star (\lam t t' => \Sigma (r : Reduction t) (reduce r = t')) s s'
+
+  \cons Id : Term => S ⋅ K ⋅ K
+  \where {
+    \func isIdentity {x : Term} : Id ⋅ x ->SKI x => (R-S, idp) ~> (R-K, idp) ~> refl idp
+  }
+  \cons B : Term => S ⋅ (K ⋅ S) ⋅ K
+  \where {
+    \func isRightSub {x y z : Term} : B ⋅ x ⋅ y ⋅ z ->SKI x ⋅ (y ⋅ z)
+      =>
+        (R-Left (R-Left R-S), idp) ~>
+        (R-Left (R-Left (R-Left R-K)), idp) ~>
+        (R-S, idp) ~>
+        (R-Left R-K, idp) ~>
+          refl idp
+  }
+
+
+--  \cons C : Term => S ⋅ (S ⋅ (K ⋅ S ⋅ (K ⋅ S) ⋅ K ⋅ S)) ⋅ (K ⋅ K)
+--  \where {
+--    \func isLeftSub {x y z : Term} : C ⋅ x ⋅ y ⋅ z ->SKI (x ⋅ z) ⋅ y
+--      => {?}
+--
+--  }
+
+
+
+}

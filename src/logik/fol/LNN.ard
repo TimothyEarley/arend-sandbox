@@ -1,0 +1,125 @@
+\import Arith.Nat
+\import Logic
+\import identity.NatIdentity
+\import logik.fol.FOL
+\import logik.fol.Incompleteness
+\import logik.fol.LNN
+\import logik.fol.Semantics
+\import sets.Elements
+\import sets.MySet
+\import util.CantorPair
+\open Semantics (Structure, ⊫)
+\open NatSemiring (<)
+
+\func LNN : Language \cowith
+  | Relations => LNN_Relatios
+  | relationsArity => \case __ \with {
+    | LNN.Less => 2
+  }
+  | Functions => LNN_Functions
+  | functionArity => \case __ \with {
+    | LNN.Plus => 2
+    | LNN.Times => 2
+    | LNN.Succ => 1
+    | LNN.Zero => 0
+  }
+  \where {
+    \data LNN_Relatios | Less
+
+    \data LNN_Functions | Plus | Times | Succ | Zero
+  }
+
+\func NN : System {LNN} => \let axioms : Array (Formula {LNN} 0) =>
+  -- ∀x0. ¬ Sx0 = 0
+  forallH (notH (equal (apply LNN.Succ (var 0 :: nil)) (apply LNN.Zero nil))) ::
+  -- ∀x1. ∀x0. (Sx1 = Sx0 ⇒ x1 = x0)
+  (forallH (forallH (impH
+      (equal (apply LNN.Succ (var 1 :: nil)) (apply LNN.Succ (var 0 :: nil)))
+      (equal (var 1) (var 0))
+  ))) ::
+  -- ∀x0. x0 + 0 = x0
+  forallH (equal (apply LNN.Plus ((var 0) :: (apply LNN.Zero nil) :: nil)) (var 0)) ::
+  -- ∀x1. ∀x0. x1 + Sx0 = S(x1 + x0)
+  {?} ::
+  -- ∀x0. x0 × 0 = 0
+  {?} ::
+  -- ∀x1. ∀x0. x1 × Sx0 = (x1 × x0) + x0
+  {?} ::
+  -- ∀x0. ¬x0 < 0
+  {?} ::
+  -- ∀x1. ∀x0. (x1 < Sx0 ⇒ (x1 = x0 ∨ x1 < x0))
+  {?} ::
+  -- ∀x1. ∀x0. (x1 < x0 ∨ x1 = x0 ∨ x0 < x1)
+  {?} ::
+  nil \in setOf axioms
+
+\func LNNCode : CodeableLanguage LNN \cowith
+  | encode => formulaToNat
+  | natToTerm => natToTerm
+  \where {
+    \func termToNat {n : Nat} (t : Term {LNN} n) : Nat
+    \elim t
+      | var f => cPair 0 f
+      | apply LNN.Plus d => cPair 1 (termsToNat d)
+      | apply LNN.Times d => cPair 2 (termsToNat d)
+      | apply LNN.Succ d => cPair 3 (termsToNat d)
+      | apply LNN.Zero d => cPair 4 (termsToNat d)
+
+    \func termsToNat {n : Nat} (ts : Array (Term {LNN} n)) : Nat
+    \elim ts
+      | nil => 0
+      | :: a arr => cPair (termToNat a) (termsToNat arr)
+
+    \func formulaToNat {n : Nat} (f : Formula {LNN} n) : Nat
+    \elim f
+      | equal x y => cPair 0 (cPair (termToNat x) (termToNat y))
+      | atomic LNN.Less d => cPair 1 (termsToNat d)
+      | impH x f => cPair 2 (cPair (formulaToNat x) (formulaToNat f))
+      | notH f => cPair 3 (formulaToNat f)
+      | forallH f => cPair 4 (formulaToNat f)
+
+    \func natToTerm (n : Nat) : Term {LNN} 0
+      | 0 => apply LNN.Zero nil
+      | suc n => apply LNN.Succ (natToTerm n :: nil)
+  }
+
+\record SystemModel (L : Language) (S : System)
+  | structure : Structure L
+  | modelsAll : \Pi (f : Elements S) -> (structure, \case __) ⊫ f.1
+
+
+\func NNModel : SystemModel LNN NN \cowith
+  | structure => \new Structure {
+    | Universe => Nat
+    | rel => \case \elim __ \with {
+      | LNN.Less => \case __ \with {
+        | :: x (:: y nil) => x < y
+      }
+    }
+    | funcs => \case \elim __ \with {
+      | LNN.Plus => \case __ \with {
+        | :: x (:: y nil) => x Nat.+ y
+      }
+      | LNN.Times => \case __ \with {
+        | :: x (:: y nil) => x Nat.* y
+      }
+      | LNN.Succ => \case __ \with {
+        | :: x nil => suc x
+      }
+      | LNN.Zero => \case __ \with {
+        | nil => 0
+      }
+    }
+  }
+  | modelsAll => \case \elim __ \with {
+    | (_, inP (0, idp)) => \lam x m => suc/=0 m
+    | (_, inP (1, idp)) => \lam x x1 m => unsuc m
+    | (_, inP (2, idp)) => \lam x => idp
+    | (_, inP (3, idp)) => {?}
+    | (_, inP (4, idp)) => {?}
+    | (_, inP (5, idp)) => {?}
+    | (_, inP (6, idp)) => {?}
+    | (_, inP (7 ,idp)) => {?}
+    | (_, inP (8 ,idp)) => {?}
+    | (a,inP _) => {?} -- error???
+  }

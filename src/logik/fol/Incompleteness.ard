@@ -1,0 +1,36 @@
+\import Data.Or
+\import Logic.Meta
+\import logik.fol.FOL
+\import logik.fol.LNN
+\import sets.MySet
+\import sets.subset
+\import util.CantorPair
+
+-- TODO only finitely many axioms
+\data Proof {L : Language} (axioms : Ensemble (Formula 0)) (toShow : Formula 0)
+\elim toShow
+  | toShow => AXM (toShow ∈ axioms)
+  | toShow => MP (via : Formula 0) (Proof axioms (impH via toShow)) (Proof axioms via)
+-- TODO ...
+
+
+\class CodeableLanguage (L : Language)
+  | encode : \Pi {n : Nat} (Formula n) -> Nat
+  | natToTerm : Nat -> Term 0
+
+
+\func RepresentsInSelf {L : Language} (C : CodeableLanguage L) (T : System) => ∃ (rep : Formula 1)
+    (\Pi (f : Formula 0) (f ∈ T) -> Proof T (Formula.sub rep (natToTerm (encode f))))
+
+\func DecidableSet {A : \Set} (s : Ensemble A) => \Pi (x : A) -> Or (x ∈ s) (x ∉ s)
+
+\func Inconsistent {L : Language} (T : System) => \Pi (f : Formula 0) -> Proof T f
+
+\func Incompleteness (T : System {LNN})
+                     (hasNN : NN ⊆ T)
+                     (represents : RepresentsInSelf {LNN} LNNCode T)
+                     (decidableSet : DecidableSet T)
+  : \Sigma  (f : Formula {LNN} 0)
+            (Or (Proof {LNN} T f) (Proof {LNN} T (notH f)) -> Inconsistent {LNN} T) =>
+  ({?},
+   \lam o f => {?})

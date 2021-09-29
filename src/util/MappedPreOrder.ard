@@ -1,0 +1,6 @@
+\import Order.PartialOrder
+
+\func mappedPreOrder {A : Preorder} {B : \Set} (f : B -> A) : Preorder B \cowith
+  | <= x y => (f x) <= (f y)
+  | <=-reflexive => <=-reflexive
+  | <=-transitive => <=-transitive

@@ -1,0 +1,14 @@
+\import Data.Bool
+\import simplyTypedLambdaDeBruijne.GeneralContext
+
+\data UniType
+  | *
+
+\func UniContext => Context UniType
+\func UniLookup => (∋) {UniType}
+
+\data UniTerm \alias \infix 5 u⊢ (c : UniContext) (T : UniType)
+  | var (l : c ∋ T)
+  | lam (body : c ∕ * u⊢ *)
+  | app \alias \infixl 6 ⋅ (f : c u⊢ *) (arg : c u⊢ *)
+

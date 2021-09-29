@@ -1,0 +1,33 @@
+\import Data.List
+\import systemFDeBruijne.Type
+
+\meta T0 => VarTy (ZK idp)
+\meta T1 => VarTy (SK (ZK idp))
+\meta T2 => VarTy (SK (SK (ZK idp)))
+
+\meta v0 => var (Z idp)
+\meta v1 => var (S (Z idp))
+\meta v2 => var (S (S (Z idp)))
+
+\data FTerm \alias \infix 5 ⊢ (c : Context) {K : Kind} (T : FType c.kc K) : \Set
+  \elim K, T
+  | K, T => var (c ∋ T)
+  | *, --> A B => lam (c ∕ A ⊢ B)
+  | *, B => app \alias \infixl 6 ⋅ {A : FType c.kc *} (c ⊢ A --> B) (c ⊢ A)
+  | *, ForAllTy k T => forAll (c ∕∕ k ⊢ T)
+  | K, T => tapp \alias \infixl 6 ⋅⋅ {K' : Kind} {T' : FType (ConsKind c.kc K') K}
+                                    (c ⊢ ForAllTy K' T') (\Sigma (arg : FType c.kc K') (T = FType.sub T' arg))
+
+\where {
+
+
+  \func poly_id : ∅ ⊢ (ForAllTy * (T0 --> T0))
+    => forAll (lam v0)
+
+  \func poly_id_tapp {A : FType NoneKind *} : ∅ ⊢ A --> A
+    => poly_id ⋅⋅ (A, idp)
+
+  \func poly_id_tapp_app {A : FType NoneKind *} (a : ∅ ⊢ A) : ∅ ⊢ A
+    => (poly_id ⋅⋅ (A, idp)) ⋅ a
+}
+

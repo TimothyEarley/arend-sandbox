@@ -1,0 +1,181 @@
+\import Algebra.Domain.Euclidean
+\import Algebra.Field
+\import Algebra.Meta
+\import Algebra.Monoid
+\import Algebra.Ring.Local
+\import Arith.Int
+\import Arith.Rat
+\import Data.Or
+\import Equiv
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Numbers
+\import Paths
+\import Paths.Meta
+\import Relation.Equivalence
+\import identity.IntIdentity
+\open Q (Fraction, NonZeroNat, toFraction)
+\open IntIdentity (unPos)
+\open EuclideanSemiringData (gcd, reduce)
+\open Monoid (LDiv)
+\open IntRing (negative)
+
+\truncated \data Rational \alias Q : \Set
+  | \coerce fraction Fraction
+  | rat-equiv (x y : Fraction) (same-number x y) (i : I) \elim i {
+    | left => fraction x
+    | right => fraction y
+  }
+  \where {
+    \func NonZeroNat => \Sigma (i : Nat) (i /= 0)
+
+    \record Fraction
+      | numerator : Int
+      | denominator : NonZeroNat
+
+    \cons \infix 6 / (a : Int) (b : NonZeroNat) : Fraction \cowith
+      | numerator => a
+      | denominator => b
+
+    \func same-number (a b : Fraction) : \Prop => a.denominator.1 IntRing.* b.numerator = a.numerator * b.denominator.1
+
+    \use \coerce fromInt (i : Int) : Q => fraction (i / (1, contradiction))
+
+    \func toFraction (q : Q) : Fraction \elim q
+      | fraction (0, d) => 0 / (1, contradiction)
+      | fraction (pos (suc n \as nom), d) => \let! (a, b) => reduce nom d.1 \in a / (b, rat.reduce2/=0 nom d.1 d.2)
+      | fraction ((neg (suc n \as nom), d)) => \let! (a, b) => reduce nom d.1 \in (neg a) / (b, rat.reduce2/=0 nom d.1 d.2)
+      | rat-equiv x y s i => {?}
+
+    \func isRat : Q = Rat => ext (\new Equiv {
+      | f => {?}
+      | ret => {?}
+      | ret_f => {?}
+      | sec => {?}
+      | f_sec => {?}
+    })
+  }
+
+-- DiscreteField
+
+\instance NonZeroIntMonoid : Monoid NonZeroNat
+  | ide => (1, contradiction)
+  | * x y => (x.1 * y.1, times/=0)
+  | ide-left => ext equation
+  | ide-right => ext equation
+  | *-assoc => ext equation
+  \where {
+    \func times/=0 {x y : NonZeroNat} (h : x.1 * y.1 = 0) : Empty \elim x, y
+      | (0, hx), _ => contradiction
+      | _, (0, hy) => contradiction
+      | (suc x, hx), (suc y, hy) => contradiction
+  }
+
+\instance RationalField : DiscreteField Q
+  | zro => 0
+  | + => add
+  | zro-left {fraction f} => path (rat-equiv _ _ {?})
+  | +-assoc {fraction x} {fraction y} {fraction z} => {?}
+  | +-comm {fraction x} {fraction y} => eqHelper
+
+  | ide => 1
+  | * => times
+  | ide-left {fraction f} => eqHelper
+  | *-assoc {fraction x} {fraction y} {fraction z} => eqHelper
+  | *-comm {fraction x} {fraction y} => eqHelper
+
+  | ldistr {fraction x} {fraction y} {fraction z} => ldistrHelper x y z
+
+  | negative => negQ
+  | negative-left {fraction x} => neg-left-helper x
+
+  | zro/=ide h => using (pmap (\lam r => Fraction.numerator {r}) (pmap toFraction h)) contradiction
+
+
+  | eitherZeroOrInv (fraction (n, d)) => \case \elim n \with {
+    | pos 0 => inl lemma-0div=0
+    | neg 0 => inl lemma-0div=0
+    | pos (suc n \as nom) => inr (\new Monoid.Inv {
+      | inv => fraction (d.1 / (nom, contradiction))
+      | inv-left =>
+        fraction (timesFrac (d.1 / (nom, contradiction)) (nom / d)) ==< idp >==
+        fraction (d.1 * nom / ((nom, contradiction) NonZeroIntMonoid.* d)) ==< {?} >==
+        fraction ((nom IntRing.* d.1) / ((nom, contradiction) NonZeroIntMonoid.* d)) ==< reduceLeft* >==
+        fraction (d.1 / d) ==< lemma-xdivx=1 >==
+        fromInt 1 `qed
+      | inv-right =>
+        fraction (timesFrac (nom / d) (d.1 / (nom, contradiction))) ==< idp >==
+        fraction (nom IntRing.* d.1 / (d NonZeroIntMonoid.* (nom, contradiction))) ==< {?} >==
+        fraction ((d.1 * nom) / (d NonZeroIntMonoid.* (nom, contradiction))) ==< reduceLeft* >==
+        fraction (nom / (nom, contradiction)) ==< lemma-xdivx=1 >==
+        fromInt 1 `qed
+    })
+    | neg (suc n \as nom) => inr (\new Monoid.Inv {
+      | inv => fraction (d.1 / (nom, contradiction))
+      | inv-left => {?}
+      | inv-right => {?}
+    })
+  }
+
+  \where {
+    \meta eqHelper => pmap fraction (ext (equation, ext equation))
+
+    \open Q
+
+    \func add (a b : Q) : Q \elim a, b
+      | fraction (a : Fraction), fraction (b : Fraction) => fraction (addFrac a b)
+      | fraction f, rat-equiv x y s i => rat-equiv (addFrac f x) (addFrac f y) {?} i
+      | rat-equiv x y s i, fraction f => rat-equiv (addFrac x f) (addFrac y f) {?} i
+
+    \func addFrac (x y : Fraction) : Fraction =>
+      (x.numerator * y.denominator.1 + y.numerator * x.denominator.1) / (x.denominator NonZeroIntMonoid.* y.denominator)
+
+    \func times (a b : Q) : Q \elim a, b
+      | fraction f, fraction f1 => timesFrac f f1
+      | rat-equiv x y s i, fraction f => rat-equiv (timesFrac x f) (timesFrac y f) {?} i
+      | fraction f, rat-equiv x y s i => rat-equiv (timesFrac f x) (timesFrac f y) {?} i
+
+    \func timesFrac (x y : Fraction) : Fraction =>
+      (x.numerator * y.numerator) / (x.denominator NonZeroIntMonoid.* y.denominator)
+
+    \func ldistrHelper (x y z : Fraction)
+      : timesFrac x (addFrac y z) = {Q} addFrac (timesFrac x y) (timesFrac x z) =>
+      fraction (timesFrac x (addFrac y z)) ==< eqHelper >==
+
+      fraction (((x.numerator * y.numerator * z.denominator.1) + (x.numerator * y.denominator.1 * z.numerator))
+        / (x.denominator * y.denominator * z.denominator)) ==< inv reduceLeft* >==
+
+      fraction ((x.denominator.1 IntRing.* ((x.numerator * y.numerator * z.denominator.1) + (x.numerator * y.denominator.1 * z.numerator)))
+        / (x.denominator * (x.denominator * y.denominator * z.denominator))) ==< {?} >==
+
+      fraction  (addFrac (timesFrac x y) (timesFrac x z)) `qed
+
+    \func reduceLeft* {x : Int} {a y : NonZeroNat} : fraction ((a.1 IntRing.* x) / (a NonZeroIntMonoid.* y)) = fraction (x / y) =>
+      path (rat-equiv ((a.1 IntRing.* x) / (a * y)) (x / y) (\let goal : pos (a.1 Nat.* y.1) IntRing.* x = (pos a.1 IntRing.* x) IntRing.* pos y.1 =>
+        equation
+            (pos (a.1 Nat.* y.1) IntRing.* x) {idp}
+            ((pos a.1 IntRing.* pos y.1) IntRing.* x) {*-assoc}
+            (pos a.1 IntRing.* (pos y.1 IntRing.* x)) {equation}
+            (pos a.1 IntRing.* (x IntRing.* pos y.1)) {equation}
+            ((pos a.1 IntRing.* x) IntRing.* pos y.1)
+                                                             \in goal))
+
+    \func negQ (q : Q) : Q
+      | fraction f => fraction (negFrac f)
+      | rat-equiv x y s i => rat-equiv (negFrac x) (negFrac y) equation i
+
+    \func negFrac (f : Fraction) : Fraction => negative f.numerator / f.denominator
+
+    \func neg-left-helper (x : Fraction) : fraction (addFrac (negFrac x) x) = 0 =>
+      fraction (addFrac (negFrac x) x) ==< eqHelper >==
+      fraction ((x.denominator.1 IntRing.* ((negative x.numerator) + x.numerator)) / (x.denominator * x.denominator)) ==< pmap fraction (ext (equation, idp)) >==
+      fraction ((x.denominator.1 * 0) / (x.denominator * x.denominator)) ==< eqHelper >==
+      fraction (0 / (x.denominator * x.denominator)) ==< lemma-0div=0 >==
+      fromInt 0 `qed
+
+    \func lemma-0div=0 {x : NonZeroNat} : 0 / x = {Q} 0 => path (rat-equiv (0 / x) (0 / (1, contradiction)) equation)
+
+    \func lemma-xdivx=1 {x : NonZeroNat} : x.1 / x = {Q} 1 =>
+      path (rat-equiv (x.1 / x) (1 / (1, contradiction)) equation)
+  }

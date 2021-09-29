@@ -1,0 +1,48 @@
+\import Algebra.Monoid
+\import Arith.Int
+\import Arith.Nat
+\import Logic
+\import Order.LinearOrder
+\import Order.PartialOrder
+\import Order.StrictOrder
+\import Paths
+\import Paths.Meta
+\import Util
+\import util.Nat
+
+\func neg<=pos {n m : Nat} : (neg n) <= (pos m)
+  => signum.signum_neg/=1
+
+\func pos</=neg {n m : Nat} (h : pos n <= neg (suc m)) : Empty
+  => h idp
+
+\func pos_+_neg_is_neg {n m : Nat} (p : n <= m) : \Sigma (x : Nat) (pos n + neg m = neg x)
+  \elim n, m, p
+    | 0, m, p => (m, idp)
+    | suc n, 0, p => absurd (not<=0 p)
+    | suc n, suc m, p => pos_+_neg_is_neg (suc<=suc.conv p)
+
+\func neg<neg {n m : Nat} (p : m < n) : neg n < neg m
+  => \case LinearOrder.trichotomy (neg n) (neg m) \with {
+    | less n<m => n<m
+    | equals n=m => absurd (<-irreflexive (rewriteF (pmap iabs n=m) p))
+    | greater n>m => absurd (signum.signum_neg/=1 (rewrite (neg_iabs (<=-less p)) n>m))
+  }
+
+\lemma neg<=neg {n m : Nat} (p : m <= n) : neg n <= neg m
+  => \lam q => transportInv (signum __ /= 1) (pos_+_neg_is_neg p).2 signum.signum_neg/=1 q
+  \where
+    \lemma conv {n m : Nat} (p : neg n <= neg m) : m <= n
+      => \lam n<m => p (neg<neg n<m)
+
+
+\func coerceToFin (i : Int) {n : Nat} : Fin (suc n) \elim i
+  | pos n1 => natCoerceToFin n1
+  | neg 0 => 0
+  | neg (suc n1) => 0
+\where {
+  \func natCoerceToFin (n : Nat) {m : Nat} : Fin (suc m)
+    | 0, {_} => 0
+    | suc n, {0} => 0
+    | suc n, {suc m} => fsuc (natCoerceToFin n)
+}

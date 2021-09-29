@@ -1,0 +1,20 @@
+\import Algebra.Monoid
+\import Function
+\import typeclasses.Functor
+
+\class Foldable \extends Functor
+  | foldr {A B : \Type} (combine : A -> B -> B) (base : B) (F A) : B
+
+\where {
+
+  -- cannot solve equation with lh
+
+--  \func foldMap {F : Foldable} {A : \Type} {M : Monoid} (f : A -> M.E) (m : F A) : M.E
+--    => F.foldr {A} {M.E} (M.* o f) M.ide m
+
+--  \func length {F : Foldable} {A : \Type} (m : F A) : Nat
+--    => F.foldr {A} {Nat} (Nat.+ o (\lam _ => 1)) 0 m
+
+-- In
+
+}

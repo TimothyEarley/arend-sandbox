@@ -1,0 +1,120 @@
+\import Algebra.Domain.Euclidean
+\import Arith.Nat
+\import Data.Array
+\import Data.List (List)
+\import Data.Or
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Set.Fin
+\import Util
+\import sets.MySet
+\import sets.Sized
+\import sets.subset
+\import team.TeamProp
+\import util.ArrayUtils
+\import util.CantorPair
+\open Formula (subTerm)
+\open NatSemiring (+-assoc, +-comm)
+\open IntEuclidean (natMod<right)
+
+-- http://r6.ca/Goedel/goedel1.html
+
+\class Language
+  | Relations : \Set
+  | relationsArity : Relations -> Nat
+  | Functions : \Set
+  | functionArity : Functions -> Nat
+
+\data Term {L : Language} (variables : Nat) : \Set
+  | var (Fin variables)
+  | apply (f : L.Functions) (Array (Term {L} variables) (functionArity f))
+
+\where {
+  \func FreeVar {L : Language} {n : Nat} (t : Term n) (i : Fin n) : \Prop
+    \elim t
+      | var f => f = i
+      | apply f d => AnyFreeVar d i
+  \func AnyFreeVar {L : Language} {n : Nat} (ts : Array (Term n)) (i : Fin n) : \Prop
+    \elim ts
+      | nil => Empty
+      | :: a arr => (FreeVar a i) || (AnyFreeVar arr i)
+}
+
+\data Formula {L : Language} (variables : Nat) : \Set
+  | equal (x y : Term {L} variables)
+  | atomic (r : L.Relations) (Array (Term {L} variables) (L.relationsArity r))
+  | impH (x y : Formula {L} variables)
+  | notH (x : Formula {L} variables)
+  | forallH (x : Formula {L} (suc variables))
+  \where {
+    \func Rename (x y : Nat) => Fin x -> Fin y
+
+    \func Subst {L : Language} (x y : Nat) => Fin x -> Term {L} y
+
+    \func subTerm {L : Language} {n m : Nat} (s : Subst {L} n m) (t : Term {L} n) : Term {L} m
+    \elim t
+      | var f => s f
+      | apply f d => apply f (subTerms s d)
+
+    \func subTerms {L : Language} {n m l : Nat} (s : Subst {L} n m) (d : Array (Term {L} n) l) : Array (Term {L} m) l
+    \elim l, d
+      | 0, nil => nil
+      | suc l, :: a d => (subTerm s a) :: subTerms s d
+
+    \func rename {L : Language} {x y : Nat} (r : Rename x y) (t : Term {L} x) : Term {L} y
+    \elim t
+      | var f => var (r f)
+      | apply f d => apply f (renames r d)
+
+    \func renames {L : Language} {x y l : Nat} (r : Rename x y) (t : Array (Term {L} x) l) : Array (Term {L} y) l
+    \elim l, t
+      | 0, nil => nil
+      | suc l, :: a t => (rename r a) :: renames r t
+
+    \func extends {L : Language} {n m : Nat} (s : Subst {L} n m) : Subst (suc n) (suc m) => \case __ \with {
+      | 0 => var 0
+      | suc f => rename fsuc (s f)
+    }
+
+    \func subst {L : Language} {n m : Nat} (s : Subst {L} n m) (f : Formula {L} n) : Formula {L} m
+    \elim f
+      | equal x y => equal (subTerm {L} s x) (subTerm {L} s y)
+      | atomic r d => atomic r (subTerms {L} s d)
+      | impH x f => impH (subst {L} s x) (subst {L} s f)
+      | notH f => notH (subst {L} s f)
+      | forallH f => forallH (subst (extends s) f)
+
+    \func sub {L : Language} {n : Nat} (f : Formula {L} (suc n)) (with : Term {L} n) : Formula n => subst (\case __ \with {
+      | 0 => with
+      | suc i => var i
+    }) f
+
+    \func FreeVar {L : Language} {n : Nat} (f : Formula n) (i : Fin n) : \Prop \elim f
+      | equal x y => (Term.FreeVar x i) || (Term.FreeVar y i)
+      | atomic r d => Term.AnyFreeVar d i
+      | impH x f => (FreeVar x i) || (FreeVar f i)
+      | notH f => FreeVar f i
+      | forallH f => FreeVar f (suc i)
+  }
+-- TODO other connectives
+
+\cons orH {L : Language} {n : Nat} (x y : Formula {L} n) : Formula {L} n
+=> {?}
+
+\cons andH {L : Language} {n : Nat} (x y : Formula {L} n) : Formula {L} n
+=> {?}
+
+\func Term* {L : Language} => \Sigma (n : Nat) (Term {L} n)
+
+\func Formula* {L : Language} => \Sigma (n : Nat) (Formula {L} n)
+\where {
+  \func notH* {L : Language} (f : Formula* {L}) : Formula* {L}
+    => (f.1, notH f.2)
+  \func equal* {L : Language} (t t' : Term* {L}) : Formula* {L}
+    => {?}
+}
+
+
+\func System {L : Language} => Ensemble (Formula {L} 0)
+

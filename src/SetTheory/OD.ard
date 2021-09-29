@@ -1,0 +1,41 @@
+\import Logic
+\import SetTheory.Ord
+\import SetTheory.Ordinal
+\import SetTheory.SetTheory
+
+\class OD
+  | def : Ordinal -> \Type
+
+\where {
+
+  \func od->ord (x : OD) : Ordinal
+    => {?}
+
+  \func ord->od (x : Ordinal) : OD
+    => {?}
+
+  \func od-iso-ord : OD = Ordinal
+    => path (iso od->ord ord->od {?} {?})
+
+  \func elI \alias \infix 6 ∋ (A x : OD) : \Type
+    => A.def (od->ord x)
+
+  \func el \alias \infix 6 ∈ (x A : OD) : \Type
+    => A.def (od->ord x)
+
+  \func empty : OD \cowith
+    | def => \lam o => Empty
+}
+
+\instance ODTheory : SetTheory.SetTheoryImpl OD
+  | existence => OD.empty
+  | Element => OD.∈
+  | extensional => {?}
+  | pairing => {?}
+  | pairing-proof => {?}
+  | union => {?}
+  | union-proof => {?}
+  | power => {?}
+  | seperation => {?}
+  | replacement => {?}
+  | infinity => {?}

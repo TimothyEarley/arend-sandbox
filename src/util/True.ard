@@ -1,0 +1,14 @@
+\import Data.Bool
+\import Set
+
+\data True {P : \Prop} (d : Dec P) \elim d
+  | yes _ => Yes
+
+\where {
+  \use \coerce fromSo {P : \Prop} {d : Dec P} (h : So (decToBool d)) : True d
+    \elim d, h
+      | yes e, so => Yes
+}
+
+\func toWitness {P : \Prop} {d : Dec P} (t : True d) : P \elim d, t
+  | yes p, Yes => p

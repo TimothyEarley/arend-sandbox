@@ -1,0 +1,22 @@
+\import Logic
+
+\class Ordinal (ord : \Type)
+  | o-empty : ord
+  | o-suc : ord -> ord
+  | \infix 6 o< : ord -> ord -> \Set
+  | isOrdinal : IsOrdinal ord o-empty o-suc (o<)
+
+\where {
+  \record IsOrdinal (ord : \Type) (o-empty : ord) (o-suc : ord -> ord) (o< : ord -> ord -> \Set)
+    | o-trans :  \Pi {x y z : ord} (o< x y) (o< y z) -> o< x z
+    | o-Tri : \Pi {x y : ord} -> Tri o< x y
+    | not-x<0 : \Pi {x : ord} -> Not (o< x o-empty)
+    | <-osuc : \Pi {x : ord} -> o< x (o-suc x)
+    | osuc-=< : \Pi {a x : ord} (o< x (o-suc a)) -> (x = a) || (o< x a)
+    | TransFinite : \Pi {P : ord -> \Set} (ind : \Pi (x : ord) (f : \Pi (y : ord) (o< y x) -> P y) -> P x) (x : ord) -> P x
+
+  \data Tri {A : \Type} (< : A -> A -> \Set) (a b : A)
+    | less (< a b)
+    | equal (a = b)
+    | greater (< b a)
+}

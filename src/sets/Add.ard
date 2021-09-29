@@ -1,0 +1,55 @@
+\import Logic
+\import Logic.Meta
+\import Paths
+\import Paths.Meta
+\import sets.Elements
+\import sets.MySet
+\import sets.union
+
+\func add {E : \Set} (S : Ensemble E) (e : E) : Ensemble E => S ∪ (single e)
+
+  \where {
+    \func alreadyIn {E : \Set} {S : Ensemble E} {e : E} (h : e ∈ S) : add S e = S => extSet
+        (\lam {x} e1 => \case \elim x, e1 \with {
+          | _, byLeft a => a
+          | _, byRight idp => h
+        })
+        (\lam {x} e1 => byLeft e1)
+
+    \func existingElement {E : \Set} {S : Ensemble E} {a : E}
+                          (e : Elements (add S a))  (h : e.1 /= a) : Elements S
+      => (e.1, \case e.2 \with {
+        | byLeft a1 => a1
+        | byRight b => contradiction
+      })
+
+    \func withUnion {E : \Set} {S S' : Ensemble E} {a : E} : S ∪ (add S' a) = add (S ∪ S') a
+      => extSet
+          (\lam {x} e => \case \elim e \with {
+            | byLeft xS => byLeft (byLeft xS)
+            | byRight (byLeft xS') => byLeft (byRight xS')
+            | byRight (byRight x=a) => byRight x=a
+          })
+          (\lam {x} e => \case \elim e \with {
+            | byLeft (byLeft xS) => byLeft xS
+            | byLeft (byRight xS') => byRight (byLeft xS')
+            | byRight x=a => byRight (byRight x=a)
+          })
+
+    \func isInjective {A : \Set} {a : A} {S S' : Ensemble A}
+                      (h : a ∉ S) (h' : a ∉ S')
+                      (p : add S a = add S' a) : S = S'
+      => extSet
+          (\lam {x} e => \case transport (x ∈ __) p (byLeft e) \with {
+            | byLeft xS' => xS'
+            | byRight x=a => absurd (h (rewrite x=a e))
+          })
+          (\lam {x} e => \case transportInv (x ∈ __) p (byLeft e) \with {
+            | byLeft xS => xS
+            | byRight x=a => absurd (h' (rewrite x=a e))
+          })
+  }
+
+
+\func addToAll {E : \Set} (S : (Ensemble (Ensemble E))) (e : E) : (Ensemble (Ensemble E))
+  => S smap (\lam x => add x e)

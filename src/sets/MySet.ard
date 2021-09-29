@@ -1,0 +1,179 @@
+\import Algebra.Field
+\import Algebra.Monoid
+\import Algebra.Pointed
+\import Arith.Nat
+\import Data.Array (Index)
+\import Data.List
+\import Equiv
+\import Equiv.Fiber
+\import Function
+\import LeipnizEquality
+\import Meta
+\import Misc
+\import sets.Add
+\import sets.Elements
+\import sets.Complement
+\import sets.Intersect
+\import sets.subset
+\import sets.union (union, ∪, ⋃)
+\import Logic
+\import Logic.Classical
+\import Logic.Meta
+\import Logic.PropFin
+\import LogicUtil
+\import Order.Lattice \hiding (∧)
+\import Order.PartialOrder
+\import Paths
+\import Paths.Meta
+\import Set
+\import Util
+\open LeipnizIsEqual (i)
+
+\func Ensemble (A : \Set) : \Set => A -> \Prop
+
+\func element \alias \infix 6 ∈ {A : \Set} (a : A) (S : Ensemble A) : \Prop => S a
+
+\func not-element \alias \infix 6 ∉ {A : \Set} (a : A) (S : Ensemble A) : \Prop => Not (S a)
+
+\func extSet {A : \Set} {S S' : Ensemble A}
+             (h : \Pi {x : A} (x ∈ S) -> x ∈ S') (h' : \Pi {x : A} (x ∈ S') -> x ∈ S) : S = S' =>
+  ext (\lam x => ext (h, h'))
+
+\func coerce {A : \Set} {S S' : Ensemble A} (p : S = S') (e : Elements S) : Elements S' \elim p
+  | idp => e
+
+\func All {A : \Set} (S : Ensemble A) (P : Ensemble A) : \Prop => \Pi (s : Elements S) -> P s.1
+
+\func Any {A : \Set} (S : Ensemble A) (P : Ensemble A) : \Prop => ∃ (s : Elements S) (P s.1)
+
+\func empty \alias ∅ {A : \Set} : Ensemble A => \lam _ => Empty
+
+\func show-empty {A : \Set} {S : Ensemble A} (h : Not (Elements S)) : S = ∅
+  => extSet (\lam {x} e => h (x, e)) (\lam {x} e => absurd e)
+
+\func Not-empty {A : \Set} (S : Ensemble A) : \Prop => ∃ (a : A) (a ∈ S)
+
+\func full {A : \Set} : Ensemble A => \lam _ => \Sigma
+\where {
+  \func full=A {A : \Set} : Elements (full {A}) = A
+    => ext (\new QEquiv {
+      | f e => e.1
+      | ret a => (a, ())
+      | ret_f x => \case \elim x \with {
+        | (x1, ()) => idp
+      }
+      | f_sec a => idp
+    })
+}
+
+\func full/=empty {A : \Set} (witness : A) : Not (full {A} = ∅) => \lam p => (coerce p (witness, ())).2
+
+\func single {A : \Set} (a : A) : Ensemble A => \lam a' => a = a'
+  \where {
+    \lemma extract {A : \Set} {a a' : A} (h : single a = single a') : a = a' => transportInv ((∈) a') h idp
+
+    -- x ∈ S, S ∈ {{c}} => c = x
+    \lemma tele {A : \Set} {x c : A} {S : Ensemble A} (hx : x ∈ S) (h : S ∈ (single (single c))) : c = x
+      => transportInv (\lam _x => x ∈ _x) h hx
+
+    \lemma notTwoElements {A : \Set} {a x x' : A}
+                          (h : x /= x')
+                          (e1 : x ∈ single a) (e2 : x' ∈ single a)
+      : Empty
+      \elim e1, e2
+        | idp, idp => h idp
+
+    \func isAddToEmpty {A : \Set} {a : A} : single a = add ∅ a
+      => extSet (\lam e => byRight e) (\lam {x} e => \case e \with {
+        | byLeft ()
+        | byRight b => b
+      })
+
+    \func splitIntoSingles {A : \Set} (S : Ensemble A) : Ensemble (Ensemble A)
+      => \lam e => ∃ (a : A) (a ∈ S) (e = single a)
+    \where {
+      \func emptySplit {A : \Set} : splitIntoSingles ∅ = ∅ {Ensemble A}
+        => show-empty (\lam (x, inP y) => y.2)
+      \func addSplit {A : \Set} {S : Ensemble A} {a : A} : splitIntoSingles (add S a) = add (splitIntoSingles S) (single a)
+        => extSet
+            (\lam {x} (inP (a', a'Sa, p)) => \case a'Sa \with {
+              | byLeft a'S => byLeft (inP (a', a'S, p))
+              | byRight a'=a => byRight (rewrite a'=a (inv p))
+            })
+            (\lam {x} e => \case e \with {
+              | byLeft (inP xSS) => inP (xSS.1, byLeft xSS.2, xSS.3)
+              | byRight xa => inP (a, byRight idp, inv xa)
+            })
+      \func bigUnionUnsplit {A : \Set} {S : Ensemble A} : ⋃ (splitIntoSingles S) = S
+        => extSet
+            (\lam {x} (inP (S', inP (a, aS, idp), idp)) => aS)
+            (\lam {x} xS => inP (single x, inP (x, xS, idp), idp))
+    }
+  }
+
+\func setOf {A : \Set} {n : Nat} (l : Array A n) : Ensemble A => \lam a => ∃ (i : Fin n) (l i = a)
+
+\func \infixl 6 smap {A B : \Set} (S : Ensemble A) (f : A -> B) : Ensemble B => \lam b => ∃ (a : A) (b = f a) (a ∈ S)
+\where {
+  \func empty-smap {A B : \Set} {f : A -> B} : ∅ smap f = ∅
+    => extSet
+        (\lam {x} e => \case e \with { inP a => a.3})
+        (\lam e => absurd e)
+
+  \func add-smap {A B : \Set} {f : A -> B} {S : Ensemble A} {a : A} : ((add S a) smap f) = add (S smap f) (f a)
+    => extSet
+        (\lam {x} e => \case e \with {
+          | inP (a', p, byLeft a'S) => byLeft (inP (a', p, a'S))
+          | inP (a', p, byRight a'=a) => byRight (pmap f a'=a *> (inv p))
+        })
+        (\lam {x} e => \case e \with {
+          | byLeft (inP xFs) => inP (xFs.1, xFs.2, byLeft xFs.3)
+          | byRight x=fa => inP (a, inv x=fa, byRight idp)
+        })
+}
+
+
+\func distribute-intersect-union \alias distribute-∩-∪ {E : \Set} {A B S : Ensemble E} : (A ∪ B) ∩ S = (A ∩ S) ∪ (B ∩ S) =>
+  extSet
+      (\lam {x} e => \case \elim e \with {
+        | (byLeft x1, x2) => byLeft (x1, x2)
+        | (byRight x1, x2) => byRight (x1, x2)
+      })
+      (\lam {x} e => \case \elim e \with {
+        | byLeft (x1, x2) => (byLeft x1, x2)
+        | byRight (x1, x2) => (byRight x1, x2)
+      })
+
+\func deMorgan-union {E : \Set} {A B : Ensemble E}
+  : (A ∪ B) `complement = (A `complement ∩ B `complement) =>
+  extSet
+      (∪.not-in-union {_} {A} {B} {_} __)
+      (\lam {x} e u => ∪.not-in-union' {_} {A} {B} {_} e.1 e.2 u)
+
+--\func deMorgan-complement {E : \Set} {A B : Ensemble E}
+--  : (A ∩ B) `complement = (A `complement ∪ B `complement) =>
+--  {?} -- I think this one needs LEM
+
+\func SetLattice {A : \Set} : DistributiveLattice (Ensemble A) \cowith
+  | <= => ⊆
+  | <=-reflexive e => e
+  | <=-transitive {x} {y} {z} h h' => ⊆.trans {A} {x} {y} {z} h h'
+  | <=-antisymmetric => ⊆.anti-sym
+  | meet => ∩
+  | meet-left h => h.1
+  | meet-right h => h.2
+  | meet-univ h h' zx => (h zx, h' zx)
+  | join => ∪
+  | join-left h => byLeft h
+  | join-right h => byRight h
+  | join-univ h h' zx => \case \elim zx \with {
+    | byLeft a => h a
+    | byRight b => h' b
+  }
+  | ldistr>= e => \case \elim e \with {
+    | (e1, byLeft e2) => byLeft (e1, e2)
+    | (e1, byRight e2) => byRight (e1, e2)
+  }
+
+\func product \alias \infix 6 x {A B : \Set} (S1 : Ensemble A) (S2 : Ensemble B) : Ensemble (\Sigma A B) =>
+  \lam s => \Sigma (s.1 ∈ S1) (s.2 ∈ S2)

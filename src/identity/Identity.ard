@@ -1,0 +1,29 @@
+\import Data.Bool
+\import Paths
+\import Set
+\import identity.DecMaps
+\import identity.NatIdentity
+
+\class Identity (A : \Set) {
+  | Code : A -> A -> \Prop
+  | code-refl : \Pi (a : A) -> Code a a
+  | code-encode : \Pi {a b : A} (p : a = b) -> Code a b
+  | code-decode : \Pi {a b : A} (c : Code a b) -> a = b
+
+  \default code-encode {a} {b} p => transport (Code a) p (code-refl a)
+} \where {
+
+  \class Decidable \extends Identity, DecSet {
+    | code-decide : \Pi (a b : A) -> Dec (Code a b)
+
+    | E => A
+    | decideEq x y => \case code-decide x y \with {
+      | yes e => yes (code-decode e)
+      | no n => no (\lam h => n (code-encode h))
+    }
+  }
+}
+
+\func eq \alias \infix 6 ≟ {T : Identity.Decidable} (x y : T) : Dec (x = y)
+  => decMap (T.code-decide x y) (code-decode, code-encode)
+

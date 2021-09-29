@@ -1,0 +1,103 @@
+\import Algebra.Group
+\import Algebra.Monoid
+\import Arith.Int
+\import Data.Bool
+\import Logic
+\import Order.PartialOrder
+\import Paths
+\import Paths.Meta
+\import moses.BigStep
+\import moses.MOSES
+\import moses.Syntax
+
+\func detAExp {a : AExp} {m m' : Num} {s : State} (sem1 : SemAExp a s m) (sem2 : SemAExp a s m') : m = m' \elim a, sem1, sem2
+  | aNum n, rNum p, rNum p1 => rewrite p (rewrite p1 idp)
+  | aVar v, rVar p, rVar p1 => rewrite p (rewrite p1 idp)
+  | aPlus a a1, rPlus n1 semA1 n2 semA2 p, rPlus n3 semA3 n4 semA4 p1 =>
+    rewrite p (rewrite p1 (pmap2 (+) (detAExp semA1 semA3) (detAExp semA2 semA4)))
+  | aMinus a a1, rMinus n1 semA1 n2 semA2 p, rMinus n3 semA3 n4 semA4 p1 =>
+    rewrite p (rewrite p1 (pmap2 (-) (detAExp semA1 semA3) (detAExp semA2 semA4)))
+  | aTimes a a1, rTimes n1 semA1 n2 semA2 p, rTimes n3 semA3 n4 semA4 p1 =>
+    rewrite p (rewrite p1 (pmap2 (*) (detAExp semA1 semA3) (detAExp semA2 semA4)))
+
+\func detBExp {b : BExp} {t t' : Bool} {s : State} (sem1 : SemBExp b s t) (sem2 : SemBExp b s t') : t = t' \elim b, sem1, sem2
+  | bTrue, rTrue p, rTrue p1 => rewrite p (rewrite p1 idp)
+  | bFalse, rFalse p, rFalse p1 => rewrite p (rewrite p1 idp)
+  | bEq a a1, rEqT n1 s n2 s1 p p1, rEqT n3 s2 n4 s3 p2 p3 => rewrite p1 (rewrite p3 idp)
+  | bEq a a1, rEqT n1 s n2 s1 p p1, rEqF n3 s2 n4 s3 n p2 =>
+    \let
+      | q => detAExp s s2
+      | q' => detAExp s1 s3
+    \in absurd (n (rewriteI q (rewriteI q' p)))
+  | bEq a a1, rEqF n1 s n2 s1 n p, rEqT n3 s2 n4 s3 p1 p2 =>
+    \let
+      | q => detAExp s s2
+      | q' => detAExp s1 s3
+    \in absurd (n (rewrite q (rewrite q' p1)))
+  | bEq a a1, rEqF n1 s n2 s1 n p, rEqF n3 s2 n4 s3 n5 p1 => rewrite p (rewrite p1 idp)
+  | bLeq a a1, rLeqT n1 s n2 s1 _x p, rLeqT n3 s2 n4 s3 _x1 p1 => rewrite p (rewrite p1 idp)
+  | bLeq a a1, rLeqT n1 s n2 s1 _x p, rLeqF n3 s2 n4 s3 _x1 p1 =>
+    \let
+      | q : n1 = n3 => detAExp s s2
+      | q' : n2 = n4 => detAExp s1 s3
+      | n<= : Not (n1 <= n2) => rewrite q (rewrite q' _x1)
+    \in absurd (n<= _x)
+  | bLeq a a1, rLeqF n1 s n2 s1 _x p, rLeqT n3 s2 n4 s3 _x1 p1 =>
+    \let
+      | q : n1 = n3 => detAExp s s2
+      | q' : n2 = n4 => detAExp s1 s3
+      | l2 : n1 <= n2 => rewrite q (rewrite q' _x1)
+    \in absurd (_x l2)
+  | bLeq a a1, rLeqF n1 s n2 s1 _x p, rLeqF n3 s2 n4 s3 _x1 p1 => rewrite p (rewrite p1 idp)
+  | bNot b, sem1, sem2 => \case sem1, sem2 \with {
+    | rNotT s p, rNotT s1 p1 => rewrite p (rewrite p1 idp)
+    | rNotT s p, rNotF s1 p1 => \let q => detBExp s s1 \in absurd (true/=false (inv q))
+    | rNotF s p, rNotT s1 p1 => \let q => detBExp s s1 \in absurd (true/=false q)
+    | rNotF s p, rNotF s1 p1 => rewrite p (rewrite p1 idp)
+  }
+  | bAnd b b1, sem1, sem2 => \case sem1, sem2 \with {
+    | rAndT s s1 p, rAndT s2 s3 p1 => rewrite p (rewrite p1 idp)
+    | rAndT s s1 p, rAndF1 s2 p1 => \let q => detBExp s s2 \in absurd (true/=false q)
+    | rAndT s s1 p, rAndF2 s2 p1 => \let q => detBExp s1 s2 \in absurd (true/=false q)
+    | rAndF1 s p, rAndT s1 s2 p1 => \let q => detBExp s s1 \in absurd (true/=false (inv q))
+    | rAndF1 s p, rAndF1 s1 p1 => rewrite p (rewrite p1 idp)
+    | rAndF1 s p, rAndF2 s1 p1 => rewrite p (rewrite p1 idp)
+    | rAndF2 s p, rAndT s1 s2 p1 => \let q => detBExp s s2 \in absurd (true/=false (inv q))
+    | rAndF2 s p, rAndF1 s1 p1 => rewrite p (rewrite p1 idp)
+    | rAndF2 s p, rAndF2 s1 p1 => rewrite p (rewrite p1 idp)
+  }
+  | bOr b b1, sem1, sem2 => \case sem1, sem2 \with {
+    | rOrT1 s p, rOrT1 s1 p1 => rewrite p (rewrite p1 idp)
+    | rOrT1 s p, rOrT2 s1 p1 => rewrite p (rewrite p1 idp)
+    | rOrT1 s p, rOrF s1 s2 p1 => \let q => detBExp s s1 \in absurd (true/=false q)
+    | rOrT2 s p, rOrT1 s1 p1 => rewrite p (rewrite p1 idp)
+    | rOrT2 s p, rOrT2 s1 p1 => rewrite p (rewrite p1 idp)
+    | rOrT2 s p, rOrF s1 s2 p1 => \let q => detBExp s s2 \in absurd (true/=false q)
+    | rOrF s s1 p, rOrT1 s2 p1 => \let q => detBExp s s2 \in absurd (true/=false (inv q))
+    | rOrF s s1 p, rOrT2 s2 p1 => \let q => detBExp s1 s2 \in absurd (true/=false (inv q))
+    | rOrF s s1 p, rOrF s2 s3 p1 => rewrite p (rewrite p1 idp)
+  }
+
+\func detComExp {c : Com} {s1 s2 : State} {s : State} (sem1 : SemCom c s s1) (sem2 : SemCom c s s2) : s1 = s2 \elim c, sem1, sem2
+  | skip, rsk p, rsk p1 => rewriteI p p1
+  | assign v a, r:= n s p, r:= n1 s1 p1 =>
+    \let
+      | q => detAExp s s1
+    \in rewrite p (rewrite p1 (rewrite q idp))
+  | seq c c1, rSeq s'' sem1 sem2, rSeq s''1 sem3 sem4 =>
+    \let
+      | q => detComExp sem1 sem3
+      | q' => detComExp {c1} {s1} {s2} {s''} sem2 (rewrite q sem4)
+    \in q'
+  | ite b then else, rIfT s sem1, rIfT s1 sem2 => detComExp sem1 sem2
+  | ite b then else, rIfT s sem1, rIfF s1 sem2 => absurd (true/=false (detBExp s s1))
+  | ite b then else, rIfF s sem1, rIfT s1 sem2 => absurd (true/=false (detBExp s1 s))
+  | ite b then else, rIfF s sem1, rIfF s1 sem2 => detComExp sem1 sem2
+  | while b c, rWhT sb2 s'' sem1 sem2, rWhT sb1 s''1 sem3 sem4 =>
+    \let
+      | q => detComExp sem1 sem3
+      | q' => detComExp {while b c} {s1} {s2} {s''} sem2 (rewrite q sem4)
+    \in q'
+  | while b c, rWhT s s'' sem1 sem2, rWhF s1 p => \let q => detBExp s s1 \in absurd (true/=false q)
+  | while b c, rWhF s p, rWhT s1 s'' sem2 sem1 => \let q => detBExp s s1 \in absurd (true/=false (inv q))
+  | while b c, rWhF s p, rWhF s1 p1 => rewriteI p p1

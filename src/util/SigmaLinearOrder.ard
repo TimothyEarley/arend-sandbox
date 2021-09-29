@@ -1,0 +1,25 @@
+\import Logic
+\import Order.LinearOrder
+\import Order.StrictOrder
+\import Paths
+\import Paths.Meta
+
+\instance SigmaLinearOrderDec {A B : LinearOrder.Dec} : LinearOrder.Dec (\Sigma A B)
+  | < x y => (x.1 < y.1) || (\Sigma (x.1 = y.1) (x.2 < y.2))
+  | <-irreflexive h => \case h \with {
+    | byLeft a => <-irreflexive a
+    | byRight b => <-irreflexive b.2
+  }
+  | <-transitive a b => \case a, b \with {
+    | byLeft a1, byLeft a2 => byLeft (<-transitive a1 a2)
+    | byLeft a1, byRight b1 => byLeft (rewriteI b1.1 a1)
+    | byRight b1, byLeft a1 => byLeft (rewrite b1.1 a1)
+    | byRight b1, byRight b2 => byRight (b1.1 *> b2.1, <-transitive b1.2 b2.2)
+  }
+  | trichotomy x y => \case LinearOrder.trichotomy x.1 y.1, LinearOrder.trichotomy x.2 y.2 \with {
+    | less l, _ => less (byLeft l)
+    | equals p, less l => less (byRight (p, l))
+    | equals p, equals p1 => equals (ext (p, p1))
+    | equals p, greater g => greater (byRight (inv p, g))
+    | greater g, _ => greater (byLeft g)
+  }

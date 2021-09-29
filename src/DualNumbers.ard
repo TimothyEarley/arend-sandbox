@@ -1,0 +1,119 @@
+\import Algebra.Group
+\import Algebra.Meta
+\import Algebra.Monoid
+\import Algebra.Ring
+\import Algebra.Semiring
+\import Arith.Int
+\import Arith.Nat
+\import Arith.Rat
+\import Meta
+\import Paths
+\import Paths.Meta
+\import Set
+\open RatField (productNonZero)
+
+\record Dual -- {F : DiscreteOrderedField}
+  | re : Rat -- F
+  | ep : Rat -- F
+
+  \where {
+    \use \coerce fromRat(r : Rat) => \new Dual r 1
+
+    \use \coerce fromNat(n : Nat) => fromRat (ratio n 1)
+
+    \func example : (f 5) = \new Dual 25 10 => idp
+      \where {
+        \func f (r : Dual) : Dual => r DualRing.* r
+      }
+  }
+
+-- no order, no field (bc of inverses)
+
+\instance DualRing : CRing.Dec Dual
+  | zro => \new Dual 0 0
+  | + (x y : Dual) => \new Dual (x.re + y.re) (x.ep + y.ep)
+  | zro-left {x : Dual} => ext (zro-left, zro-left)
+  | +-assoc => ext (+-assoc, +-assoc)
+  | +-comm => ext (+-comm, +-comm)
+  | ide => \new Dual 1 0
+  | * (x y : Dual) => \new Dual (x.re * y.re) (x.re * y.ep + x.ep * y.re)
+  | ide-left {x : Dual} => ext (ide-left,
+                                1 * x.ep + 0 * x.re ==< pmap (__ + 0 * x.re) ide-left >==
+                                x.ep + 0 * x.re     ==< pmap (x.ep + __) zro_*-left >==
+                                x.ep + 0            ==< zro-right >==
+                                x.ep                `qed )
+  | *-assoc {x y z : Dual} => ext (*-assoc,
+                                   x.re * y.re * z.ep + (x.re * y.ep + x.ep * y.re) * z.re            ==< pmap (_ + __) rdistr >==
+                                   x.re * y.re * z.ep + (x.re * y.ep * z.re + x.ep * y.re * z.re)     ==< inv +-assoc >==
+                                   x.re * y.re * z.ep + x.re * y.ep * z.re + x.ep * y.re * z.re       ==< pmap (_ + __) *-assoc >==
+                                   x.re * y.re * z.ep + x.re * y.ep * z.re + x.ep * (y.re * z.re)     ==< pmap2 (__ + __ + _) *-assoc *-assoc >==
+                                   x.re * (y.re * z.ep) + x.re * (y.ep * z.re) + x.ep * (y.re * z.re) ==< pmap (__ + _) (inv ldistr) >==
+                                   x.re * (y.re * z.ep + y.ep * z.re) + x.ep * (y.re * z.re)          `qed)
+
+-- x.re RatField.* y.ep RatField.+ x.ep RatField.* y.re = y.re RatField.* x.ep RatField.+ y.ep RatField.* x.re
+  | *-comm {x y : Dual} => ext (*-comm,
+                                x.re * y.ep + x.ep * y.re ==< +-comm >==
+                                x.ep * y.re + x.re * y.ep ==< pmap2 (__ + __) *-comm *-comm >==
+                                y.re * x.ep + y.ep * x.re `qed)
+
+  | ldistr {x y z : Dual} => ext (ldistr,
+                                  x.re * (y.ep + z.ep) + x.ep * (y.re + z.re)               ==< pmap2 (__ + __) ldistr ldistr >==
+                                  x.re * y.ep + x.re * z.ep + (x.ep * y.re + x.ep * z.re)   ==< inv +-assoc >==
+                                  (x.re * y.ep + x.re * z.ep + x.ep * y.re) + x.ep * z.re   ==< pmap (__ + _) +-assoc >==
+                                  (x.re * y.ep + (x.re * z.ep + x.ep * y.re)) + x.ep * z.re ==< pmap ((_ + __) + _) +-comm >==
+                                  (x.re * y.ep + (x.ep * y.re + x.re * z.ep)) + x.ep * z.re ==< pmap (__ + _) (inv +-assoc) >==
+                                  (x.re * y.ep + x.ep * y.re + x.re * z.ep) + x.ep * z.re   ==< +-assoc >==
+                                  (x.re * y.ep + x.ep * y.re) + (x.re * z.ep + x.ep * z.re) `qed)
+
+  | negative (x : Dual) => \new Dual (negative x.re) (negative x.ep)
+  | negative-left => ext (negative-left, negative-left)
+
+  | decideEq (x y : Dual) => \case decideEq x.re y.re, decideEq x.ep y.ep \with {
+    | yes e, yes e1 => yes (ext (e, e1))
+    | _, no n => no (\lam p => n (pmap (ep {__}) p))
+    | no n, _ => no (\lam p => n (pmap (re {__}) p))
+  }
+
+\func pow \alias \infix 6 ^ (d : Dual) (n : Nat) : Dual \elim n
+  | 0 => DualRing.ide
+  | suc n => d DualRing.* (d ^ n)
+
+
+-- f(x) = x^n ==> f'(x) = n * x^(n-1)
+
+\func power_law {d : Rat} {n : Nat} : ep {d ^ (suc n)} = (ratio (suc n) 1) RatField.* re {d ^ n} \elim n
+  | 0 =>
+    ep {d ^ 1}                                        ==< idp >==
+    ep {d DualRing.* DualRing.ide}                    ==< pmap (ep {__}) (DualRing.ide-right {d}) >==
+    ep {d}                                            ==< idp >==
+    (ratio 1 1)                                       ==< inv RatField.ide-left >==
+    (ratio 1 1) RatField.* (ratio 1 1)                ==< idp >==
+    (ratio 1 1) RatField.* re {DualRing.ide}          ==< idp  >==
+    (ratio 1 1) RatField.* re {(\new Dual d 1) ^ 0}   `qed
+
+
+  -- \new Dual (x.re * y.re) (x.re * y.ep + x.ep * y.re)
+  | suc n => \let y => ratio (suc n) 1 \in
+    (ep {d ^ (suc (suc n))})                                ==< idp >==
+    (ep {d DualRing.* (d ^ (suc n))})                       ==< idp >==
+    (re {d} * ep {d ^ (suc n)} + ep {d} * re {d ^ (suc n)}) ==< pmap ((_ * __) + _) power_law >==
+    (re {d} * (y * re {d ^ n}) + ep {d} * re {d ^ (suc n)}) ==< pmap (__ + _) (inv (RatField.*-assoc {_} {y})) >==
+    ((re {d} * y) * re {d ^ n} + ep {d} * re {d ^ (suc n)}) ==< pmap ((__ * _) + _) (RatField.*-comm {_} {y}) >==
+    ((y * re {d}) * re {d ^ n} + ep {d} * re {d ^ (suc n)}) ==< pmap (__ + _) (RatField.*-assoc {y}) >==
+    (y * (re {d} * re {d ^ n}) + ep {d} * re {d ^ (suc n)}) ==< idp >==
+    (y * (re {d ^ (suc n)}) + ep {d} * re {d ^ (suc n)})    ==< inv (RatField.rdistr {y} {ep {d}}) >==
+    ((y + ep {d}) * re {d ^ (suc n)})                       ==< idp >==
+    (((ratio (suc n) 1) + (ratio 1 1)) * re {d ^ (suc n)})  ==< power_law-lemma >==
+    ((ratio (suc (suc n)) 1) * re {d ^ (suc n)}) `qed
+
+\where {
+  \func power_law-lemma {n : Nat} {d : Rat}
+    : (((ratio (suc n) 1) + (rat 1 1 (\case __))) * re {d ^ (suc n)})
+    = ((ratio (suc (suc n)) 1)                    * re {d ^ (suc n)})
+    => pmap
+        (__ * re {d ^ (suc n)})
+        {(ratio (suc n) 1) + (ratio 1 1)}
+        {ratio (suc (suc n)) 1}
+        (ext (unfold (pmap pos (pmap suc (pmap suc (pmap (1 Nat.* __) ide-left)))),
+              idp))
+}

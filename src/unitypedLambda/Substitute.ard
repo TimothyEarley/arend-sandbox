@@ -1,0 +1,29 @@
+\import Paths.Meta
+\import simplyTypedLambdaDeBruijne.GeneralContext
+\import unitypedLambda.Lambda
+
+\instance UniSubstOperaions : SubstOperations (u⊢)
+  | rename => rename
+  | subst => subst
+  | s-var l => var l
+  | extends => extends
+\where {
+  \func rename {gamma delta : UniContext} (h : Rename gamma delta) {A : UniType}
+               (t : gamma u⊢ A) : delta u⊢ A
+    \elim t
+      | var l => var (h l)
+      | lam t => lam (rename (extend h) t)
+      | ⋅ f arg => rename h f ⋅ rename h arg
+
+  \func extends {gamma delta : UniContext} (h : Subst {_} {u⊢} gamma delta) {B : UniType} : Subst {_} {u⊢} (gamma ∕ B) (delta ∕ B)
+    => \lam {A} l => \case l \with {
+      | Z p => var (Z p)
+      | S l => rename S (h l)
+    }
+
+  \func subst {gamma delta : UniContext} (s : Subst  {_} {u⊢} gamma delta) {A : UniType} (h : gamma u⊢ A) : delta u⊢ A
+    \elim h
+      | var l => s l
+      | lam body => lam (subst (extends s) body)
+      | ⋅ f arg => (subst s f) ⋅ (subst s arg)
+}

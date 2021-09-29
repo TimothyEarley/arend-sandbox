@@ -1,0 +1,144 @@
+\import Arith.Nat
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Order.LinearOrder
+\import Order.StrictOrder
+\import Paths
+\import Paths.Meta
+\import SetTheory.Ord
+\import SetTheory.Ordinal
+\open OrdinalD (x<y<sx)
+
+\data OrdinalD (lv : Nat)
+  | Phi
+  | OSuc (OrdinalD lv)
+
+\where {
+  \data \infix 6 d< {lx ly : Nat} (x : OrdinalD lx) (y : OrdinalD ly) : \Set \elim x, y
+    | Phi, OSuc _ => Phi< (lx = ly)
+    | OSuc x, OSuc y => OSuc< (lx = ly) (x d< y)
+
+  \func d<-implies-lv= {lx ly : Nat} {x : OrdinalD lx} {y : OrdinalD ly} (h : x d< y) : lx = ly \elim x, y, h
+    | Phi, OSuc y, Phi< p => p
+    | OSuc x, OSuc y, OSuc< p h => p
+
+  \func d<-trans {lx ly lz : Nat} {x : OrdinalD lx} {y : OrdinalD ly} {z : OrdinalD lz}
+                 (h1 : x d< y) (h2 : y d< z) : x d< z \elim x, y, z, h1, h2
+    | Phi, OSuc y, OSuc z, Phi< p, OSuc< p1 h2 => Phi< (p *> p1)
+    | OSuc x, OSuc y, OSuc z, OSuc< p h1, OSuc< p1 h2 => OSuc< (p *> p1) (d<-trans h1 h2)
+
+  \func d<-tri {l : Nat} (x y : OrdinalD l) : Ordinal.Tri (d<) x y \elim x, y
+    | Phi, Phi => Ordinal.equal idp
+    | Phi, OSuc y => Ordinal.less (Phi< idp)
+    | OSuc x, Phi => Ordinal.greater (Phi< idp)
+    | OSuc x, OSuc y => \case d<-tri x y \with {
+      | Ordinal.less _x => Ordinal.less (OSuc< idp _x)
+      | Ordinal.equal p => Ordinal.equal (pmap OSuc p)
+      | Ordinal.greater _x => Ordinal.greater (OSuc< idp _x)
+    }
+
+  \func d<-osuc {l : Nat} {x : OrdinalD l} : x d< (OSuc x) \elim x
+    | Phi => Phi< idp
+    | OSuc x => OSuc< idp d<-osuc
+
+  \func x<y<sx {l : Nat} {x y : OrdinalD l} (h : x d< y) (h' : y d< OSuc x) {A : \Type} : A \elim x, y, h, h'
+    | Phi, OSuc y, Phi< p, OSuc< p1 ()
+    | OSuc x, OSuc y, OSuc< p h, OSuc< p1 h' => x<y<sx h h'
+}
+
+\record Ord
+  | lv : Nat
+  | ord : OrdinalD lv
+\where {
+  \data \infix 6 o< (x y : Ord)
+    | lv< (x.lv < y.lv)
+    | ord< (x.ord OrdinalD.d< y.ord)
+
+  \func osuc (x : Ord) : Ord \cowith
+    | lv => x.lv
+    | ord => OSuc x.ord
+
+  \func o<-trans {x y z : Ord}
+                (h1 : x o< y)
+                (h2 : y o< z) : x o< z \elim h1, h2
+    | lv<  h1, lv<  h2 => lv< (NatSemiring.<-transitive h1 h2)
+    | lv<  h1, ord< h2 => lv< (rewriteI (OrdinalD.d<-implies-lv= h2) h1)
+    | ord< h1, lv<  h2 => lv< (rewrite (OrdinalD.d<-implies-lv= h1) h2)
+    | ord< h1, ord< h2 => ord< (OrdinalD.d<-trans h1 h2)
+
+  \func o<-tri {x y : Ord} : Ordinal.Tri (o<) x y \elim x, y
+    | (n,x), (m,y) => \case NatSemiring.trichotomy n m \with {
+      | less _x => Ordinal.less (lv< _x)
+      | equals p => \case \elim n, \elim x, \elim p \with {
+          | _, x, idp => \case OrdinalD.d<-tri x y \with {
+            | Ordinal.less _x => Ordinal.less (ord< _x)
+            | Ordinal.equal p => Ordinal.equal (pmap (\new Ord m __) p)
+            | Ordinal.greater _x => Ordinal.greater (ord< _x)
+          }
+      }
+      | greater _x => Ordinal.greater (lv< _x)
+    }
+
+  \func osuc-=< {x a : Ord} (h : x o< osuc a) : (x = a) || (x o< a) \elim h
+    | lv< _x => byRight (lv< _x)
+    | ord< d =>
+      \let n=n1 : x.lv = a.lv => OrdinalD.d<-implies-lv= d
+    \in \case \elim x, \elim a, \elim n=n1, \elim d  \with {
+        | (_, Phi), (_, Phi), idp, _ => byLeft idp
+        | (_, Phi), (_, OSuc a), idp, _ => byRight (ord< (OrdinalD.Phi< idp))
+        | (_, OSuc x), (_, Phi), idp, OrdinalD.OSuc< _ ()
+        | (_, OSuc x), (_, OSuc a), idp, d => \case OrdinalD.d<-tri x a \with {
+          | Ordinal.less x<a => byRight (ord< (OrdinalD.OSuc< idp x<a))
+          | Ordinal.equal p => byLeft (ext (idp, pmap OSuc p))
+          | Ordinal.greater a<x => x<y<sx (OrdinalD.OSuc< idp a<x) d
+        }
+      }
+
+  \func not-x<0Phi {x : Ord} (h : x o< \new Ord 0 Phi) {A : \Type} : A
+    | Ord.lv< ()
+    | Ord.ord< ()
+
+  \func induction1 {P : Ord -> \Set}
+                   (casePhi : \Pi (lx : Nat) (\Pi (x : Ord) (x o< \new Ord lx Phi) -> P x) -> P (\new Ord lx Phi))
+                   (caseOSuc : \Pi (lx : Nat) (x : OrdinalD lx) (\Pi (y : Ord) (y o< \new Ord lx (OSuc x)) -> P y) -> P (\new Ord lx (OSuc x)))
+                   (x : Ord) : P x
+    => (ind1 P casePhi caseOSuc x).1
+
+  \where {
+    \func ind1 (P : Ord -> \Set)
+               (casePhi : \Pi (lx : Nat) (\Pi (x : Ord) (x o< \new Ord lx Phi) -> P x) -> P (\new Ord lx Phi))
+               (caseOSuc : \Pi (lx : Nat) (x : OrdinalD lx) (\Pi (y : Ord) (y o< \new Ord lx (OSuc x)) -> P y) -> P (\new Ord lx (OSuc x)))
+               (x : Ord)
+      : \Sigma (P x) (\Pi (y : Ord) (y o< x) -> P y) \elim x
+      | (0, Phi) => (casePhi 0 (\lam _ h => not-x<0Phi h), \lam _ h => not-x<0Phi h)
+
+      | (suc n,Phi) => (casePhi (suc n) (\lam x o => \case \elim x, o \with {
+        | (n,Phi), lv< _x => {?}
+        | (n,OSuc o), lv< _x => {?}
+        | (n,o), ord< d => {?}
+      }),
+                        {?})
+
+
+      | (suc n,OSuc o) => {?}
+      | (0,OSuc o) => {?}
+  }
+
+  \func induction {P : Ord -> \Set}
+                  (ind : \Pi (x : Ord) (f : \Pi (y : Ord) (o< y x) -> P y) -> P x)
+                  (x : Ord) : P x => {?}
+}
+
+\func OrdIsOrdinal : Ordinal Ord \cowith
+  | o-empty => \new Ord 0 Phi
+  | o-suc => Ord.osuc
+  | o< => Ord.o<
+  | isOrdinal => \new Ordinal.IsOrdinal {
+    | o-trans => Ord.o<-trans
+    | o-Tri => Ord.o<-tri
+    | not-x<0 h => Ord.not-x<0Phi h
+    | <-osuc {x} => Ord.ord< OrdinalD.d<-osuc
+    | osuc-=< => Ord.osuc-=<
+    | TransFinite => {?} -- Ord.induction
+  }

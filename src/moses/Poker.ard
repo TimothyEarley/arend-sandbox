@@ -1,0 +1,310 @@
+\import Arith.Nat
+\import Data.Array
+\import Data.List (Sort)
+\import Logic
+\import Logic.Meta
+\import Order.LinearOrder
+\import Order.StrictOrder
+\import util.ArrayUtils
+\import util.SigmaLinearOrder
+
+\data Suit
+  | Spades
+  | Clubs
+  | Hearts
+  | Diamonds
+
+\where {
+  \func toValue (s : Suit) : Nat \elim s
+    | Spades => 0
+    | Clubs => 1
+    | Hearts => 2
+    | Diamonds => 3
+
+  \func toValueInjective {s s' : Suit} (p : toValue s = toValue s') : s = s' \elim s, s'
+    | Spades, Spades => idp
+    | Spades, Clubs => contradiction
+    | Spades, Hearts => contradiction
+    | Spades, Diamonds => contradiction
+    | Clubs, Spades => contradiction
+    | Clubs, Clubs => idp
+    | Clubs, Hearts => contradiction
+    | Clubs, Diamonds => contradiction
+    | Hearts, Spades => contradiction
+    | Hearts, Clubs => contradiction
+    | Hearts, Hearts => idp
+    | Hearts, Diamonds => contradiction
+    | Diamonds, Spades => contradiction
+    | Diamonds, Clubs => contradiction
+    | Diamonds, Hearts => contradiction
+    | Diamonds, Diamonds => idp
+
+  \instance SuitOrd : LinearOrder.Dec Suit
+    | < (s1 s2 : Suit) => (toValue s1) < (toValue s2)
+    | <-irreflexive {x} => <-irreflexive
+    | <-transitive {x y z : Suit} => <-transitive
+    | trichotomy x y => \case LinearOrder.trichotomy (toValue x) (toValue y) \with {
+      | less _x => less _x
+      | equals p => equals (toValueInjective p)
+      | greater _x => greater _x
+    }
+}
+
+\data Rank
+  | card2
+  | card3
+  | card4
+  | card5
+  | card6
+  | card7
+  | card8
+  | card9
+  | card10
+  | jack
+  | queen
+  | king
+  | ace
+
+\where {
+
+  \func toValue (r : Rank) : Nat \elim r
+    | card2 => 2
+    | card3 => 3
+    | card4 => 4
+    | card5 => 5
+    | card6 => 6
+    | card7 => 7
+    | card8 => 8
+    | card9 => 9
+    | card10 => 10
+    | jack => 11
+    | queen => 12
+    | king => 13
+    | ace => 14
+
+    \func toValueInjective {x y : Rank} (p : toValue x = toValue y) : x = y \elim x, y
+      | card2, card2 => idp
+      | card2, card3 => contradiction
+      | card2, card4 => contradiction
+      | card2, card5 => contradiction
+      | card2, card6 => contradiction
+      | card2, card7 => contradiction
+      | card2, card8 => contradiction
+      | card2, card9 => contradiction
+      | card2, card10 => contradiction
+      | card2, jack => contradiction
+      | card3, card2 => contradiction
+      | card3, card3 => idp
+      | card3, card4 => contradiction
+      | card3, card5 => contradiction
+      | card3, card6 => contradiction
+      | card3, card7 => contradiction
+      | card3, card8 => contradiction
+      | card3, card9 => contradiction
+      | card3, card10 => contradiction
+      | card3, jack => contradiction
+      | card3, queen => contradiction
+      | card3, king => contradiction
+      | card3, ace => contradiction
+      | card4, card2 => contradiction
+      | card4, card3 => contradiction
+      | card4, card4 => idp
+      | card4, card5 => contradiction
+      | card4, card6 => contradiction
+      | card4, card7 => contradiction
+      | card4, card8 => contradiction
+      | card4, card9 => contradiction
+      | card4, card10 => contradiction
+      | card4, jack => contradiction
+      | card4, queen => contradiction
+      | card4, king => contradiction
+      | card4, ace => contradiction
+      | card5, card2 => contradiction
+      | card5, card3 => contradiction
+      | card5, card4 => contradiction
+      | card5, card5 => idp
+      | card5, card6 => contradiction
+      | card5, card7 => contradiction
+      | card5, card8 => contradiction
+      | card5, card9 => contradiction
+      | card5, card10 => contradiction
+      | card5, jack => contradiction
+      | card5, queen => contradiction
+      | card5, king => contradiction
+      | card5, ace => contradiction
+      | card6, card2 => contradiction
+      | card6, card3 => contradiction
+      | card6, card4 => contradiction
+      | card6, card5 => contradiction
+      | card6, card6 => idp
+      | card6, card7 => contradiction
+      | card6, card8 => contradiction
+      | card6, card9 => contradiction
+      | card6, card10 => contradiction
+      | card6, jack => contradiction
+      | card6, queen => contradiction
+      | card6, king => contradiction
+      | card6, ace => contradiction
+      | card7, card2 => contradiction
+      | card7, card3 => contradiction
+      | card7, card4 => contradiction
+      | card7, card5 => contradiction
+      | card7, card6 => contradiction
+      | card7, card7 => idp
+      | card7, card8 => contradiction
+      | card7, card9 => contradiction
+      | card7, card10 => contradiction
+      | card7, jack => contradiction
+      | card7, queen => contradiction
+      | card7, king => contradiction
+      | card7, ace => contradiction
+      | card8, card2 => contradiction
+      | card8, card3 => contradiction
+      | card8, card4 => contradiction
+      | card8, card5 => contradiction
+      | card8, card6 => contradiction
+      | card8, card7 => contradiction
+      | card8, card8 => idp
+      | card8, card9 => contradiction
+      | card8, card10 => contradiction
+      | card8, jack => contradiction
+      | card8, queen => contradiction
+      | card8, king => contradiction
+      | card8, ace => contradiction
+      | card9, card2 => contradiction
+      | card9, card3 => contradiction
+      | card9, card4 => contradiction
+      | card9, card5 => contradiction
+      | card9, card6 => contradiction
+      | card9, card7 => contradiction
+      | card9, card8 => contradiction
+      | card9, card9 => idp
+      | card9, card10 => contradiction
+      | card9, jack => contradiction
+      | card9, queen => contradiction
+      | card9, king => contradiction
+      | card9, ace => contradiction
+      | card10, card2 => contradiction
+      | card10, card3 => contradiction
+      | card10, card4 => contradiction
+      | card10, card5 => contradiction
+      | card10, card6 => contradiction
+      | card10, card7 => contradiction
+      | card10, card8 => contradiction
+      | card10, card9 => contradiction
+      | card10, card10 => idp
+      | card10, jack => contradiction
+      | card10, queen => contradiction
+      | card10, king => contradiction
+      | card10, ace => contradiction
+      | jack, card2 => contradiction
+      | jack, card3 => contradiction
+      | jack, card4 => contradiction
+      | jack, card5 => contradiction
+      | jack, card6 => contradiction
+      | jack, card7 => contradiction
+      | jack, card8 => contradiction
+      | jack, card9 => contradiction
+      | jack, card10 => contradiction
+      | jack, jack => idp
+      | jack, queen => contradiction
+      | jack, king => contradiction
+      | jack, ace => contradiction
+      | queen, card2 => contradiction
+      | queen, card3 => contradiction
+      | queen, card4 => contradiction
+      | queen, card5 => contradiction
+      | queen, card6 => contradiction
+      | queen, card7 => contradiction
+      | queen, card8 => contradiction
+      | queen, card9 => contradiction
+      | queen, card10 => contradiction
+      | queen, jack => contradiction
+      | queen, queen => idp
+      | queen, king => contradiction
+      | queen, ace => contradiction
+      | king, card2 => contradiction
+      | king, card3 => contradiction
+      | king, card4 => contradiction
+      | king, card5 => contradiction
+      | king, card6 => contradiction
+      | king, card7 => contradiction
+      | king, card8 => contradiction
+      | king, card9 => contradiction
+      | king, card10 => contradiction
+      | king, jack => contradiction
+      | king, queen => contradiction
+      | king, king => idp
+      | king, ace => contradiction
+      | ace, card2 => contradiction
+      | ace, card3 => contradiction
+      | ace, card4 => contradiction
+      | ace, card5 => contradiction
+      | ace, card6 => contradiction
+      | ace, card7 => contradiction
+      | ace, card8 => contradiction
+      | ace, card9 => contradiction
+      | ace, card10 => contradiction
+      | ace, jack => contradiction
+      | ace, queen => contradiction
+      | ace, king => contradiction
+      | ace, ace => idp
+
+  \instance RankOrd : LinearOrder.Dec Rank
+      | < (r1 r2 : Rank) => (toValue r1) < (toValue r2)
+      | <-irreflexive {x : Rank} => <-irreflexive
+      | <-transitive {x y z : Rank} => <-transitive
+      | trichotomy (x y : Rank) => \case NatSemiring.trichotomy (toValue x) (toValue y) \with {
+        | less _x => less _x
+        | equals p => equals (toValueInjective p)
+        | greater _x => greater _x
+}
+}
+
+\open Rank (RankOrd)
+\open Suit (SuitOrd)
+\open DArray (!!)
+
+\func Card => \Sigma Rank Suit
+
+\func Hand : \Set => \Sigma (v : Array Card 5) (Sort.Sorted (ArrayUtils.toList v))
+\func CardIn (h : Hand) : \Set => \Sigma (c : Card) (Index c h.1)
+
+\func rank {h : Hand} (c : CardIn h) : Rank => c.1.1
+\func suit {h : Hand} (c : CardIn h) : Suit => c.1.2
+
+
+\func HasPair (h : Hand) : \Prop => ∃ (c1 c2 : CardIn h) (Not (c1 = c2)) (rank c1 = rank c2)
+\func HasTwoPair (h : Hand) : \Prop => ∃ (c1 c2 c3 c4 : CardIn h) (rank c1 = rank c2) (rank c3 = rank c4)
+\func HasTriple (h : Hand) : \Prop => ∃ (c1 c2 c3 : CardIn h) (rank c1 = rank c2) (rank c1 = rank c3)
+-- TODO Ace can be lowest
+\func HasStreet (h : Hand) : \Prop => ArrayUtils.All
+    (ArrayUtils.zipWithNext (map (\lam t => t.1) h.1))
+    (\lam ab => suc (Rank.toValue ab.1) = Rank.toValue ab.2)
+\func HasFlush (h : Hand) : \Prop => ∃ (s : Suit) (ArrayUtils.All h.1 (\lam c => c.2 = s))
+\func HasQuad (h : Hand) : \Prop => ∃ (c1 c2 c3 c4 : CardIn h) (rank c1 = rank c2) (rank c1 = rank c3) (rank c1 = rank c4)
+\func HasAceAndTen (h : Hand) : \Prop => ∃ (c1 c2 : CardIn h) (rank c1 = card10) (rank c2 = ace)
+
+\func IsPair (h : Hand) : \Prop => \Sigma (HasPair h) (Not (HasTwoPair h)) (Not (HasTriple h)) (Not (HasQuad h))
+\func IsTwoPair (h : Hand) : \Prop => \Sigma (HasTwoPair h) (Not (HasTriple h)) (Not (HasQuad h))
+\func IsTriple (h : Hand) : \Prop => \Sigma (HasTriple h) (Not (HasPair h))
+\func IsStreet (h : Hand) : \Prop => \Sigma (HasStreet h) (Not (HasFlush h))
+\func IsFlush (h : Hand) : \Prop => \Sigma (HasFlush h) (Not (HasStreet h))
+\func IsStraightFlush (h : Hand) : \Prop => \Sigma (HasStreet h) (HasFlush h) (Not (HasAceAndTen h))
+\func IsRoyal (h : Hand) : \Prop => \Sigma (HasStreet h) (HasFlush h) (HasAceAndTen h)
+
+\func Disjoint {n : Nat} (v : Array (Hand -> \Prop) n) =>
+  \Pi (x y : Fin n) (Not (x = y)) (h : Hand) -> Not (\Sigma ((v !! x) h) ((v !! y) h))
+
+\lemma isDisjoint : Disjoint {7} (IsPair :: IsTwoPair :: IsTriple :: IsStreet :: IsFlush :: IsStraightFlush :: IsRoyal :: nil)
+  => \lam x y q h h => \case \elim x, \elim y, \elim h, \elim q \with {
+    | 0, 0, _, p => p idp
+    | 0, suc y, (_x,_x1), q => {?}
+    | suc x, 0, (_x,_x1), q => {?}
+    | suc x, suc y, (_x,_x1), q => {?}
+  }
+
+\func IsOneOf {n : Nat} (v : Array (Hand -> \Prop) n) : \Type => \Pi (h : Hand) -> ArrayUtils.HasSome v (\lam p => p h)
+
+\func isOneOf : IsOneOf (IsPair :: IsTwoPair :: IsTriple :: IsStreet :: IsFlush :: IsStraightFlush :: IsRoyal :: nil)
+  => \lam h => {?}

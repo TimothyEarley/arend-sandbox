@@ -1,0 +1,99 @@
+\import Data.Array (mkArray)
+\import Data.Bool
+\import Data.Maybe
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Paths
+\import Paths.Meta
+\import Set
+\import Star
+\import identity.FinIdentity
+\import identity.Identity
+\import identity.NatIdentity
+\import registerMachine.Program
+\import registerMachine.Semantics
+\import typeclasses.Functor
+\import typeclasses.Monad
+\import util.ArrayUtils
+\import util.Maybe (orElse)
+\open MachineSpec (Alphabet, Reg, String)
+\open ArrayUtils (??, arrayOf)
+\open example (eSpec)
+
+\func Label => Nat
+
+\data LabelInstruction (spec : MachineSpec)
+  | l_add (register : spec.Reg) (c : spec.Alphabet)
+  | l_sub (register : spec.Reg) (c : spec.Alphabet)
+  | l_case (register : spec.Reg)
+           (emptyCase : Label) (alphabetCase : spec.Alphabet -> Label)
+  | l_print
+  | l_halt
+
+\func LabelProgram (spec : MachineSpec) => Array (\Sigma (Maybe Label) (LabelInstruction spec))
+
+\func stepLabelInstruction {spec : MachineSpec} (p : LabelProgram spec) (i : LabelInstruction spec) (c : Configuration spec) : Configuration spec
+\elim i
+  | l_add register c1 => stepInstruction (add register c1) c
+  | l_sub register c1 => stepInstruction (sub register c1) c
+  | l_case register emptyCase alphabetCase => \new Configuration {
+    | line => \case (c.registers register) \with {
+      | nil => findLabel p emptyCase
+      | :: a l => findLabel p (alphabetCase a)
+    }
+    | registers => c.registers
+    | output => c.output
+  }
+  | l_print => stepInstruction print c
+  | l_halt => stepInstruction halt c
+
+  \where {
+    \func findLabel {spec : MachineSpec} (p : LabelProgram spec) (l : Label) : LineNumber
+    \elim p
+      -- not found! use 0
+      | nil => 0
+      | :: (nothing, _) p => suc (findLabel p l)
+      | :: (just l', _) p => \case (l ≟ l') \with {
+        | yes e => 0
+        | no n => suc (findLabel p l)
+      }
+  }
+
+\func labelProgramStep {spec : MachineSpec} (p : LabelProgram spec) (c : Configuration spec) : Configuration spec =>
+  stepLabelInstruction p
+      ((fmap (\lam x => x.2) (p ?? c.line)) orElse l_halt)
+      c
+
+\func labelRuns {spec : MachineSpec} (p : LabelProgram spec) (c c' : Configuration spec) : \Type =>
+  Star (labelProgramStep p __ = __) c c'
+
+\func example : labelRuns {eSpec}
+    exampleProgram
+    (Configuration.start {eSpec} nil)
+    (\new Configuration eSpec 5 (nil :: nil :: nil) (nil :: nil)) =>
+  (Configuration.start {eSpec} nil) ~~< rewrite start= {?} >~>
+  (\new Configuration eSpec 1 ((0 :: nil) :: nil :: nil) nil) ~~< {?} >~>
+  (\new Configuration eSpec 5 (nil :: nil :: nil) (nil :: nil)) `stop
+
+  \where {
+    \func eSpec : MachineSpec => \new MachineSpec 1 1
+
+    \func start= : Configuration.start {eSpec} nil = \new Configuration eSpec 0 (nil :: nil :: nil) nil => \let
+      | p : nil :: (arrayOf nil) = {Array eSpec.String 2} nil :: nil :: nil => ext (ext (\lam j => cases j \with {
+        | 0 => idp
+        | 1 => idp
+      }))
+                                                                                                           \in ext p
+
+    \func exampleProgram : LabelProgram eSpec =>
+      (nothing, l_add 0 0)                    ::
+      (just 0, l_case 0 2 (\lam e => 1))      ::
+      (just 1, l_sub 0 0)                     ::
+      (nothing, l_case 0 0 (\lam e => 0))     ::
+      (just 2, l_print)                ::
+      (nothing, l_halt)                ::
+      nil
+  }
+
+

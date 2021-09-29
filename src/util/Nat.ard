@@ -1,0 +1,12 @@
+\import Arith.Nat
+\import Data.Or
+\import Logic
+\import Order.LinearOrder
+\import Order.PartialOrder
+\open LinearOrder (<=-dec)
+
+\func not<=0 {n : Nat} (h : suc n <= 0) : Empty
+  => \case <=-dec h \with {
+    | inl ()
+    | inr ()
+  }

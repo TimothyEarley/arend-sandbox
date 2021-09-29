@@ -1,0 +1,46 @@
+\import Category.Functor
+\import Data.Bool
+\import Function
+\import Logic
+\import Paths
+\import Set
+\import Util
+\import identity.DecMaps
+\import identity.Identity
+
+\instance FinIdentity {n : Nat} : Identity.Decidable (Fin n)
+  | Code => Code
+  | code-refl => code-refl
+  | code-decode => code-decode
+  | code-decide => code-decide
+\where {
+  \func Code {n : Nat} (a b : Fin n) : \Prop
+    | {suc n}, 0, 0 => \Sigma
+    | {suc n}, 0, suc b => Empty
+    | {suc n}, suc a, 0 => Empty
+    | {suc n}, suc a, suc b => Code a b
+
+  \func code-refl {n : Nat} (a : Fin n) : Code a a
+    | {suc n}, 0 => ()
+    | {suc n}, suc a => code-refl a
+
+  \func code-decode {n : Nat} {a b : Fin n} (c : Code a b) : a = b
+    | {suc n}, {0}, {0}, c => idp
+    | {suc n}, {suc a}, {suc b}, c => pmap fsuc (code-decode c)
+
+  \func code-decide {n : Nat} (a b : Fin n) : Dec (Code a b)
+    | {suc n}, 0, 0 => yes ()
+    | {suc n}, 0, suc b => no id
+    | {suc n}, suc a, 0 => no id
+    | {suc n}, suc a, suc b => \case code-decide a b \with {
+      | yes e => yes e
+      | no e => no e
+    }
+}
+
+-- use instead of generic one if you want to compute
+\func eqFin \alias \infix 6 fin≟ {n : Nat} (x y : Fin n) : Dec (x = y)
+  => decMap (FinIdentity.code-decide x y) (code-decode, code-encode)
+\where {
+  \func test : decToBool (5 fin≟ 5) = true => idp
+}
