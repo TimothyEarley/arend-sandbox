@@ -1,3 +1,6 @@
+\import Algebra.Domain.Euclidean
+\import Algebra.Monoid
+\import Arith.Int
 \import Arith.Nat
 \import Category.Limit
 \import Data.Array
@@ -5,6 +8,7 @@
 \import Data.Maybe
 \import Debug.Meta
 \import Function.Meta
+\import LeipnizEquality
 \import Logic
 \import Logic.Meta
 \import Meta
@@ -18,11 +22,44 @@
 \import identity.Identity
 \import typeclasses.Functor
 \import typeclasses.Monad
-\import util.Fin
 \open DArray (!!)
+\open LeipnizIsEqual (i)
 
 \module ArrayUtils \where {
-  \func \infixl 9 ?? {A : \Type} (a : Array A) (i : Nat) : Maybe A => fmap (a !!) (truncateNatToFin i)
+
+  \func \infixl 9 ?? {A : \Type} (a : Array A) (i : Nat) : Maybe A \elim a, i
+    | nil, _ => nothing
+    | :: a arr, 0 => just a
+    | :: a arr, suc i => arr ?? i
+  \where {
+    \func ++-left {A : \Type} {as as' : Array A} {x : A} {i : Nat} (h : as ?? i = just x) : (as ++ as') ?? i = just x
+      \elim as, i, h
+        | :: a arr, 0, h => h
+        | :: a arr, suc i, h => ++-left h
+
+    \func ++-right {A : \Type} {as as' : Array A} {x : A} {i : Nat} (h : as' ?? i = just x) : (as ++ as') ?? ((DArray.len {as}) + i) = just x
+      \elim as
+        | nil => h
+        | :: a arr => ++-right h
+  }
+
+  \func \infixl 9 ??i {A : \Type} (a : Array A) (i : Int) : Maybe A \elim i
+    | pos n => a ?? n
+    | neg 0 => a ?? 0
+    | neg (suc n) => nothing
+  \where {
+    \func ++-left {A : \Type} {as as' : Array A} {x : A} {i : Int} (h : as ??i i = just x) : (as ++ as') ??i i = just x
+      \elim i
+        | pos n => ??.++-left h
+        | neg 0 => ??.++-left h
+        | neg (suc n) => \case h
+
+    \func ++-right {A : \Type} {as as' : Array A} {x : A} {i : Int} (h : as' ??i i = just x) : (as ++ as') ??i (pos (DArray.len {as}) + i) = just x
+      \elim i
+        | pos n => ??.++-right h
+        | neg 0 => ??.++-right h
+        | neg (suc n) => \case h
+  }
 
   \func arrayOf {A : \Type} (val : A) {n : Nat} : Array A n => mkArray (\lam f => val)
 
@@ -67,7 +104,10 @@
     | 0, :: a nil => nil
     | suc n, :: a (:: a' v) => (a, a') :: zipWithNext (a' :: v)
 
-  \func length {A : \Type} {n : Nat} (a : Array A n) : Nat => n
+  \func ++-length {A : \Type} {xs ys : Array A} : DArray.len {xs} Nat.+ DArray.len {ys} = DArray.len {xs ++ ys} \elim xs
+    | nil => idp
+    | :: x xs => pmap suc ++-length
+
 
   \func dropLast {n : Nat} {A : Fin (suc n) -> \Type} (d : DArray {suc n} A) : DArray {n} (A __)
     => d __ -- same function, we just don't use the last entry

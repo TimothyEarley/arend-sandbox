@@ -22,6 +22,9 @@
       | ~> rac h => (transfer rac) ~~> (embed h transfer)
 }
 
+\func singleStep {A : \Type} {r : A -> A -> \Type} {x y : A} (h : r x y) : Star r x y
+  => h ~> refl idp
+
 \func \infixr 6 ~~> {A : \Type} {r : A -> A -> \Type} {x y z : A}
           (s : Star r x y) (s' : Star r y z) : Star r x z
   \elim s

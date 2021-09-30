@@ -1,7 +1,9 @@
+\import Algebra.Meta
 \import Algebra.Monoid
 \import Arith.Int
 \import Arith.Nat
 \import Logic
+\import Meta
 \import Order.LinearOrder
 \import Order.PartialOrder
 \import Order.StrictOrder
@@ -45,4 +47,36 @@
     | 0, {_} => 0
     | suc n, {0} => 0
     | suc n, {suc m} => fsuc (natCoerceToFin n)
+}
+
+\func +isuc {x y : Int} : x + isuc y = isuc (x + y)
+  \elim y
+    | pos n => helper_pos
+    | neg 0 => helper_pos
+    | neg (suc n) => helper_neg
+\where {
+  \func helper_pos {x : Int} {y : Nat} : x + pos (suc y) = isuc (x + pos y)
+    \elim x
+      | pos n => idp
+      | neg 0 => idp
+      | neg (suc n) => unfold (helper_pos-lemma n y)
+
+  \func helper_pos-lemma (n y : Nat) : y Nat.- n = isuc (y Nat.- suc n)
+    | 0, 0 => idp
+    | 0, 1 => idp
+    | 0, suc (suc y) => idp
+    | suc n, 0 => idp
+    | suc n, suc y => helper_pos-lemma n y
+
+  \func helper_neg {x : Int} {n : Nat} : x + neg n = isuc (x + neg (suc n)) \elim x
+    | pos 0 => idp
+    | pos (suc n1) => unfold (helper_neg-lemma n1 n)
+    | neg n1 => idp
+
+  \func helper_neg-lemma (n1 n : Nat) : suc n1 Nat.- n = isuc (n1 Nat.- n)
+    | 0, 0 => idp
+    | 0, 1 => idp
+    | 0, suc (suc n) => idp
+    | suc n1, 0 => idp
+    | suc n1, suc n => helper_neg-lemma n1 n
 }
