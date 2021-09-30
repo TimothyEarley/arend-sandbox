@@ -9,7 +9,8 @@
 \import simplyTypedLambdaDeBruijne.examples.Examples
 \import simplyTypedLambdaDeBruijne.GeneralContext
 \import simplyTypedLambdaDeBruijne.Lambda
-\import util.Maybe
+\import typeclasses.Monad
+\import util.Maybe (unjust)
 
 -- Krivine Abstract Machine
 -- reductions to head normal form
@@ -106,7 +107,7 @@
 
   \func run (fuel : Nat) (c : Configuration) : Maybe Configuration \elim fuel
     | 0 => just c
-    | suc fuel => (->1_KAM.auto c) flatMap (run fuel)
+    | suc fuel => (->1_KAM.auto c) >>= (run fuel)
 
   \func run_correct (fuel : Nat) {c c' : Configuration} (p : run fuel c = just c') : c ->*_KAM c'
     \elim fuel
@@ -125,6 +126,6 @@
     => ->1_KAM.autoCorrect idp ~> ->1_KAM.autoCorrect idp ~> ->1_KAM.autoCorrect idp ~> refl idp
 
   \func example'' : (initial (lamID ⋅ (succ zero))) ->*_KAM (initial (succ zero))
-    => run_correct 3 idp
+    => run_correct 3 (unfold idp)
   }
 

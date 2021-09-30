@@ -14,8 +14,9 @@
 \import identity.IntIdentity
 \import identity.NatIdentity
 \import limp.LIMP
+\import typeclasses.Functor
 \import typeclasses.Monad
-\import util.Maybe (map, unjust)
+\import util.Maybe (unjust)
 \import util.So
 
 -- uniform
@@ -49,7 +50,7 @@
     | ite b then else => if (evalBExp b s) (fueledEval then fuel s) (fueledEval else fuel s)
     | while b c => if (evalBExp b s) ((fueledEval c fuel s) >>= (fueledEval (while b c) fuel)) (just s)
     | append v a => just (substList s v (cEval.appendList (s.lists v) (evalAExp a s)))
-    | :=L v lv a => (cEval.select (s.lists lv) (evalAExp a s)) map (substVar s v)
+    | :=L v lv a => fmap (substVar s v) (cEval.select (s.lists lv) (evalAExp a s))
   }
 
   \where {

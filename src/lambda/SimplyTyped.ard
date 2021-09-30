@@ -1,6 +1,7 @@
 \import Data.Bool
 \import Data.Maybe
 \import Data.Or
+\import Function.Meta ($)
 \import Identifier
 \import Logic
 \import Logic.Meta
@@ -10,10 +11,14 @@
 \import Paths.Meta
 \import Set
 \import identity.DecMaps
+\import identity.FinIdentity
 \import identity.Identity
 \import identity.NatIdentity
 \import lambda.Lambda
-\import util.Maybe (flatMap, map, unjust)
+\import typeclasses.Functor
+\import typeclasses.Monad
+\import util.Maybe (flatMapJust, unjust)
+\open FinIdentity (code-decide)
 
 \data Type
   | \infixr 6 --> (A B : Type)
@@ -132,7 +137,7 @@
 \elim t
   | Var v => TVar (gamma v = just T)
   | Lam v body => TAbs {T1 T2 : Type} (T1 --> T2 = T) (bodyType : Typerule (Context.add gamma v T1) body T2)
-  | ⋅ f arg => TApp {T1 : Type} (fType : Typerule gamma f (T1 --> T))  (argType : Typerule gamma arg T1)
+  | ⋅ f arg => TApp {T1 : Type} (fType : Typerule gamma f (T1 --> T)) (argType : Typerule gamma arg T1)
 
   \where {
     \func addNonFree {gamma : Context} {i : Identifier} {t : LambdaTerm} {T S : Type}
@@ -181,16 +186,16 @@
 \func types (gamma : Context) (t : AnnotatedLambdaTerm) : Maybe Type
 \elim t
   | var i => gamma i
-  | lam v T body => (types (Context.add gamma v T) body) map (\lam T2 => T --> T2)
-  | ⋅⋅ f arg => (types gamma f) flatMap (\lam T1 =>
-      (types gamma arg) flatMap (\lam T2 =>
+  | lam v T body => fmap (\lam T2 => T --> T2) (types (Context.add gamma v T) body)
+  | ⋅⋅ f arg => (types gamma f) >>= (\lam T1 =>
+      (types gamma arg) >>= (\lam T2 =>
           \case T1 \with {
             | --> A B => \case decideEq T2 A \with {
               | yes e => just B
               | no n => nothing
             }
           }
-                                      ))
+      ))
 
   \where {
     \open AnnotatedLambdaTerm
@@ -199,16 +204,22 @@
     \elim t
       | var i => TVar h
       | lam v T1 body => cases (types (Context.add gamma v T1) body arg addPath) \with {
-        | just T2, q => \let h' => unjust (rewriteF q h) \in TAbs h' (sound q)
-        | nothing, q => usingOnly (rewriteF q h) contradiction
+        | nothing, q => \case (rewriteF q h)
+        | just T2, q => \let h' => rewriteF q h \in TAbs (unjust h') (sound q)
       }
-      | ⋅⋅ f arg => cases (types gamma f arg addPath, types gamma arg arg addPath) \with {
-        | just (--> A B), p, just T2, q => cases (decideEq T2 A arg addPath) \with {
-          | yes e, q' => \let h' => rewriteF q' (rewriteF p (rewriteF q h))
-                         \in TApp (sound (p *> (pmap just (pmap2 (-->) (inv e) (unjust h'))))) (sound q)
-          | no n, q' => usingOnly (rewriteF q' (rewriteF p (rewriteF q h))) contradiction
+      | ⋅⋅ f t =>
+        \let
+          | (--> A B, typesF, p1) => flatMapJust h
+          | (A', typesT, p2) => flatMapJust p1
+        \in cases (decideEq A' A arg addPath) \with {
+          | yes A'=A, p => \let B=T => unjust $ rewriteF p p2
+                        \in sound-app (sound typesF) (sound typesT) A'=A B=T
+          | no n, p => \case rewriteF p p2
         }
-        | just a, p, nothing, q => usingOnly (rewriteF p (rewriteF q h)) contradiction
-        | nothing, p, _, _ => usingOnly (rewriteF p h) contradiction
-      }
+
+    \func sound-app {gamma : Context} {f t : AnnotatedLambdaTerm} {T A A' B : Type}
+      (hf : gamma ⊢ (erase f, A --> B)) (ht : gamma ⊢ (erase t, A'))
+      (p1 : A' = A) (p2 : B = T)
+      : gamma ⊢ (erase (f ⋅⋅ t), T) \elim p1, p2
+      | idp, idp => TApp hf ht
   }

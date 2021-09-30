@@ -6,6 +6,7 @@
 \import Logic.Meta
 \import Meta
 \import Paths
+\import typeclasses.Monad
 
 \func Code {A : \Type} (a b : Maybe A) : \Type \elim a, b
   | just a, just a1 => a = a1
@@ -26,33 +27,11 @@
 
 \func unjust {A : \Type} {a b : A} (p : just a = just b) : a = b => encode p
 
-\func \infixl 6 map {A : \Type} (m : Maybe A) {B : \Type} (f : A -> B) : Maybe B \elim m
-  | just a => just (f a)
-  | nothing => nothing
-
-\func \infixl 6 map2 {A B : \Type} (m : \Sigma (Maybe A) (Maybe B)) {C : \Type} (f : A -> B -> C) : Maybe C \elim m
-  | (just a, just b) => just (f a b)
-  | (_, nothing) => nothing
-  | (nothing, _) => nothing
-
-\func \infixl 6 flatMap {A : \Type} (m : Maybe A) {B : \Type} (f : A -> Maybe B) : Maybe B \elim m
-  | just a => f a
-  | nothing => nothing
-
-\func \infixl 6 flatMap2 {A B : \Type} (m : \Sigma (Maybe A) (Maybe B)) {C : \Type} (f : A -> B -> Maybe C) : Maybe C \elim m
-  | (just a, just b) => f a b
-  | (_, nothing) => nothing
-  | (nothing, _) => nothing
-
 \func \infix 7 fold {A : \Type} (m : Maybe A) {B : \Type} (f : \Sigma (A -> B) B) : B \elim m
   | just a => f.1 a
   | nothing => f.2
 
 \func \infix 7 orElse {A : \Type} (m : Maybe A) (a : A) : A => m fold (id, a)
-
-\func isJust {A : \Type} (m : Maybe A) : Bool \elim m
-  | just a => true
-  | nothing => false
 
 \meta unwrap m => cases (m arg addPath) \with {
   | just x, _ => x
@@ -70,3 +49,8 @@
 
     \func test2 : unwrap (f 0) = 0 => idp
   }
+
+\func flatMapJust {A B : \Type} {f : A -> Maybe B} {m : Maybe A} {b : B}
+                  (h : m >>= f = just b) : \Sigma (a : A) (m = just a) (f a = just b)
+  \elim m, h
+    | just a, h => (a, idp, h)
