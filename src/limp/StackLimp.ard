@@ -1,17 +1,29 @@
 \import Algebra.Group
+\import Algebra.Meta
 \import Algebra.Monoid
 \import Arith.Int
+\import Arith.Nat
 \import Data.Array
 \import Data.Bool (Bool, false, if, true, not \as bnot)
 \import Data.Maybe
+\import Function.Meta ($)
 \import LeipnizEquality
+\import Logic
 \import Logic.Meta
+\import Meta
 \import Order.LinearOrder
+\import Order.PartialOrder
+\import Order.StrictOrder
+\import Paths
+\import Paths.Meta
 \import Star
+\import limp.Interpreter
 \import limp.LIMP
 \import util.ArrayUtils
-\open ArrayUtils (??)
+\import util.Int
+\open ArrayUtils (++-length, ??i)
 \open LeipnizIsEqual (i)
+\open iexec (jump)
 
 \data Instruction {S : Signature}
   | LOADI Num
@@ -24,22 +36,22 @@
 
 \func Stack : \Set => Array Num
 
-\func PC : \Set => Nat
+\func PC : \Set => Int
 
 \func Config {S : Signature} => \Sigma PC (State S) Stack
 
 \func pc {S : Signature} (c : Config) : PC => c.1
 
 \func iexec {S : Signature} (i : Instruction) (c : Config {S}) : Config {S} \elim i, c
-  | LOADI n, (pc, s, stk) => (suc pc, s, n :: stk)
-  | LOAD e, (pc, s, stk) => (suc pc, s, (variables {s} e) :: stk)
-  | ADD, (pc, s, :: x (:: y stk)) => (suc pc, s, (y + x) :: stk)
-  | SUB, (pc, s, :: x (:: y stk)) => (suc pc, s, (y - x) :: stk)
-  | TIMES, (pc, s, :: x (:: y stk)) => (suc pc, s, (y * x) :: stk)
-  | STORE e, (pc, s, :: x stk) => (suc pc, substVar s e x, stk)
+  | LOADI n, (pc, s, stk) => (isuc pc, s, n :: stk)
+  | LOAD e, (pc, s, stk) => (isuc pc, s, (variables {s} e) :: stk)
+  | ADD, (pc, s, :: x (:: y stk)) => (isuc pc, s, (y + x) :: stk)
+  | SUB, (pc, s, :: x (:: y stk)) => (isuc pc, s, (y - x) :: stk)
+  | TIMES, (pc, s, :: x (:: y stk)) => (isuc pc, s, (y * x) :: stk)
+  | STORE e, (pc, s, :: x stk) => (isuc pc, substVar s e x, stk)
   | JMP i, (pc, s, stk) => (jump pc i, s, stk)
-  | JMPLESS i, (pc, s, :: x (:: y stk)) => (if (y <? x) (jump pc i) (suc pc), s, stk)
-  | JMPGE i, (pc, s, :: x (:: y stk)) => (if (x <? y) (jump pc i) (suc pc), s, stk)
+  | JMPLESS i, (pc, s, :: x (:: y stk)) => (if (y <? x) (jump pc i) (isuc pc), s, stk)
+  | JMPGE i, (pc, s, :: x (:: y stk)) => (if (x <? y) (jump pc i) (isuc pc), s, stk)
 
   -- illegal instruction, stall
   | ADD, (pc,s,nil) => (pc, s, nil)
@@ -61,18 +73,102 @@
       | greater _x => false
     }
 
-    \func jump (pc : Nat) (offset : Int) : Nat => \case (suc pc) IntRing.+ offset \with {
-      | pos n => n
-      | neg n => 0
-    }
+    \func jump (pc : Int) (offset : Int) : Int => (isuc pc) + offset
   }
 
 \func exec1 {S : Signature} (instructions : Array Instruction)
             (config config' : Config {S}) : \Prop =>
-  ∃ (i : Instruction) (instructions ?? (pc config) = just i) (config' = iexec i config)
+  ∃ (i : Instruction) (instructions ??i (pc config) = just i) (config' = iexec i config)
 
 \func exec {S : Signature} (instructions : Array Instruction)
   : (Config {S}) -> (Config {S}) -> \Set => Star (exec1 instructions)
+
+-- correctness lemmas
+
+-- TODO if I split stk again (needed for two args, Arend breaks)
+
+\func iexec_shift {S : Signature} {i : Instruction}
+                  {pc pc' : PC} {s s' : State S} {stk stk' : Stack}
+                  (h : (pc', s', stk') = iexec i (pc, s, stk)) {off : Int} : (off + pc', s', stk') = iexec i (off + pc, s, stk) \elim i
+  | LOADI n => ext (rewrite (pmap __.1 h) +isuc, pmap __.2 h, pmap __.3 h)
+  | LOAD e => ext (rewrite (pmap __.1 h) +isuc, pmap __.2 h, pmap __.3 h)
+  | ADD => {?}
+  | SUB => {?}
+  | TIMES => {?}
+  | STORE e => \case \elim stk, h \with {
+    | nil, h => ext (pmap (off + __) (pmap __.1 h), pmap __.2 h, pmap __.3 h)
+    | :: a arr, h => ext (rewrite (pmap __.1 h) +isuc, pmap __.2 h, pmap __.3 h)
+  }
+  | JMP i => ext (rewrite (pmap __.1 h) jump_shift, pmap __.2 h, pmap __.3 h)
+  | JMPLESS i => \case \elim stk, h \with {
+    | nil, h => ext (pmap (off + __) (pmap __.1 h), pmap __.2 h, pmap __.3 h)
+    | :: a arr, h => {?}
+  }
+  | JMPGE i => {?}
+  \where {
+    \func jump_shift {off : Int} {pc : PC} {i : Int} : off + jump pc i = jump (off + pc) i => equation
+        (off + jump pc i)
+        (off + ((isuc pc) + i))
+        ((off + (isuc pc)) + i) {pmap (__ + i) +isuc}
+        (isuc (off + pc) + i)
+        (jump (off + pc) i)
+  }
+
+\func exec1_appendR {S : Signature} {P P' : Array Instruction}
+                    {c c' : Config} (h : exec1 P c c') : exec1 (P ++ P') c c' \elim h
+  | inP (i, ip, cp) => inP (i, ??i.++-left ip, cp)
+
+\func exec_appendR {S : Signature} {P P' : Array Instruction} {c c' : Config} (h : exec P c c') : exec (P ++ P') c c' =>
+  Star.embedSingle h exec1_appendR
+
+\func exec1_appendL {S : Signature} {P P' : Array Instruction}
+                    {c c' : Config}
+                    (h : exec1 P' c c')
+  : exec1 (P ++ P') (pos (DArray.len {P}) + c.1, c.2, c.3) (pos (DArray.len {P}) + c'.1, c'.2, c'.3)
+\elim h
+  | inP (i, ip, cp) => inP (i, ??i.++-right ip, iexec_shift cp)
+
+\func exec_appendL {S : Signature} {P P' : Array Instruction}
+                   {pc pc' : PC} {s s' : State S} {stk stk' : Stack}
+                   (h : exec P' (pc, s, stk) (pc', s', stk'))
+  : exec (P ++ P') (pos (DArray.len {P}) + pc, s, stk) (pos (DArray.len {P}) + pc', s', stk') =>
+  Star.embedSingle h exec1_appendL
+
+
+-- what happened to the condition on i? "size P' <= i"
+
+\func exec_appendL_if {S : Signature} {P P' : Array Instruction}
+                      {pc pc' : PC} {s s' : State S} {stk stk' : Stack}
+                      {j : PC} (hj : j = pc - pos (DArray.len {P}))
+                      (h : exec P' (j, s, stk) (pc', s', stk'))
+  : exec (P ++ P') (pc, s, stk) (pos (DArray.len{P}) + pc', s', stk')
+\elim hj
+  | idp => \let | result => exec_appendL {S} {P} {P'} {pc - pos (DArray.len {P})} h
+                | p : pos (DArray.len {P}) + (pc - pos (DArray.len {P})) = pc => equation
+                    (pos (DArray.len {P}) + (pc - pos (DArray.len {P})))
+                    (pc + pos (DArray.len {P}) + (neg (DArray.len {P}))) {+-assoc}
+                    (pc + (pos (DArray.len {P}) + (neg (DArray.len {P})))) {pmap (pc + __) (IntRing.negative-right {DArray.len {P}})}
+                    (pc + pos 0)
+                    pc
+           \in rewriteF p result
+
+\func exec_append_trans {S : Signature} {P P' : Array Instruction}
+                        {i' i'' : PC} {s s' s'' : State S} {stk stk' stk'' : Stack}
+                        (h : exec P (0, s, stk) (i', s', stk'))
+                        {j : PC} (hj : j = i' - pos (DArray.len {P}))
+                        (h' : exec P' (j, s', stk') (i'', s'', stk''))
+  : exec (P ++ P') (0, s, stk) (pos (DArray.len {P}) + i'', s'', stk'') =>
+  (exec_appendR h) ~~> (exec_appendL_if hj h')
+
+\func exec_append_direct \alias \infixr 6 exec>> {S : Signature} {P P' : Array Instruction}
+                                                 {s s' s'' : State S} {stk stk' stk'' : Stack}
+                                                 (h : exec P (0, s, stk) (pos (DArray.len {P}), s', stk'))
+                                                 (h' : exec P' (0, s', stk') (pos (DArray.len {P'}), s'', stk''))
+  : exec (P ++ P') (0, s, stk) (pos (DArray.len {P ++ P'}), s'', stk'') =>
+  \let p : pos 0 = pos (DArray.len {P}) - pos (DArray.len {P}) => inv (IntRing.negative-right {pos (DArray.len {P})})
+       | q : pos (DArray.len {P}) + (DArray.len {P'}) = DArray.len {P ++ P'} => pmap pos ++-length
+  \in (exec_appendR h) ~~> rewriteI q (exec_appendL_if p h')
+
 
 -- compile
 
@@ -82,3 +178,12 @@
   | ⊕ a b => (acomp a) ++ (acomp b) ++ (ADD :: nil)
   | ⊖ a b => (acomp a) ++ (acomp b) ++ (SUB :: nil)
   | ⊙ a b => (acomp a) ++ (acomp b) ++ (TIMES :: nil)
+  \where {
+    \func correct {S : Signature} (a : AExp) {s : State S} {stk : Stack}
+      : exec (acomp a) (0, s, stk) (DArray.len {acomp a}, s, (aval a s) :: stk) \elim a
+      | num n => inP (LOADI n, idp, idp) ~> refl idp
+      | var e => inP (LOAD e, idp, idp) ~> refl idp
+      | ⊕ a a1 => (correct a) exec>> (correct a1) exec>> (singleStep (inP (ADD, idp, idp)))
+      | ⊖ a a1 => (correct a) exec>> (correct a1) exec>> {?} -- (singleStep (inP (SUB, idp, idp)))
+      | ⊙ a a1 => (correct a) exec>> (correct a1) exec>> {?} -- (singleStep (inP (TIMES, idp, idp)))
+  }

@@ -1,0 +1,22 @@
+\import Algebra.Group
+\import Algebra.Monoid
+\import Arith.Int
+\import limp.LIMP
+
+-- compute the AExp
+\func aval {S : Signature} (a : AExp) (s : State S) : Num \elim a
+  | num n => n
+  | var e => s.variables e
+  | ⊕ a a1 => (aval a s) + (aval a1 s)
+  | ⊖ a a1 => (aval a s) - (aval a1 s)
+  | ⊙ a a1 => (aval a s) * (aval a1 s)
+
+\where {
+  -- the computed result fits the rules
+  \func correct {S : Signature} {a : AExp} {s : State S} : (a, s) aEval (aval a s) \elim a
+    | num n => rNum idp
+    | var e => rVar idp
+    | ⊕ a a1 => rPlus correct correct idp
+    | ⊖ a a1 => rMinus correct correct idp
+    | ⊙ a a1 => rTimes correct correct idp
+}
