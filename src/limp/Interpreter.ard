@@ -1,7 +1,15 @@
 \import Algebra.Group
 \import Algebra.Monoid
 \import Arith.Int
+\import Data.Bool (Bool, false, so, true, not \as bnot, and \as band)
+\import Function.Meta ($)
+\import LogicUtil
+\import Meta
+\import Paths
+\import Paths.Meta
+\import Set \hiding (#)
 \import limp.LIMP
+\import util.So
 
 -- compute the AExp
 \func aval {S : Signature} (a : AExp) (s : State S) : Num \elim a
@@ -19,4 +27,71 @@
     | ⊕ a a1 => rPlus correct correct idp
     | ⊖ a a1 => rMinus correct correct idp
     | ⊙ a a1 => rTimes correct correct idp
+
+  \func complete {S : Signature} {a : AExp} {s : State S} {n : Num} (h : (a, s) aEval n) : aval a s = n \elim a, h
+    | ⊕ a a1, rPlus h1 h2 idp => pmap2 (+) (complete h1) (complete h2)
+    | ⊖ a a1, rMinus h1 h2 idp => pmap2 (-) (complete h1) (complete h2)
+    | ⊙ a a1, rTimes h1 h2 idp => pmap2 (*) (complete h1) (complete h2)
+    | var v, rVar idp => idp
+    | num n', rNum idp => idp
+}
+
+\func bval {S : Signature} (b : BExp) (s : State S) : Bool \elim b
+  | tt => true
+  | ff => false
+  | eq a b => (aval a s) == (aval b s)
+  | not b => bnot (bval b s)
+  | and a b => band (bval a s) (bval b s)
+  | leq a b => {?}
+  | or a b => {?}
+
+\where {
+  \func correct {S : Signature} {b : BExp} {s : State S} : (b, s) bEval (bval b s) \elim b
+    | tt => rtrue so
+    | ff => rfalse so
+    | eq a b => cases (decideEq (aval a s) (aval b s) arg addPath) \with {
+      | yes e, q => reqt (unfold (==) (rewrite q so)) aval.correct aval.correct e
+      | no n, q => reqf (unfold (==) (rewrite q so)) aval.correct aval.correct n
+    }
+    | not b => cases (bval b s arg addPath) \with {
+      | false, p => rnott so (rewriteI p correct)
+      | true, p => rnotf so (rewriteI p correct)
+    }
+    | and a b => cases (bval a s arg addPath, bval b s arg addPath) \with {
+      | false, p, _, _ => randf1 so (rewriteI p correct)
+      | true, _, false, p => randf2 so (rewriteI p correct)
+      | true, p, true, p' => randt so (rewriteI p correct) (rewriteI p' correct)
+    }
+    | leq a b => {?}
+    | or a b => {?}
+
+  \func complete {S : Signature} {b : BExp} {s : State S} {b' : Bool} (h : (b, s) bEval b') : bval b s = b' \elim b, b', h
+    | tt, false, rtrue ()
+    | tt, true, rtrue so => idp
+    | ff, false, rfalse so => idp
+    | ff, true, rfalse ()
+    | not b, false, rnott () h
+    | not b, true, rnott so h => rewrite (complete h) idp
+    | not b, false, rnotf so h => rewrite (complete h) idp
+    | not b, true, rnotf () h
+    | eq x y, false, reqt () a a1 p
+    | eq x y, true, reqt so a a1 idp => unfold (==) $ rewrite (aval.complete a, aval.complete a1, decideEq=_reduce idp) idp
+    | eq x y, false, reqf so a a1 n => unfold (==) $ rewrite (aval.complete a, aval.complete a1, decideEq/=_reduce n) idp
+    | eq x y, true, reqf () a a1 n
+    | leq x y, false, rleqt () a a1 _x
+    | leq x y, true, rleqt so a a1 n1<n2 => {?}
+    | leq x y, false, rleqf so a a1 n => {?}
+    | leq x y, true, rleqf () a a1 n
+    | and b b1, false, randf1 so h => rewrite (complete h) idp
+    | and b b1, true, randf1 () h
+    | and b b1, false, randf2 so h => rewrite (complete h, andFalse) idp
+    | and b b1, true, randf2 () h
+    | and b b1, false, randt () h1 h2
+    | and b b1, true, randt so h1 h2 => rewrite (complete h1, complete h2) idp
+    | or b b1, false, rort1 () h
+    | or b b1, true, rort1 so h => {?}
+    | or b b1, false, rort2 () h
+    | or b b1, true, rort2 so h => {?}
+    | or b b1, false, rorf so h1 h2 => {?}
+    | or b b1, true, rorf () h1 h2
 }

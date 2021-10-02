@@ -6,6 +6,7 @@
 \import Data.Array
 \import Data.Bool (Bool, false, if, true, not \as bnot)
 \import Data.Maybe
+\import Debug.Meta
 \import Function.Meta ($)
 \import LeipnizEquality
 \import Logic
@@ -17,13 +18,17 @@
 \import Paths
 \import Paths.Meta
 \import Star
+\import identity.BoolIdentity
+\import identity.FinIdentity
 \import limp.Interpreter
 \import limp.LIMP
+\import limp.StackLimp
 \import util.ArrayUtils
 \import util.Int
-\open ArrayUtils (++-length, ??i)
+\open ArrayUtils (++-length, ??, ??i)
 \open LeipnizIsEqual (i)
 \open iexec (jump)
+\open FinIdentity (code-refl)
 
 \data Instruction {S : Signature}
   | LOADI Num
@@ -31,8 +36,10 @@
   | ADD | SUB | TIMES
   | STORE Var
   | JMP Int -- offset
-  | JMPLESS Int
-  | JMPGE Int
+  | JMPLEQ Int
+  | JMPGREATER Int
+
+\func Program {S : Signature} => Array Instruction
 
 \func Stack : \Set => Array Num
 
@@ -42,46 +49,85 @@
 
 \func pc {S : Signature} (c : Config) : PC => c.1
 
-\func iexec {S : Signature} (i : Instruction) (c : Config {S}) : Config {S} \elim i, c
-  | LOADI n, (pc, s, stk) => (isuc pc, s, n :: stk)
-  | LOAD e, (pc, s, stk) => (isuc pc, s, (variables {s} e) :: stk)
-  | ADD, (pc, s, :: x (:: y stk)) => (isuc pc, s, (y + x) :: stk)
-  | SUB, (pc, s, :: x (:: y stk)) => (isuc pc, s, (y - x) :: stk)
-  | TIMES, (pc, s, :: x (:: y stk)) => (isuc pc, s, (y * x) :: stk)
-  | STORE e, (pc, s, :: x stk) => (isuc pc, substVar s e x, stk)
-  | JMP i, (pc, s, stk) => (jump pc i, s, stk)
-  | JMPLESS i, (pc, s, :: x (:: y stk)) => (if (y <? x) (jump pc i) (isuc pc), s, stk)
-  | JMPGE i, (pc, s, :: x (:: y stk)) => (if (x <? y) (jump pc i) (isuc pc), s, stk)
+-- stall on illegal instructions
 
-  -- illegal instruction, stall
-  | ADD, (pc,s,nil) => (pc, s, nil)
-  | ADD, (pc,s,:: x nil) => (pc, s, x :: nil)
-  | SUB, (pc, s, nil) => (pc, s, nil)
-  | SUB, (pc, s, :: a nil) => (pc, s, a :: nil)
-  | TIMES, (pc, s, nil) => (pc, s, nil)
-  | TIMES, (pc, s, :: a nil) => (pc, s, a :: nil)
-  | STORE e, (pc, s, nil) => (pc, s, nil)
-  | JMPLESS i, (pc, s, nil) => (pc, s, nil)
-  | JMPLESS i, (pc, s, :: a nil) => (pc, s, a :: nil)
-  | JMPGE i, (pc, s, nil) => (pc, s, nil)
-  | JMPGE i, (pc, s, :: a nil) => (pc, s, a :: nil)
+\func iexec {S : Signature} (i : Instruction) (c : Config {S}) : Config {S} \elim i
+  | LOADI n => (isuc c.1, c.2, n :: c.3)
+  | LOAD e => (isuc c.1, c.2, (variables {c.2} e) :: c.3)
+  | ADD => iexec_op c.1 c.2 c.3 (+)
+  | SUB => iexec_op c.1 c.2 c.3 (-)
+  | TIMES => iexec_op c.1 c.2 c.3 (*)
+  | STORE e => iexec_store c.1 c.2 c.3 e
+  | JMP i => (jump c.1 i, c.2, c.3)
+  | JMPLEQ i => iexec_jmp_if c.1 c.2 c.3 (<=?) i
+  | JMPGREATER i => iexec_jmp_if c.1 c.2 c.3 (\lam x y => y <? x) i
 
   \where {
+    -- this whole dance is because if we split on the array directly, Arend gets confused.
+    -- (In NormalizeVisitor#updateStack we get fewer arguments than it is going to skip in
+    -- NormalizeVisitor#eval, so we get an exception)
+
+    \func iexec_two_args {S : Signature} (c : Config) (f : Num -> Num -> Stack -> Config) : Config \elim c
+      | (pc, s, nil) => (pc, s, nil)
+      | (pc, s, :: a stk) => helper (pc, s, stk) (f a)
+      \where {
+        \func helper {S : Signature} (c : Config) (f : Num -> Stack -> Config) : Config \elim c
+          | (pc, s, nil) => (pc, s, nil)
+          | (pc, s, :: a stk) => f a stk
+      }
+
+    \func iexec_op {S : Signature}
+                   (pc : PC) (s : State S) (stk : Stack) (op : Num -> Num -> Num)
+      : Config => iexec_two_args (pc, s, stk) (\lam x y stk' => (isuc pc, s, (op y x) :: stk'))
+
+    \func iexec_jmp_if {S : Signature}
+                       (pc : PC) (s : State S) (stk : Stack) (cond : Num -> Num -> Bool) (i : Int) : Config \elim stk
+      | :: x (:: y stk) => (if (cond y x) (jump pc i) (isuc pc), s, stk)
+      | nil => (pc, s, nil)
+      | :: x nil => (pc, s, x :: nil)
+
+    \func iexec_store {S : Signature} (pc : PC) (s : State S) (stk : Stack) (v : Var) : Config \elim stk
+      | :: a arr => (isuc pc, substVar s v a, arr)
+      | nil => (pc, s, nil)
+
     \func \infix 6 <? (a b : Int) : Bool => \case IntRing.trichotomy a b \with {
       | less _x => true
       | equals p => false
       | greater _x => false
     }
 
+    \func \infix 6 <=? (a b : Int) : Bool => \case IntRing.trichotomy a b \with {
+      | less _x => true
+      | equals p => true
+      | greater _x => false
+    }
+
     \func jump (pc : Int) (offset : Int) : Int => (isuc pc) + offset
   }
 
-\func exec1 {S : Signature} (instructions : Array Instruction)
+\func exec1 {S : Signature} (instructions : Program)
             (config config' : Config {S}) : \Prop =>
   ∃ (i : Instruction) (instructions ??i (pc config) = just i) (config' = iexec i config)
 
-\func exec {S : Signature} (instructions : Array Instruction)
+\func exec {S : Signature} (instructions : Program)
   : (Config {S}) -> (Config {S}) -> \Set => Star (exec1 instructions)
+
+\func exec_run {S : Signature} (fuel : Nat) (instructions : Program) (c : Config) : Config \elim fuel
+  | 0 => c
+  | suc fuel => \case instructions ??i (pc c) \with {
+    | just i => exec_run fuel instructions (iexec i c)
+    | nothing => c
+  }
+  \where {
+    \func correct {S : Signature} {fuel : Nat} {instructions : Program} {c : Config} : exec instructions c (exec_run fuel instructions c)
+    \elim fuel
+      | 0 => refl idp
+      | suc fuel => cases (instructions ??i (pc c) arg addPath) \with {
+        | just i, q => (inP (i, q, idp)) ~> correct
+        | nothing, _ => refl idp
+      }
+  }
+
 
 -- correctness lemmas
 
@@ -89,10 +135,14 @@
 
 \func iexec_shift {S : Signature} {i : Instruction}
                   {pc pc' : PC} {s s' : State S} {stk stk' : Stack}
-                  (h : (pc', s', stk') = iexec i (pc, s, stk)) {off : Int} : (off + pc', s', stk') = iexec i (off + pc, s, stk) \elim i
+                  (h : (pc', s', stk') = iexec i (pc, s, stk)) {off : Int} : (off + pc', s', stk') = iexec i (off + pc, s, stk)
+\elim i
   | LOADI n => ext (rewrite (pmap __.1 h) +isuc, pmap __.2 h, pmap __.3 h)
   | LOAD e => ext (rewrite (pmap __.1 h) +isuc, pmap __.2 h, pmap __.3 h)
-  | ADD => {?}
+  | ADD => \case \elim stk, \elim h \with {
+    | nil, h => ext (rewrite (pmap __.1 h) idp, pmap __.2 h, pmap __.3 h)
+    | :: a arr, h => {?}
+  }
   | SUB => {?}
   | TIMES => {?}
   | STORE e => \case \elim stk, h \with {
@@ -100,11 +150,11 @@
     | :: a arr, h => ext (rewrite (pmap __.1 h) +isuc, pmap __.2 h, pmap __.3 h)
   }
   | JMP i => ext (rewrite (pmap __.1 h) jump_shift, pmap __.2 h, pmap __.3 h)
-  | JMPLESS i => \case \elim stk, h \with {
+  | JMPLEQ i => \case \elim stk, h \with {
     | nil, h => ext (pmap (off + __) (pmap __.1 h), pmap __.2 h, pmap __.3 h)
     | :: a arr, h => {?}
   }
-  | JMPGE i => {?}
+  | JMPGREATER i => {?}
   \where {
     \func jump_shift {off : Int} {pc : PC} {i : Int} : off + jump pc i = jump (off + pc) i => equation
         (off + jump pc i)
@@ -114,21 +164,21 @@
         (jump (off + pc) i)
   }
 
-\func exec1_appendR {S : Signature} {P P' : Array Instruction}
+\func exec1_appendR {S : Signature} {P P' : Program}
                     {c c' : Config} (h : exec1 P c c') : exec1 (P ++ P') c c' \elim h
   | inP (i, ip, cp) => inP (i, ??i.++-left ip, cp)
 
-\func exec_appendR {S : Signature} {P P' : Array Instruction} {c c' : Config} (h : exec P c c') : exec (P ++ P') c c' =>
+\func exec_appendR {S : Signature} {P P' : Program} {c c' : Config} (h : exec P c c') : exec (P ++ P') c c' =>
   Star.embedSingle h exec1_appendR
 
-\func exec1_appendL {S : Signature} {P P' : Array Instruction}
+\func exec1_appendL {S : Signature} {P P' : Program}
                     {c c' : Config}
                     (h : exec1 P' c c')
   : exec1 (P ++ P') (pos (DArray.len {P}) + c.1, c.2, c.3) (pos (DArray.len {P}) + c'.1, c'.2, c'.3)
 \elim h
   | inP (i, ip, cp) => inP (i, ??i.++-right ip, iexec_shift cp)
 
-\func exec_appendL {S : Signature} {P P' : Array Instruction}
+\func exec_appendL {S : Signature} {P P' : Program}
                    {pc pc' : PC} {s s' : State S} {stk stk' : Stack}
                    (h : exec P' (pc, s, stk) (pc', s', stk'))
   : exec (P ++ P') (pos (DArray.len {P}) + pc, s, stk) (pos (DArray.len {P}) + pc', s', stk') =>
@@ -137,7 +187,7 @@
 
 -- what happened to the condition on i? "size P' <= i"
 
-\func exec_appendL_if {S : Signature} {P P' : Array Instruction}
+\func exec_appendL_if {S : Signature} {P P' : Program}
                       {pc pc' : PC} {s s' : State S} {stk stk' : Stack}
                       {j : PC} (hj : j = pc - pos (DArray.len {P}))
                       (h : exec P' (j, s, stk) (pc', s', stk'))
@@ -152,7 +202,7 @@
                     pc
            \in rewriteF p result
 
-\func exec_append_trans {S : Signature} {P P' : Array Instruction}
+\func exec_append_trans {S : Signature} {P P' : Program}
                         {i' i'' : PC} {s s' s'' : State S} {stk stk' stk'' : Stack}
                         (h : exec P (0, s, stk) (i', s', stk'))
                         {j : PC} (hj : j = i' - pos (DArray.len {P}))
@@ -160,7 +210,7 @@
   : exec (P ++ P') (0, s, stk) (pos (DArray.len {P}) + i'', s'', stk'') =>
   (exec_appendR h) ~~> (exec_appendL_if hj h')
 
-\func exec_append_direct \alias \infixr 6 exec>> {S : Signature} {P P' : Array Instruction}
+\func exec_append_direct \alias \infixr 6 exec>> {S : Signature} {P P' : Program}
                                                  {s s' s'' : State S} {stk stk' stk'' : Stack}
                                                  (h : exec P (0, s, stk) (pos (DArray.len {P}), s', stk'))
                                                  (h' : exec P' (0, s', stk') (pos (DArray.len {P'}), s'', stk''))
@@ -169,10 +219,9 @@
        | q : pos (DArray.len {P}) + (DArray.len {P'}) = DArray.len {P ++ P'} => pmap pos ++-length
   \in (exec_appendR h) ~~> rewriteI q (exec_appendL_if p h')
 
-
 -- compile
 
-\func acomp {S : Signature} (a : AExp) : Array Instruction \elim a
+\func acomp {S : Signature} (a : AExp) : Program \elim a
   | num n => LOADI n :: nil
   | var x => LOAD x :: nil
   | ⊕ a b => (acomp a) ++ (acomp b) ++ (ADD :: nil)
@@ -184,6 +233,154 @@
       | num n => inP (LOADI n, idp, idp) ~> refl idp
       | var e => inP (LOAD e, idp, idp) ~> refl idp
       | ⊕ a a1 => (correct a) exec>> (correct a1) exec>> (singleStep (inP (ADD, idp, idp)))
-      | ⊖ a a1 => (correct a) exec>> (correct a1) exec>> {?} -- (singleStep (inP (SUB, idp, idp)))
-      | ⊙ a a1 => (correct a) exec>> (correct a1) exec>> {?} -- (singleStep (inP (TIMES, idp, idp)))
+      | ⊖ a a1 => (correct a) exec>> (correct a1) exec>> (singleStep (inP (SUB, idp, idp)))
+      | ⊙ a a1 => (correct a) exec>> (correct a1) exec>> (singleStep (inP (TIMES, idp, idp)))
+
+    \func example : (exec_run {finSig 0 0} 5
+        (acomp {finSig 0 0} (num 2 ⊕ (num 3 ⊙ num 4))) (0, finState nil nil, nil)).3
+      = (pos 14) :: nil => idp
+  }
+
+-- jump if matches jump? with offset off
+
+\func bcomp {S : Signature} (b : BExp) (jump? : Bool) (off : Int) : Program \elim b
+  | tt => if {Program} jump? (JMP off :: nil) nil
+  | ff => if {Program} jump? nil (JMP off :: nil)
+  | not b => bcomp b (bnot jump?) off
+  | leq a b => (acomp a) ++ (acomp b) ++ (if {Instruction} jump? (JMPLEQ off) (JMPGREATER off) :: nil)
+  | and a b =>
+    \let
+      | cb => bcomp b jump? off
+      | cbLen => pos $ DArray.len {cb}
+      -- if a evaluates to true, then we fall through to cb
+      -- otherwise jump (short circuit) to the end or offset
+      | mOff => if jump? cbLen (cbLen + off)
+      | ca => bcomp a false mOff
+    \in ca ++ cb
+  | eq a b => {?}
+  | or a b => {?}
+
+  \where {
+    \func correct {S : Signature} (b : BExp) (jump? : Bool) (off : Int)
+                  {s : State S} {stk : Stack} :
+      exec (bcomp b jump? off) (0, s, stk)
+          ((pos $ DArray.len {bcomp b jump? off}) + (if (jump? bool≟≟ bval b s) off 0), s, stk)
+    \elim b, jump?
+      | tt, false => refl idp
+      | tt, true => singleStep (inP (JMP off, idp, idp))
+      | ff, false => singleStep (inP (JMP off, idp, idp))
+      | ff, true => refl idp
+      | not b, jump? =>
+        \let rec => correct b (bnot jump?) off
+        \in rec ~~> refl (ext
+            (rewrite not_helper idp,
+             idp,
+             idp)
+        )
+      | and a1 b1, jump? =>
+        \let
+          | cb => bcomp b1 jump? off
+          | cbLen => pos $ DArray.len {cb}
+          | mOff => if jump? cbLen (cbLen + off)
+          | ca => bcomp a1 false mOff
+          | caLen => pos $ DArray.len {ca}
+        \in cases (bval a1 s arg addPath) \with {
+          | false, p =>
+            \let
+              goal => equation
+                  (caLen + if jump? cbLen (cbLen + off)) {pmap (caLen + __) pull_+_from_if}
+                  (caLen + (cbLen + if jump? (pos 0) off)) {inv +-assoc}
+                  (caLen + cbLen + if jump? (pos 0) off) {rewrite false_flip_if idp}
+                  (caLen + cbLen + if (jump? bool≟≟ false) off (pos 0)) {idp}
+                  (pos (DArray.len {ca} + DArray.len {cb}) + if (jump? bool≟≟ false) off (pos 0)) {rewrite ++-length idp}
+                  (pos (DArray.len {ca ++ cb}) + if (jump? bool≟≟ false) off (pos 0))
+            \in exec_appendR (correct a1 false mOff) ~~> refl (unfold_let $ ext (rewrite p goal, idp, idp))
+          | true, p =>
+            \let
+              | partOne : exec (ca ++ cb) (0, s, stk) (caLen, s, stk)
+              => exec_appendR (correct a1 false mOff {s} {stk}) ~~> refl (ext (rewrite p idp, idp, idp))
+              | partTwo : exec cb (0, s, stk) (cbLen + if (jump? bool≟≟ bval b1 s) off (pos 0) , s, stk)
+              => correct b1 jump? off
+              | goal => equation
+                  (caLen + (cbLen + if (jump? bool≟≟ bval b1 s) off (pos 0))) {inv +-assoc}
+                  (caLen + cbLen + if (jump? bool≟≟ bval b1 s) off (pos 0)) {rewriteI ++-length idp}
+                  (pos (DArray.len {ca ++ cb}) + if (jump? bool≟≟ bval b1 s) off (pos 0))
+            \in partOne ~~> exec_appendL partTwo ~~> (refl (ext (goal, idp, idp)))
+        }
+      | eq a b, jump? => {?}
+      | leq a1 b1, jump? => {?}
+      | or a1 b1, jump? => {?}
+
+      \where {
+        \func not_helper {x y : Bool} : (bnot x bool≟≟ y) = (x bool≟≟ bnot y) \elim x, y
+          | false, false => idp
+          | false, true => idp
+          | true, false => idp
+          | true, true => idp
+
+        \func false_flip_if {A : \Type} {then else : A} {x : Bool}
+          : if (x bool≟≟ false) then else = if x else then \elim x
+          | false => idp
+          | true => idp
+
+        \func pull_+_from_if {b : Bool} {x y z : Int} : if b (x + z) (x + y) = x + if b z y \elim b
+          | false => idp
+          | true => idp
+      }
+  }
+
+\func ccomp {S : Signature} (c : Com) : Program \elim c
+  | skip => nil
+  | := e a => (acomp a) ++ (STORE e :: nil)
+  | # a c => (ccomp a) ++ (ccomp c)
+  | ite b then else =>
+    \let cthen => ccomp then
+         | celse => ccomp else
+         | cb => bcomp b false (suc (DArray.len {cthen}))
+    \in cb ++ (cthen ++ JMP (DArray.len {celse}) :: nil) ++ (ccomp else)
+  | while b c => {?}
+  | append e a => {?}
+  | :=L e e1 a => {?}
+
+  \where {
+    \func correct {S : Signature} (c : Com) {s s' : State S} {stk : Stack}
+                  (h : (c, s) cEval s')
+      : exec (ccomp c) (0, s, stk) (DArray.len {ccomp c}, s', stk)
+    \elim c, h
+      | skip, rsk idp => refl idp
+      | := X a, r:= {n} ah idp =>
+        \let av : aval a s = n => aval.complete ah
+        \in (acomp.correct a) exec>> singleStep (inP (STORE X, idp, ext (idp, pmap (substVar s X) (inv av), idp)))
+      | # c c1, r# h1 h2 => (correct c h1) exec>> (correct c1 h2)
+      | ite b then else, rift bh h =>
+        \let
+          | cthen => ccomp then
+          | cthenLen => pos $ DArray.len {cthen}
+          | celse => ccomp else
+          | celseLen => DArray.len {celse}
+
+          | bb : bval b s = true => bval.complete bh
+          | p : false bool≟≟ bval b s = false => rewrite bb idp
+          | cb => bcomp b false (isuc cthenLen)
+          | bh : exec cb (0, s, stk) (DArray.len {cb}, s, stk) => bcomp.correct b false (isuc cthenLen) ~~> refl (ext (rewrite p idp, idp, idp))
+
+          | hthen : exec cthen (0, s, stk) (cthenLen, s', stk) => correct then h
+          | goal => equation
+              (cthenLen + jump 0 celseLen) {rewriteI (++-length, ++-length) idp}
+              (pos (DArray.len {(ccomp then ++ JMP (pos (DArray.len {ccomp else})) :: nil) ++ celse}))
+
+          | hthen' : exec (cthen ++ JMP celseLen :: nil) (pos 0, s, stk)
+              (pos (DArray.len {(cthen ++ JMP celseLen :: nil) ++ celse}), s', stk)
+          => exec_append_trans
+                hthen
+                (inv (IntRing.negative-right {cthenLen}))
+                (singleStep (inP (JMP celseLen, idp, idp)))
+              ~~> refl (ext (goal, idp, idp))
+        \in bh exec>> (exec_appendR hthen')
+
+      | ite b c c1, riff b1 h => {?}
+      | while b c, rwht b1 h1 h2 => {?}
+      | while b c, rwhf b1 p => {?}
+      | :=L X l a, rSt a1 p p1 => {?}
+      | append l a, rAp a1 p => {?}
   }
