@@ -1,5 +1,15 @@
+\import Data.List
+\import Data.Maybe
 \import Function
+\import Function.Meta ($)
+\import Meta
+\import Paths
+\import Paths.Meta
+\import simplyTypedLambdaDeBruijne.Lambda
 \import typeclasses.Identity
+\import typeclasses.Monad
+
+-- A functor is a way of operating on the content of something without touching the structure.
 
 \class Functor (F : \Type -> \Type)
   | fmap : \Pi {A B : \Type} (f : A -> B) (F A) -> F B
@@ -15,8 +25,32 @@
   | sfunctor-identity : \Pi {A : \Set} -> sfmap (id {A}) = id
   | sfunctor-composition : \Pi {A B C : \Set} (f : B -> C) (g : A -> B) -> sfmap (f o g) = (sfmap f) o (sfmap g)
 
-
 \func IndentityFunctor : Functor Identity \cowith
   | fmap f => f
   | functor-identity {A} => idp
   | functor-composition {A} {B} {C} f g => idp
+
+\func Compose (F G : Functor) : Functor (F o G) \cowith
+  | fmap => F.fmap o G.fmap
+  | functor-identity => unfold (o) $ rewrite G.functor-identity F.functor-identity
+  | functor-composition f g => unfold (o) $ rewrite (G.functor-composition f g) (F.functor-composition (G.fmap f) (G.fmap g))
+
+-- A natural transformation is a way of operating on the structure of something without touching or looking at the content.
+
+\class Natural \alias \infix 6 :-> (F G : Functor)
+  | eta {A : \Type} (F A) : G A
+  | eta-law {A B : \Type} {f : A -> B} : (G.fmap f) o eta = eta o (F.fmap f)
+
+  \where {
+    -- example
+
+    \func listToMaybe : ListMonad :-> MaybeMonad \cowith
+      | eta => \case __ \with {
+        | nil => nothing
+        | :: a l => just a
+      }
+      | eta-law => ext (\case \elim __ \with {
+        | nil => idp
+        | :: a l => idp
+      })
+  }

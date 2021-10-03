@@ -1,5 +1,6 @@
 \import Algebra.Meta
 \import Algebra.Monoid
+\import Category (Precat)
 \import Data.List
 \import Data.Maybe
 \import Equiv
@@ -14,12 +15,16 @@
 \import sets.MySet
 \import typeclasses.Functor
 \import typeclasses.Identity
+\open MonadMonoid (TypeMonoid)
+\open Monad (join)
+\open Precat (>>)
 
-\class Monad \extends Functor
+\class Monad \extends Functor {
   | return : \Pi {A : \Type} (a : A) -> F A
   | flatMap \alias \infixl 6 >>= : \Pi {A B : \Type} (fa : F A) (f : A -> F B) -> F B
 
   -- laws
+
   | left-id : \Pi {A B : \Type} {a : A} {f : A -> F B} -> return a >>= f = f a
   | right-id : \Pi {A : \Type} {m : F A} -> m >>= return = m
   | assoc : \Pi {A B C : \Type} {m : F A} {f : A -> F B} {g : B -> F C} -> (m >>= f) >>= g = m >>= (\lam x => f x >>= g)
@@ -38,6 +43,9 @@
             (fa >>= (return o g)) >>= (return o f)             ==< idp                >==
             ((fmap f) o (fmap g)) fa                           `qed)
 
+  \func join {A : \Type} (m : F (F A)) : F A => m >>= id
+}
+
 \func IdentityMonad : Monad Identity \cowith
   | return a => a
   | flatMap a f => f a
@@ -45,6 +53,7 @@
   | right-id {A} {m} => idp
   | assoc {A} {B} {C} {m} {f} {g} => idp
 
+-- TODO what is this?
 \func MonadMonoid (M : Monad) : TypeMonoid \cowith
   | E => \Pi {A : \Type} (a : A) -> M.F A
   | ide => return
@@ -127,3 +136,19 @@
       (\lam {x} e => \case \elim e \with {
         | inP (e, inP ((b, bfa), xgb)) => inP ((b, inP (e, bfa)), xgb)
       })
+
+-- https://stackoverflow.com/questions/3870088/a-monad-is-just-a-monoid-in-the-category-of-endofunctors-whats-the-problem
+
+\func return' {M : Monad} : IndentityFunctor :-> M \cowith
+  | eta a => return a
+  | eta-law => ext (\lam a => left-id)
+
+\func join' {M : Monad} : (Compose M M) :-> M \cowith
+  | eta => M.join
+  | eta-law {A} {B} {f} => ext (\lam c => unfold (o, join, fmap) $ equation
+                               (c >>= id >>= (\lam x => return (f x))) {M.assoc}
+                               (c >>= (\lam x => id x >>= (\lam x => return (f x))))
+                               (c >>= (\lam x => id (x >>= (\lam x => return (f x))))) {pmap (c >>= __) (ext (\lam x => inv M.left-id))}
+                               (c >>= (\lam x => (return (x >>= (\lam x => return (f x)))) >>= id))
+                               (c >>= (\lam y => (\lam x => return (x >>= (\lam x => return (f x)))) y >>= id)) {inv M.assoc}
+                               (c >>= (\lam x => return (x >>= (\lam x => return (f x)))) >>= id))
