@@ -17,6 +17,7 @@
 \import Order.StrictOrder
 \import Paths
 \import Paths.Meta
+\import Set \hiding (#)
 \import Star
 \import identity.BoolIdentity
 \import identity.FinIdentity
@@ -29,6 +30,7 @@
 \open LeipnizIsEqual (i)
 \open iexec (jump)
 \open FinIdentity (code-refl)
+\open NatSemiring (zero<suc)
 
 \data Instruction {S : Signature}
   | LOADI Num
@@ -36,6 +38,7 @@
   | ADD | SUB | TIMES
   | STORE Var
   | JMP Int -- offset
+  | JMPEQ Int
   | JMPLEQ Int
   | JMPGREATER Int
 
@@ -53,12 +56,13 @@
 
 \func iexec {S : Signature} (i : Instruction) (c : Config {S}) : Config {S} \elim i
   | LOADI n => (isuc c.1, c.2, n :: c.3)
-  | LOAD e => (isuc c.1, c.2, (variables {c.2} e) :: c.3)
+  | LOAD e => (isuc c.1, c.2, variables {c.2} e :: c.3)
   | ADD => iexec_op c.1 c.2 c.3 (+)
   | SUB => iexec_op c.1 c.2 c.3 (-)
   | TIMES => iexec_op c.1 c.2 c.3 (*)
   | STORE e => iexec_store c.1 c.2 c.3 e
   | JMP i => (jump c.1 i, c.2, c.3)
+  | JMPEQ i => iexec_jmp_if c.1 c.2 c.3 (==) i
   | JMPLEQ i => iexec_jmp_if c.1 c.2 c.3 (<=?) i
   | JMPGREATER i => iexec_jmp_if c.1 c.2 c.3 (\lam x y => y <? x) i
 
@@ -78,7 +82,7 @@
 
     \func iexec_op {S : Signature}
                    (pc : PC) (s : State S) (stk : Stack) (op : Num -> Num -> Num)
-      : Config => iexec_two_args (pc, s, stk) (\lam x y stk' => (isuc pc, s, (op y x) :: stk'))
+      : Config => iexec_two_args (pc, s, stk) (\lam x y stk' => (isuc pc, s, op y x :: stk'))
 
     \func iexec_jmp_if {S : Signature}
                        (pc : PC) (s : State S) (stk : Stack) (cond : Num -> Num -> Bool) (i : Int) : Config \elim stk
@@ -150,19 +154,26 @@
     | :: a arr, h => ext (rewrite (pmap __.1 h) +isuc, pmap __.2 h, pmap __.3 h)
   }
   | JMP i => ext (rewrite (pmap __.1 h) jump_shift, pmap __.2 h, pmap __.3 h)
-  | JMPLEQ i => \case \elim stk, h \with {
-    | nil, h => ext (pmap (off + __) (pmap __.1 h), pmap __.2 h, pmap __.3 h)
-    | :: a arr, h => {?}
-  }
-  | JMPGREATER i => {?}
+  | JMPLEQ i => jump_shift_if h
+  | JMPGREATER i => jump_shift_if h
+  | JMPEQ i => jump_shift_if h
   \where {
     \func jump_shift {off : Int} {pc : PC} {i : Int} : off + jump pc i = jump (off + pc) i => equation
         (off + jump pc i)
-        (off + ((isuc pc) + i))
-        ((off + (isuc pc)) + i) {pmap (__ + i) +isuc}
+        (off + (isuc pc + i))
+        ((off + isuc pc) + i) {pmap (__ + i) +isuc}
         (isuc (off + pc) + i)
         (jump (off + pc) i)
+
+    \func jump_shift_if {S : Signature}
+                        {off i : Int} {pc pc' : PC} {s s' : State S} {stk stk' : Stack}
+                        {op : Num -> Num -> Bool}
+                        (h : (pc', s', stk') = iexec.iexec_jmp_if pc s stk op i)
+      : (off IntRing.+ pc', s', stk') = iexec.iexec_jmp_if {S} (off IntRing.+ pc) s stk op i \elim stk
+      | nil => ext (rewrite (pmap __.1 h) idp, pmap __.2 h, pmap __.3 h)
+      | :: a arr => {?}
   }
+
 
 \func exec1_appendR {S : Signature} {P P' : Program}
                     {c c' : Config} (h : exec1 P c c') : exec1 (P ++ P') c c' \elim h
@@ -257,7 +268,7 @@
       | mOff => if jump? cbLen (cbLen + off)
       | ca => bcomp a false mOff
     \in ca ++ cb
-  | eq a b => {?}
+  | eq a b => (acomp a) ++ (acomp b) ++ ({?} :: {?})
   | or a b => {?}
 
   \where {
