@@ -22,7 +22,7 @@
 \import sets.union
 \import util.ArrayUtils
 \open LinearOrder (<=-dec)
-\open ArrayUtils (max)
+\open ArrayUtils (maxOf)
 \open DArray (!!)
 -- the difference to sized is that we might not know the exact number of elements (only upper bound)
 
@@ -183,7 +183,7 @@
     \elim n, v
       | 0, Prelude.nil => inP (0, \lam i => \case i.1 \with {
       })
-      | suc n, v => \let (m, h) => max v \in inP (suc m, \lam i => helper (h (suc m) i))
+      | suc n, v => \let (m, h) => maxOf v \in inP (suc m, \lam i => helper (h (suc m) i))
 
       \where {
         \func helper {a : Nat} (h : suc a <= a) : Empty \elim a

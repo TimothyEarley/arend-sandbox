@@ -1,6 +1,10 @@
 \import Arith.Nat
+\import LeipnizEquality
 \import Logic
+\import Logic.Meta
 \import LogicUtil
+\import Meta
+\import Order.PartialOrder
 \import Paths
 \import Paths.Meta
 \import lambda.Reduction
@@ -9,7 +13,7 @@
 \open NatSemiring (+-comm)
 \open Formula (Subst, subst)
 \open DArray (!!)
-\open Term (AnyFreeVar, FreeVar)
+\open Term (AnyFreeVar, FreeVar, termDepth)
 
 \module Semantics \where {
   \record Structure (L : Language)
@@ -19,35 +23,35 @@
 
   \func Interpretation {L : Language} (n : Nat) => \Sigma (S : Structure L) (Fin n -> S.Universe)
     \where {
-      \func subst {L : Language} {n m : Nat} (I : Interpretation n) (s : Subst m n) : Interpretation m => (I.1,
-                                                                                                           \lam f => evaluate I (s f))
+      \func subst {L : Language} {n m : Nat} (I : Interpretation n) (s : Subst m n) : Interpretation m =>
+        (I.1, \lam f => evaluate I (s f))
     }
 
   \func evaluate {L : Language} {n : Nat} (I : Interpretation n) (t : Term n) : Universe {I.1} \elim t
     | var i => I.2 i
-    | apply f d => funcs {I.1} f (multiple I d)
-    \where {
-      \func multiple {L : Language} {n : Nat} (I : Interpretation n)
-                     (ts : Array (Term n)) : Array (Universe {I.1}) (DArray.len {ts})
-      \elim ts
-        | nil => nil
-        | :: a ts => (evaluate I a) :: multiple I ts
-    }
+    | apply f d => funcs {I.1} f (\lam j => evaluate I (d j))
 
-  \func models \alias \infix 6 ⊫ {L : Language} {n : Nat} (I : Interpretation n) (f : Formula n) : \Prop \elim f
+  \func models \alias \infix 4 ⊧ {L : Language} {n : Nat} (I : Interpretation n) (f : Formula n) : \Prop \elim f
     | equal x y => evaluate I x = evaluate I y
-    | atomic r d => rel {I.1} r (evaluate.multiple I d)
-    | impH x y => (I ⊫ x) -> (I ⊫ y)
-    | notH f => Not (I ⊫ f)
+    | atomic r d => rel {I.1} r (\lam j => evaluate I (d j))
+    | impH x y => (I ⊧ x) -> (I ⊧ y)
+    | notH f => Not (I ⊧ f)
     | forallH f => \Pi (x : Universe {I.1}) -> (I.1, \case __ \with {
       | 0 => x
       | suc i => I.2 i
-    }) ⊫ f
+    }) ⊧ f
+
+  \func notModels \alias \infix 4 ⊭ {L : Language} {n : Nat} (I : Interpretation n) (f : Formula n) : \Prop =>
+    Not (I ⊧ f)
+
+  \func modelImplies \alias \infix 6 ⊫f {L : Language} {n : Nat} (x y : Formula n) : \Prop =>
+    \Pi (I : Interpretation n) (I ⊧ x) -> I ⊧ y
 
   \func substitutionLemma {L : Language} {n : Nat}
                           (phi : Formula n) (ts : Array (Term 0) n)
                           (I : Interpretation 0) :
-    (I ⊫ subst (ts !! __) phi) <-> (Interpretation.subst I (ts !! __) ⊫ phi) => (substitutionLemma->, {?})
+    (I ⊧ subst (ts !! __) phi) <-> (Interpretation.subst I (ts !! __) ⊧ phi) => (substitutionLemma->, {?})
+
     \where {
       \func coincidenceLemma {L : Language} {n : Nat} {U : \Set}
                              {S1 S2 : Structure L U}
@@ -55,31 +59,24 @@
                              {t : Term n}
                              (h1 : \Pi (f : L.Functions) -> S1.funcs f = S2.funcs f)
                              (h2 : \Pi {i : Fin n} (free : FreeVar t i) -> a1 i = a2 i)
+        -- easy termination check
+                             {depth : Nat} (rh : termDepth t <= depth)
         : evaluate (S1, a1) t = evaluate (S2, a2) t
-      \elim t
-        | var f => h2 idp
-        | apply f d => {?}
-        \where {
-
-          \func coincidenceMultiple {L : Language} {n : Nat} {U : \Set}
-                                    {S1 S2 : Structure L U}
-                                    {a1 a2 : Fin n -> U}
-                                    (ts : Array (Term n))
-                                    (h1 : \Pi (f : L.Functions) -> S1.funcs f = S2.funcs f)
-                                    (h2 : \Pi {i : Fin n} (free : AnyFreeVar ts i) -> a1 i = a2 i)
-            : evaluate.multiple (S1, a1) ts = evaluate.multiple (S2, a2) ts
-          \elim ts
-            | nil => idp
-            | :: a ts => pmap2 {U} {Array U (DArray.len {ts})} (::)
-                (coincidenceLemma h1 (\lam free => h2 (byLeft free)))
-                {?}
-                -- (coincidenceMultiple ts h1 (\lam free => h2 (byRight free)))
-        }
+      \elim t, depth
+        | var f, depth => h2 idp
+        | apply f d, 0 => absurd (rh NatSemiring.zero<suc)
+        | apply f d, suc depth =>
+          \let p : (\lam j => evaluate (S1, a1) (d j)) = {Array U (functionArity f)} (\lam j => evaluate (S2, a2) (d j))
+          => ext (ext (\lam j => coincidenceLemma h1 (\lam {i} free => h2 (inP (j, free))) {depth} (<=-transitive termDepth.maxTermDepthIsBigger (suc<=suc.conv rh))))
+          \in transportInv
+              (__ (\lam j => evaluate (S1, a1) (d j)) = S2.funcs f (\lam j => evaluate (S2, a2) (d j)))
+              (h1 f)
+              (pmap (S2.funcs f) p)
 
       \func substitutionLemma-> {L : Language} {I : Interpretation 0}
                                 {n : Nat} {ts : Array (Term 0) n} {phi : Formula n}
-                                (h : I ⊫ subst (ts !! __) phi):
-        Interpretation.subst I (ts !! __) ⊫ phi \elim phi, h
+                                (h : I ⊧ subst (ts !! __) phi):
+        Interpretation.subst I (ts !! __) ⊧ phi \elim phi, h
         | equal x y, p => {?}
         | atomic r d, h => {?}
         | impH x phi, h => {?}
@@ -87,7 +84,10 @@
         | forallH phi, h => {?}
     }
 
-  \func example : (NatStructure, nil) ⊫ {MonoidLang} forallH (forallH (equal
+  \func logicalEquivalent \alias \infix 2 ≡ {L : Language} {n : Nat} (x y : Formula n) : \Prop =>
+    \Sigma (x ⊫f y) (y ⊫f x)
+
+  \func example : (NatStructure, nil) ⊧ {MonoidLang} forallH (forallH (equal
       (apply plus ((var 0) :: (var 1) :: nil))
       (apply plus ((var 1) :: (var 0) :: nil))
   )) => \lam x y => +-comm

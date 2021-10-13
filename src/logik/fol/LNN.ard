@@ -8,7 +8,7 @@
 \import sets.Elements
 \import sets.MySet
 \import util.CantorPair
-\open Semantics (Structure, ⊫)
+\open Semantics (Structure, ⊧)
 \open NatSemiring (<)
 
 \func LNN : Language \cowith
@@ -85,7 +85,7 @@
 
 \record SystemModel (L : Language) (S : System)
   | structure : Structure L
-  | modelsAll : \Pi (f : Elements S) -> (structure, \case __) ⊫ f.1
+  | modelsAll : \Pi (f : Elements S) -> (structure, \case __) ⊧ f.1
 
 
 \func NNModel : SystemModel LNN NN \cowith

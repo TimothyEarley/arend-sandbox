@@ -3,20 +3,25 @@
 \import Data.Array
 \import Data.List (List)
 \import Data.Or
+\import LeipnizEquality
 \import Logic
 \import Logic.Meta
 \import Meta
+\import Order.Lattice
+\import Order.PartialOrder
 \import Set.Fin
 \import Util
+\import logik.fol.Semantics
 \import sets.MySet
 \import sets.Sized
 \import sets.subset
-\import team.TeamProp
 \import util.ArrayUtils
 \import util.CantorPair
 \open Formula (subTerm)
 \open NatSemiring (+-assoc, +-comm)
 \open IntEuclidean (natMod<right)
+\open Semantics (Interpretation, ≡, ⊧, ⊭)
+\open LeipnizIsEqual (j)
 
 -- http://r6.ca/Goedel/goedel1.html
 
@@ -36,15 +41,26 @@
       | var f => f = i
       | apply f d => AnyFreeVar d i
   \func AnyFreeVar {L : Language} {n : Nat} (ts : Array (Term n)) (i : Fin n) : \Prop
-    \elim ts
-      | nil => Empty
-      | :: a arr => (FreeVar a i) || (AnyFreeVar arr i)
+    => ∃ (j : Fin ts.len) (FreeVar (ts j) i)
+
+  \func termDepth {L : Language} {n : Nat} (t : Term n) : Nat \elim t
+    | var f => 0
+    | apply f d => suc (maxTermDepth d)
+  \where {
+    \func maxTermDepth {L : Language} {n : Nat} (ts : Array (Term n)) : Nat \elim ts
+      | nil => 0
+      | :: a arr => (termDepth a) ∨ (maxTermDepth arr)
+    \lemma maxTermDepthIsBigger {L : Language} {n : Nat} {ts : Array (Term n)} {j : Fin ts.len} : termDepth (ts j) <= maxTermDepth ts
+      \elim ts, j
+        | :: a arr, 0 => join-left
+        | :: a arr, suc j => <=-transitive maxTermDepthIsBigger join-right
+  }
 }
 
 \data Formula {L : Language} (variables : Nat) : \Set
   | equal (x y : Term {L} variables)
   | atomic (r : L.Relations) (Array (Term {L} variables) (L.relationsArity r))
-  | impH (x y : Formula {L} variables)
+  | \infixl 6 impH (x y : Formula {L} variables)
   | notH (x : Formula {L} variables)
   | forallH (x : Formula {L} (suc variables))
   \where {
@@ -97,24 +113,33 @@
       | notH f => FreeVar f i
       | forallH f => FreeVar f (suc i)
   }
--- TODO other connectives
 
-\cons orH {L : Language} {n : Nat} (x y : Formula {L} n) : Formula {L} n
-=> {?}
-
-\cons andH {L : Language} {n : Nat} (x y : Formula {L} n) : Formula {L} n
-=> {?}
-
-\func Term* {L : Language} => \Sigma (n : Nat) (Term {L} n)
-
-\func Formula* {L : Language} => \Sigma (n : Nat) (Formula {L} n)
+-- x --> y = y or not x
+\cons \infix 6 orH {L : Language} {n : Nat} (x y : Formula {L} n) : Formula {L} n
+  => notH x impH y
 \where {
-  \func notH* {L : Language} (f : Formula* {L}) : Formula* {L}
-    => (f.1, notH f.2)
-  \func equal* {L : Language} (t t' : Term* {L}) : Formula* {L}
-    => {?}
+  \lemma or1 {L : Language} {n : Nat} {x y : Formula {L} n} {I : Interpretation n} (h : I ⊧ x) : I ⊧ x orH y
+    => \lam m => absurd (m h)
+
+  \lemma or2 {L : Language} {n : Nat} {x y : Formula {L} n} {I : Interpretation n} (h : I ⊧ y) : I ⊧ x orH y
+    => \lam m => h
+
+  \lemma or3 {L : Language} {n : Nat} {x y : Formula {L} n} {I : Interpretation n} (h : I ⊭ x) (h' : I ⊭ y) : I ⊭ x orH y
+    => \lam m => h' (m h)
 }
 
+\cons \infix 6 andH {L : Language} {n : Nat} (x y : Formula {L} n) : Formula {L} n
+  => notH (notH x orH notH y)
+\where {
+  \lemma and1  {L : Language} {n : Nat} {x y : Formula {L} n} {I : Interpretation n} (h : I ⊧ x) (h' : I ⊧ y) : I ⊧ x andH y
+    => \lam m => m (__ h) h'
+
+  \lemma and2  {L : Language} {n : Nat} {x y : Formula {L} n} {I : Interpretation n} (h : I ⊭ x) : I ⊭ x andH y
+    => \lam m => m (\lam m1 m2 => m1 (\lam m3 => h m3))
+
+  \lemma and3  {L : Language} {n : Nat} {x y : Formula {L} n} {I : Interpretation n} (h : I ⊭ y) : I ⊭ x andH y
+    => \lam m => m (\lam m1 m2 => h m2)
+}
 
 \func System {L : Language} => Ensemble (Formula {L} 0)
 

@@ -77,11 +77,11 @@
 
     }
 
-  \func max {A : JoinSemilattice} {n : Nat} (l : Array A (suc n)) : \Sigma (m : A) (\Pi (x : A) (Index x l) -> x Order.PartialOrder.<= m)
+  \func maxOf {A : JoinSemilattice} {n : Nat} (l : Array A (suc n)) : \Sigma (m : A) (\Pi (x : A) (Index x l) -> x Order.PartialOrder.<= m)
   \elim n, l
     | 0, :: a nil => (a, \lam x (0, p) => rewrite p <=-reflexive)
     | suc n, :: a (:: a' l') \as l =>
-      \let (m', h') => max (a' :: l') \in (a ∨ m', \lam x (i : Index x l) => \case \elim x, \elim i \with {
+      \let (m', h') => maxOf (a' :: l') \in (a ∨ m', \lam x (i : Index x l) => \case \elim x, \elim i \with {
         | _, (0, idp) => join-left
         | _, (suc i, idp) => <=-transitive (h' a' (0, idp)) join-right
       })
