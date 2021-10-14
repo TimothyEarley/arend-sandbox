@@ -1,4 +1,5 @@
 \import Data.Bool
+\import Data.Or
 \import Logic
 \import Logic.Meta
 \import Set
@@ -28,3 +29,16 @@
 
 \func soNot {b : Bool} (h : So (not b)) : Not (So b)
   | {false}, so => \lam s => contradiction
+
+\func soOr {b b' : Bool} (h : So (b or b')) : Or (So b) (So b') \elim b, b', h
+  | false, true, so => inr so
+  | true, false, so => inl so
+  | true, true, so => inl so
+
+\func soOr1 {b b' : Bool} (h : So b) : So (b or b') \elim b, b', h
+  | true, false, so => so
+  | true, true, so => so
+
+\func soOr2 {b b' : Bool} (h : So b') : So (b or b') \elim b, b', h
+  | false, true, so => so
+  | true, true, so => so

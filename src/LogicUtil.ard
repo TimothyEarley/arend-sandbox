@@ -35,6 +35,10 @@
 
 \func invN {A : \Type} {a b : A} (h : Not (a = b)) : Not (b = a) => h o inv
 
+\func invPi {A : \Type} {B : A -> \Type} {f1 f2 : \Pi (a : A) -> B a} (f : \Pi (a : A) -> f1 a = f2 a)
+  : \Pi (a : A) -> f2 a = f1 a
+  => \lam a => inv (f a)
+
 \func orTrue {b : Bool} : or b true = true \elim b
   | true => idp
   | false => idp

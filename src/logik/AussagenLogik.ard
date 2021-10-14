@@ -1,7 +1,7 @@
 \import Data.Array
+\import Data.Bool
 \import Meta
 \import logik.AussagenLogik (⊧)
-\import Data.Bool \using (not \as bnot, or \as bor, and \as band)
 \import Data.Or
 \import Equiv
 \import sets.Add
@@ -26,143 +26,160 @@
   | tt
   | ff
   | \coerce var V
-  | not (Formula V)
-  | \infixl 6 or (a b : Formula V)
+  | notH (Formula V)
+  | \infixl 6 orH (a b : Formula V)
 
-\cons \infixl 6 and {V : \Set} (a b : Formula V) : Formula V => not ((not a) or (not b))
+\cons \infixl 6 andH {V : \Set} (a b : Formula V) : Formula V => notH (notH a orH notH b)
 
-\cons \infix 6 ==> {V : \Set} (a b : Formula V) : Formula V => (not a) or b
+\cons \infix 6 ==> {V : \Set} (a b : Formula V) : Formula V => notH a orH b
 
-\func \infix 6 <==> {V : \Set} (a b : Formula V) : Formula V => (a ==> b) and (b ==> a)
+\func \infix 6 <==> {V : \Set} (a b : Formula V) : Formula V => (a ==> b) andH (b ==> a)
 
 -- Semantics
 
-\func Belegung (V : \Set) => V -> Bool
+\func Assignment (V : \Set) => V -> Bool
 
-\func interpret {V : \Set} (J : Belegung V) (f : Formula V) : Bool \elim f
+\func evaluate {V : \Set} (J : Assignment V) (f : Formula V) : Bool \elim f
   | tt => true
   | ff => false
   | var v => J v
-  | not f => bnot (interpret J f)
-  | or a b => bor (interpret J a) (interpret J b)
+  | notH f => not (evaluate J f)
+  | orH a b => evaluate J a or evaluate J b
 
-\func models \alias \infix 5 ⊧ {V : \Set} (J : Belegung V) (f : Formula V) : \Prop => So (interpret J f)
+\func models \alias \infix 5 ⊧ {V : \Set} (J : Assignment V) (f : Formula V) : \Prop => So (evaluate J f)
   \where {
-    \func rContradiction {V : \Set} {J : Belegung V} {f : Formula V}
+    \func rContradiction {V : \Set} {J : Assignment V} {f : Formula V}
                          (h : J ⊧ f) (h' : J ⊭ f) {B : \Type} : B => absurd (h' h)
 
-    \func rAnd {V : \Set} {J : Belegung V} {A B : Formula V} (ja : J ⊧ A) (jb : J ⊧ B) : J ⊧ (A and B) =>
+    \func rAnd {V : \Set} {J : Assignment V} {A B : Formula V} (ja : J ⊧ A) (jb : J ⊧ B) : J ⊧ (A andH B) =>
       unfold (⊧) (rewrite (soTrue ja) (rewrite (soTrue jb) so))
 
-    \func rAnd1 {V : \Set} {J : Belegung V} {A B : Formula V} (j : J ⊧ A and B) : J ⊧ A =>
+    \func rAnd1 {V : \Set} {J : Assignment V} {A B : Formula V} (j : J ⊧ A andH B) : J ⊧ A =>
       soAnd1 (rewriteF notNot (rewriteF notNot (transport So deMorganOr j)))
 
-    \func rAnd2 {V : \Set} {J : Belegung V} {A B : Formula V} (j : J ⊧ A and B) : J ⊧ B =>
+    \func rAnd2 {V : \Set} {J : Assignment V} {A B : Formula V} (j : J ⊧ A andH B) : J ⊧ B =>
       soAnd2 (rewriteF notNot (rewriteF notNot (transport So deMorganOr j)))
 
-    \func rnotAnd1 {V : \Set} {J : Belegung V} {A : Formula V} (na : J ⊭ A) (B : Formula V) : J ⊭ (A and B) =>
+    \func rnotAnd1 {V : \Set} {J : Assignment V} {A : Formula V} (na : J ⊭ A) (B : Formula V) : J ⊭ (A andH B) =>
       \lam m => na (rAnd1 m)
 
-    \func rnotAnd2 {V : \Set} {J : Belegung V} (A : Formula V) {B : Formula V} (nb : J ⊭ B) : J ⊭ (A and B) =>
+    \func rnotAnd2 {V : \Set} {J : Assignment V} (A : Formula V) {B : Formula V} (nb : J ⊭ B) : J ⊭ (A andH B) =>
       \lam m => nb (rAnd2 m)
 
-    \func r=>1 {V : \Set} {J : Belegung V} (A : Formula V) {B : Formula V} (jb : J ⊧ B) : J ⊧ (A ==> B) =>
-      \let goal : So (bor (interpret J (not A)) (interpret J B)) => rewrite (soTrue jb) (rewrite orTrue So.so)
+    \func r=>1 {V : \Set} {J : Assignment V} (A : Formula V) {B : Formula V} (jb : J ⊧ B) : J ⊧ (A ==> B) =>
+      \let goal : So (evaluate J (notH A) or evaluate J B) => rewrite (soTrue jb) (rewrite orTrue So.so)
       \in goal
 
-    \func r=>2 {V : \Set} {J : Belegung V} (A : Formula V) (na : J ⊭ A) (B : Formula V) : J ⊧ (A ==> B) =>
-      \let goal : So (bor (bnot (interpret J A)) (interpret J B)) => rewrite (soFalse na) (rewrite (trueOr {interpret J B}) So.so)
+    \func r=>2 {V : \Set} {J : Assignment V} (A : Formula V) (na : J ⊭ A) (B : Formula V) : J ⊧ (A ==> B) =>
+      \let goal : So (not (evaluate J A) or evaluate J B) => rewrite (soFalse na) (rewrite (trueOr {evaluate J B}) So.so)
       \in goal
 
-    \func r=> {V : \Set} {J : Belegung V} {A B : Formula V} (h : (J ⊧ A) -> J ⊧ B) : J ⊧ (A ==> B) =>
+    \func r=> {V : \Set} {J : Assignment V} {A B : Formula V} (h : (J ⊧ A) -> J ⊧ B) : J ⊧ (A ==> B) =>
       \case J ⊧? A \with {
         | yes e => r=>1 A (h e)
         | no n => r=>2 A n B
       }
 
-    \func r-mp {V : \Set} {J : Belegung V} (A : Formula V) {B : Formula V} (j : J ⊧ (A ==> B)) (ja : J ⊧ A) : J ⊧ B =>
+    \func r-mp {V : \Set} {J : Assignment V} (A : Formula V) {B : Formula V} (j : J ⊧ (A ==> B)) (ja : J ⊧ A) : J ⊧ B =>
       \case J ⊧? B \with {
         | yes e => e
         | no n => \let
-          | p1 : interpret J (A ==> B) = true => soTrue j
-          | p2 : interpret J (A ==> B) = false => rewrite (soFalse n) (rewrite (soTrue ja) idp)
-                  \in absurd (true/=false ((inv p1) *> p2))
+          | p1 : evaluate J (A ==> B) = true => soTrue j
+          | p2 : evaluate J (A ==> B) = false => rewrite (soFalse n) (rewrite (soTrue ja) idp)
+                  \in absurd (true/=false (inv p1 *> p2))
       }
 
-    \func rNot {V : \Set} {J : Belegung V} {A : Formula V} (h : J ⊧ not A) : J ⊭ A =>
+    \func rNot {V : \Set} {J : Assignment V} {A : Formula V} (h : J ⊧ notH A) : J ⊭ A =>
       soNot h
+
+    \func rOr {V : \Set} {J : Assignment V} {A B : Formula V} (h : J ⊧ A orH B) : Or (J ⊧ A) (J ⊧ B)
+      => soOr h
+
+    \func rOr1 {V : \Set} {J : Assignment V} {A B : Formula V} (h : J ⊧ A) : J ⊧ (A orH B) =>
+      soOr1 h
+
+    \func rOr2 {V : \Set} {J : Assignment V} {A B : Formula V} (h : J ⊧ B) : J ⊧ (A orH B) =>
+      soOr2 h
   }
 
-\func notModels \alias \infix 6 ⊭ {V : \Set} (J : Belegung V) (f : Formula V) : \Prop => Not (J ⊧ f)
+\func notModels \alias \infix 6 ⊭ {V : \Set} (J : Assignment V) (f : Formula V) : \Prop => Not (J ⊧ f)
 
-\func models? \alias \infix 6 ⊧? {V : \Set} (J : Belegung V) (f : Formula V) : Dec (J ⊧ f) =>
-  cases (interpret J f arg addPath) \with {
+\func models? \alias \infix 6 ⊧? {V : \Set} (J : Assignment V) (f : Formula V) : Dec (J ⊧ f) =>
+  cases (evaluate J f arg addPath) \with {
     | Bool.true, p => yes (unfold (⊧) (rewrite p so))
-    | Bool.false, p => no (\lam (m : So (interpret J f)) => So.absurd (rewriteF p m))
+    | Bool.false, p => no (\lam (m : So (evaluate J f)) => So.absurd (rewriteF p m))
   }
 
 \func Formulae (V : \Set) : \Set => Formula V -> \Prop
 
-\func modelsSet \alias \infix 6 ⊧s {V : \Set} (J : Belegung V) (fs : Formulae V) : \Type => All fs (J ⊧ __)
+\func modelsSet \alias \infix 6 ⊧s {V : \Set} (J : Assignment V) (fs : Formulae V) : \Type => All fs (J ⊧ __)
+\where {
+  \func modelsAdd {V : \Set} {J : Assignment V} {fs : Formulae V} {f : Formula V}
+                  (h : J ⊧s fs) (h' : J ⊧ f) : J ⊧s (add fs f)
+    => \case \elim __ \with {
+      | (f', byLeft el) => h (f', el)
+      | (f', byRight el) => rewriteI el h'
+    }
+}
 
-\func notModelsSet \alias \infix 6 ⊭s {V : \Set} (J : Belegung V) (fs : Formulae V) : \Type => Not (J ⊧s fs)
+\func notModelsSet \alias \infix 6 ⊭s {V : \Set} (J : Assignment V) (fs : Formulae V) : \Type => Not (J ⊧s fs)
 
 \func entails \alias \infix 6 ⊧e {V : \Set} (Phi : Formulae V) (a : Formula V) : \Prop =>
-  \Pi (J : Belegung V) (J ⊧s Phi) -> J ⊧ a
+  \Pi (J : Assignment V) (J ⊧s Phi) -> J ⊧ a
 
-\func valid {V : \Set} (f : Formula V) : \Prop => \Pi (J : Belegung V) -> J ⊧ f
+\func valid {V : \Set} (f : Formula V) : \Prop => \Pi (J : Assignment V) -> J ⊧ f
 
-\func unsat {V : \Set} (f : Formula V) : \Type => \Pi (J : Belegung V) -> J ⊭ f
+\func unsat {V : \Set} (f : Formula V) : \Type => \Pi (J : Assignment V) -> J ⊭ f
 
-\func unsatSet {V : \Set} (s : Formulae V) : \Type => \Pi (J : Belegung V) -> J ⊭s s
+\func unsatSet {V : \Set} (s : Formulae V) : \Type => \Pi (J : Assignment V) -> J ⊭s s
 
-\func sat {V : \Set} (f : Formula V) : \Prop => ∃ (J : Belegung V) (J ⊧ f)
+\func sat {V : \Set} (f : Formula V) : \Prop => ∃ (J : Assignment V) (J ⊧ f)
 
-\func satSet {V : \Set} (s : Formulae V) : \Prop => ∃ (J : Belegung V) (J ⊧s s)
+\func satSet {V : \Set} (s : Formulae V) : \Prop => ∃ (J : Assignment V) (J ⊧s s)
 
-\func example {V : \Set} {A B C : Formula V} (e : (setOf (A :: B :: nil)) ⊧e C) : valid ((A and B) ==> C) =>
+\func example {V : \Set} {A B C : Formula V} (e : (setOf (A :: B :: nil)) ⊧e C) : valid ((A andH B) ==> C) =>
   \lam J => \case J ⊧? A, J ⊧? B \with {
     | yes ja, yes jb =>
       \let jc => e J (\lam (a, inP (i, h)) => \case \elim i, h \with {
         | 0, p => rewriteI p ja
         | 1, p => rewriteI p jb
       })
-      \in ⊧.r=>1 (A and B) jc
-    | _, no nb => ⊧.r=>2 (A and B) (⊧.rnotAnd2 A nb) C
-    | no na, _ => ⊧.r=>2 (A and B) (⊧.rnotAnd1 na B) C
+      \in ⊧.r=>1 (A andH B) jc
+    | _, no nb => ⊧.r=>2 (A andH B) (⊧.rnotAnd2 A nb) C
+    | no na, _ => ⊧.r=>2 (A andH B) (⊧.rnotAnd1 na B) C
   }
 
-\func example' {V : \Set} {A B C : Formula V} (v : valid ((A and B) ==> C)) : (setOf (A :: B :: nil)) ⊧e C =>
+\func example' {V : \Set} {A B C : Formula V} (v : valid ((A andH B) ==> C)) : (setOf (A :: B :: nil)) ⊧e C =>
   \lam J m => \let
     | vv => v J
     | ja : J ⊧ A => m (A, inP (0, idp))
     | jb : J ⊧ B => m (B, inP (1, idp))
-    | jab : J ⊧ (A and B) => ⊧.rAnd ja jb
-              \in ⊧.r-mp (A and B) vv jab
+    | jab : J ⊧ (A andH B) => ⊧.rAnd ja jb
+              \in ⊧.r-mp (A andH B) vv jab
 
-\func entailsToUnsat {V : DecSet} {S : Formulae V} {a : Formula V} (e : S ⊧e a) : unsatSet (add S (not a)) =>
+\func entailsToUnsat {V : DecSet} {S : Formulae V} {a : Formula V} (e : S ⊧e a) : unsatSet (add S (notH a)) =>
   \lam J m => \let
     | js : J ⊧s S => \lam s => m (s.1, byLeft s.2)
-    | jna : J ⊧ (not a) => m (not a, byRight idp)
+    | jna : J ⊧ (notH a) => m (notH a, byRight idp)
     | ja => e J js
               \in (⊧.rNot jna) ja
 
 \func listable-entails {V : DecSet} {n : Nat} {l : Array (Formula V) n} {a : Formula V}
-  : valid (fold (and) tt l  ==> a) = (setOf l) ⊧e a =>
-  ext (\lam v J m => ⊧.r-mp (fold (and) tt l) (v J) (modelsSetToFold m),
+  : valid (fold (andH) tt l ==> a) = setOf l ⊧e a =>
+  ext (\lam v J m => ⊧.r-mp (fold (andH) tt l) (v J) (modelsSetToFold m),
        \lam e J => ⊧.r=> (\lam m => e J (foldTomodelsSet m)))
 
   \where {
-    \func modelsSetToFold {V : DecSet} {J : Belegung V.E}
+    \func modelsSetToFold {V : DecSet} {J : Assignment V.E}
                           {n : Nat} {l : Array (Formula V.E) n}
                           (h : J ⊧s setOf l)
-      : J ⊧ fold (and) tt l \elim n, l
+      : J ⊧ fold (andH) tt l \elim n, l
       | 0, nil => So.so
       | suc n, :: a l => ⊧.rAnd (h (a, inP (0, idp))) (modelsSetToFold (\lam (e, inP in) => h (e, inP (fsuc in.1, in.2))))
 
-    \func foldTomodelsSet {V : DecSet} {J : Belegung V.E}
+    \func foldTomodelsSet {V : DecSet} {J : Assignment V.E}
                           {n : Nat} {l : Array (Formula V.E) n}
-                          (h : J ⊧ fold (and) tt l)
+                          (h : J ⊧ fold (andH) tt l)
       : J ⊧s setOf l \elim n, l
       | 0, nil => \lam (e, inP (i, _)) => \case i
       | suc n, :: a l => \lam (e, inP (i, p)) => \case \elim i, p \with {
@@ -171,4 +188,28 @@
       }
   }
 
+-- https://www.cs.cmu.edu/~fp/courses/15816-s10/lectures/08-seqcalc.pdf
+\module SequentCalculus \where {
+  \data Proof \alias \infix 5 ⊢ {V : \Set} (axioms : Formulae V) (f : Formula V) \elim f
+    | f => {
+      | Ax (axioms f)
+      | ff-El (axioms ff)
+      | or-El {a b : Formula V} (axioms (a orH b)) (add axioms a ⊢ f) (add axioms b ⊢ f)
+    }
+    | tt => tt-In
+    | orH a b => {
+      | or-In1 (axioms ⊢ a)
+      | or-In2 (axioms ⊢ b)
+    }
 
+  \func sound {V : \Set} {axioms : Formulae V} {f : Formula V} (h : axioms ⊢ f) : axioms ⊧e f \elim f, h
+    | f, Ax a => \lam J m => m (f, a)
+    | f, ff-El a => \lam J m => \case m (ff, a)
+    | tt, tt-In => \lam J m => so
+    | f, or-El {a} {b} el h1 h2 => \lam J m => \case ⊧.rOr (m (a orH b, el)) \with {
+        | inl e => (sound h1) J (⊧s.modelsAdd m e)
+        | inr e => (sound h2) J (⊧s.modelsAdd m e)
+      }
+    | orH a b, or-In1 h => \lam J m => ⊧.rOr1 ((sound h) J m)
+    | orH a b, or-In2 h => \lam J m => ⊧.rOr2 ((sound h) J m)
+}

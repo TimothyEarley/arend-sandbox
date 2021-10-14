@@ -78,6 +78,11 @@
       | 0, nil => nil
       | suc l, :: a d => (subTerm s a) :: subTerms s d
 
+    \func subTermsAt  {L : Language} {n m l : Nat} {s : Subst {L} n m} {d : Array (Term {L} n) l} (j : Fin l) : subTerms s d j = subTerm s (d j)
+      \elim l, d, j
+        | suc l, :: a d, 0 => idp
+        | suc l, :: a d, suc j => subTermsAt j
+
     \func rename {L : Language} {x y : Nat} (r : Rename x y) (t : Term {L} x) : Term {L} y
     \elim t
       | var f => var (r f)
@@ -87,6 +92,12 @@
     \elim l, t
       | 0, nil => nil
       | suc l, :: a t => (rename r a) :: renames r t
+
+    \func renamesAt {L : Language} {x y l : Nat} {r : Rename x y} {t : Array (Term x) l} (j : Fin l)
+      : renames r t j = rename r (t j)
+      \elim l, t, j
+        | suc l, :: a t, 0 => idp
+        | suc l, :: a t, suc j => renamesAt j
 
     \func extends {L : Language} {n m : Nat} (s : Subst {L} n m) : Subst (suc n) (suc m) => \case __ \with {
       | 0 => var 0

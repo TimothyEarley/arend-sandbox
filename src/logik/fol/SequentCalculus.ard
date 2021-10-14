@@ -1,3 +1,4 @@
+\import Function.Meta ($)
 \import Logic
 \import Meta
 \import Misc
@@ -10,7 +11,7 @@
 \import sets.Add
 \import sets.MySet
 \import util.ArrayUtils
-\open Formula (Subst, sub, subTerm, subTerms, subst)
+\open Formula (Subst, sub, subTerm, subTerms, subTermsAt, subst)
 \open Semantics (Interpretation, evaluate, ⊧)
 \open Term (AnyFreeVar, FreeVar)
 
@@ -71,26 +72,26 @@
                 \in absurd (InotPsi Ipsi)
     }
     | equal x y, E-Refl idp => \lam I h => idp
-    | to, E-Subst t t' e phi h idp => \lam I h1 => \let
-      | p => h1 e
-      | IphiT => proofIsEntails decidable h I h1
-                                                   \in subModel IphiT p
+    | to, E-Subst t t' e phi h idp => \lam I h1 =>
+        \let
+          | p => h1 e
+          | IphiT => proofIsEntails decidable h I h1
+        \in subModel IphiT p
 
   \func subModel {L : Language} {I : Interpretation 0} {phi : Formula 1} {t t' : Term 0}
                  (h : I ⊧ sub phi t) (e : evaluate I t = evaluate I t')
-    : I ⊧ sub phi t'
-    => substModel (\lam {f : Fin 1} f1 => \case \elim f \with {
-      | zero => e
-    }) h
-  \where {
-    \func substModel {L : Language} {n m : Nat} {I : Interpretation m} {phi : Formula n}
-                     {s s' : Subst n m} (freeSame : \Pi {f : Fin n} (Formula.FreeVar phi f) -> evaluate I (s f) = evaluate I (s' f))
-                     (h : I ⊧ subst s phi)
-      : I ⊧ subst s' phi
+    : I ⊧ sub phi t' => substModel (\lam {f : Fin 1} f1 => \case \elim f \with {
+    | zero => e
+  }) h
+    \where {
+      \func substModel {L : Language} {n m : Nat} {I : Interpretation m} {phi : Formula n}
+                       {s s' : Subst n m} (freeSame : \Pi {f : Fin n} (Formula.FreeVar phi f) -> evaluate I (s f) = evaluate I (s' f))
+                       (h : I ⊧ subst s phi)
+        : I ⊧ subst s' phi
       \elim phi
         | equal x y => (evalSubst x (\lam fr => inv (freeSame (byLeft fr)))) *> h *> (evalSubst y (\lam fr => freeSame (byRight fr)))
         | atomic r d => transport (Semantics.rel {I.1} r)
-            {?} -- (evalMultipleSubst d freeSame)
+            (ext (ext (\lam j => rewriteF (inv $ subTermsAt j, inv $ subTermsAt j) (evalSubst (d j) (\lam {k} free => freeSame $ inP (j, free))))))
             h
         | impH x phi => \lam mo => \let xs : I ⊧ subst s x => substModel (\lam fr => inv (freeSame (byLeft fr))) mo
                                    \in substModel (\lam fr => freeSame (byRight fr)) (h xs)
@@ -100,11 +101,14 @@
           | suc f => {?}
         }) (h x)
 
-    \func evalSubst {L : Language} {n m : Nat} {I : Interpretation m} (t : Term n)
-                    {s s' : Subst n m} (h : \Pi {f : Fin n} (FreeVar t f) -> evaluate I (s f) = evaluate I (s' f))
-      : evaluate I (subTerm s t) = evaluate I (subTerm s' t)
+      \func evalSubst {L : Language} {n m : Nat} {I : Interpretation m} (t : Term n)
+                      {s s' : Subst n m} (h : \Pi {f : Fin n} (FreeVar t f) -> evaluate I (s f) = evaluate I (s' f))
+        : evaluate I (subTerm s t) = evaluate I (subTerm s' t)
       \elim t
         | var f => h idp
-        | apply f d => {?}
-  }
+        | apply f d => pmap (Semantics.funcs {I.1} f)
+            (ext (ext (\lam j =>
+                \let h' => (evalSubst (d j) (\lam {k} free => h $ inP (j, free)))
+                \in rewriteF (inv $ subTermsAt j, inv $ subTermsAt j) h')))
+    }
 }
