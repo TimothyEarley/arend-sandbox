@@ -15,6 +15,7 @@
 \import Prelude \using (:: \as :::, nil \as vNil)
 \import Set.Fin
 \import Util
+\import sets.Add
 \import sets.Elements
 \import sets.MySet
 \import sets.Sized
@@ -127,6 +128,9 @@
             | inP (i, proof) => inP (suc i, proof)
           }
       }
+
+    \func add-finite {A : \Set} {S : Ensemble A} {a : A} (h : Finite S) : Finite (add S a)
+      => finite-union h single-finite
 
     \func smap-finite {A B : \Set} {S : Ensemble A} {f : A -> B} (Sfin : Finite S) : Finite (S smap f)
     \elim Sfin

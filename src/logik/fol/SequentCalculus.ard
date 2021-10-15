@@ -4,18 +4,28 @@
 \import Misc
 \import Paths
 \import Paths.Meta
+\import Relation.Equivalence
 \import Set
 \import Util
 \import logik.fol.FOL
 \import logik.fol.Semantics
 \import sets.Add
+\import sets.Finite
 \import sets.MySet
+\import sets.subset
+\import sets.union
 \import util.ArrayUtils
-\open Formula (Subst, sub, subTerm, subTerms, subTermsAt, subst)
 \open Semantics (Interpretation, evaluate, ⊧)
-\open Term (AnyFreeVar, FreeVar)
+\open Term (AnyFreeVar, FreeVar, lift)
+\open Formula (Subst, extends, sub, subTerm, subTerms, subTermsAt, subst)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
 
-\module SequenCalulus \where {
+\module SequentCalulus \where {
 
 
   -- TODO finite axioms
@@ -34,6 +44,37 @@
                         (phi : Formula 1)
                         (axioms ⊢ sub phi t)
                         (p : toShow = sub phi t')
+    \where {
+      \func Contr' {L : Language} {axioms :  Ensemble (Formula 0)} {toShow : Formula 0}
+                   (phi : Formula 0) (h : axioms ⊢ phi) (h' : axioms ⊢ notH phi) : axioms ⊢ toShow =>
+        Ctr phi (weaken h (byLeft __)) (weaken h' (byLeft __))
+
+      \func MP {L : Language} {axioms :  Ensemble (Formula 0)} {toShow : Formula 0}
+               (phi : Formula 0) (h : axioms ⊢ phi) (h' : add axioms phi ⊢ toShow)
+        : axioms ⊢ toShow => PC phi
+          h'
+          (Contr' phi (weaken h (byLeft __)) (Ass (byRight idp)))
+    }
+
+  \func weaken {L : Language} {axioms axioms' : Ensemble (Formula 0)} {toShow : Formula 0}
+               (h : axioms ⊢ toShow) (s : axioms ⊆ axioms') : axioms' ⊢ toShow \elim toShow, h
+    | toShow, Ass e => Ass (s e)
+    | toShow, PC psi h1 h2 => PC psi
+        (weaken h1 (\case __ \with {
+          | byLeft a => byLeft (s a) | byRight b => byRight b
+        }))
+        (weaken h2 (\case __ \with {
+          | byLeft a => byLeft (s a) | byRight b => byRight b
+        }))
+    | toShow, Ctr psi h1 h2 => Ctr psi
+        (weaken h1 (\case __ \with {
+          | byLeft a => byLeft (s a) | byRight b => byRight b
+        }))
+        (weaken h2 (\case __ \with {
+          | byLeft a => byLeft (s a) | byRight b => byRight b
+        }))
+    | equal x y, E-Refl p => E-Refl p
+    | toShow, E-Subst t t' e phi h p => E-Subst t t' (s e) phi (weaken h s) p
 
   \func entails \alias \infix 6 ⊫e {L : Language} (from : Ensemble (Formula 0)) (to : Formula 0) =>
     \Pi (I : Interpretation 0) (h : \Pi {f : Formula 0} (f ∈ from) -> I ⊧ f) -> I ⊧ to
@@ -80,11 +121,11 @@
 
   \func subModel {L : Language} {I : Interpretation 0} {phi : Formula 1} {t t' : Term 0}
                  (h : I ⊧ sub phi t) (e : evaluate I t = evaluate I t')
-    : I ⊧ sub phi t' => substModel (\lam {f : Fin 1} f1 => \case \elim f \with {
+    : I ⊧ sub phi t' => substModel phi (\lam {f : Fin 1} f1 => \case \elim f \with {
     | zero => e
   }) h
     \where {
-      \func substModel {L : Language} {n m : Nat} {I : Interpretation m} {phi : Formula n}
+      \func substModel {L : Language} {n m : Nat} {I : Interpretation m} (phi : Formula n)
                        {s s' : Subst n m} (freeSame : \Pi {f : Fin n} (Formula.FreeVar phi f) -> evaluate I (s f) = evaluate I (s' f))
                        (h : I ⊧ subst s phi)
         : I ⊧ subst s' phi
@@ -93,13 +134,17 @@
         | atomic r d => transport (Semantics.rel {I.1} r)
             (ext (ext (\lam j => rewriteF (inv $ subTermsAt j, inv $ subTermsAt j) (evalSubst (d j) (\lam {k} free => freeSame $ inP (j, free))))))
             h
-        | impH x phi => \lam mo => \let xs : I ⊧ subst s x => substModel (\lam fr => inv (freeSame (byLeft fr))) mo
-                                   \in substModel (\lam fr => freeSame (byRight fr)) (h xs)
-        | notH phi => \lam mo => h (substModel (\lam fr => inv (freeSame fr)) mo)
-        | forallH phi => \lam x => substModel (\lam {f : Fin (suc n)} f1 => \case \elim f \with {
-          | 0 => idp
-          | suc f => {?}
-        }) (h x)
+        | impH x phi => \lam mo => \let xs : I ⊧ subst s x => substModel x (\lam fr => inv (freeSame (byLeft fr))) mo
+                                   \in substModel phi (\lam fr => freeSame (byRight fr)) (h xs)
+        | notH phi => \lam mo => h (substModel phi (\lam fr => inv (freeSame fr)) mo)
+        | forallH phi => \lam x => substModel
+            phi
+            {extends s}
+            (\lam {k} free => \case \elim k, free \with {
+              | 0, free => idp
+              | suc k, free => \let fs => freeSame free \in unfold (extends) (subOneRename (s k) *> fs *> (inv (subOneRename (s' k))))
+            })
+            (h x)
 
       \func evalSubst {L : Language} {n m : Nat} {I : Interpretation m} (t : Term n)
                       {s s' : Subst n m} (h : \Pi {f : Fin n} (FreeVar t f) -> evaluate I (s f) = evaluate I (s' f))
@@ -110,5 +155,55 @@
             (ext (ext (\lam j =>
                 \let h' => (evalSubst (d j) (\lam {k} free => h $ inP (j, free)))
                 \in rewriteF (inv $ subTermsAt j, inv $ subTermsAt j) h')))
+    }
+
+  -- TODO show that it is subset
+
+  \func sequentProofUsesFiniteAxioms {L : Language} {axioms : Ensemble (Formula 0)} {f : Formula 0}
+                                     (h : axioms ⊢ f) : \Sigma (reducedAxioms : Ensemble (Formula 0)) (Finite reducedAxioms) (reducedAxioms ⊆ axioms) (reducedAxioms ⊢ f)
+  \elim f, h
+    | f, Ass e => (single f, Finite.single-finite, \lam {x} e1 => transport axioms e1 e, Ass idp)
+    | f, PC psi h1 h2 =>
+      \let
+        | (ax1, fax1, sax1, p1) => sequentProofUsesFiniteAxioms h1
+        | (ax2, fax2, sax2, p2) => sequentProofUsesFiniteAxioms h2
+      \in (ax1 ∪ ax2,
+           Finite.finite-union fax1 fax2,
+           {?},
+           PC psi (weaken p1 (\lam {x} e => byLeft (byLeft {?}))) (weaken p2 (\lam {x} e => byLeft (byRight e))))
+    | f, Ctr psi h1 h2 =>
+      \let
+        | (ax1, fax1, sax1, p1) => sequentProofUsesFiniteAxioms h1
+        | (ax2, fax2, sax2, p2) => sequentProofUsesFiniteAxioms h2
+      \in (ax1 ∪ ax2,
+           Finite.finite-union fax1 fax2,
+           {?},
+           Ctr psi (weaken p1 (\lam {x} e => byLeft (byLeft e))) (weaken p2 (\lam {x} e => byLeft (byRight e))))
+    | equal x y, E-Refl p => (∅, Finite.empty-finite, ⊆.∅-is-⊆, E-Refl p)
+    | f, E-Subst t t' e phi h p =>
+      \let (ax, fax, sax, p') => sequentProofUsesFiniteAxioms h
+      \in (add ax (equal t t'),
+           Finite.add-finite fax,
+           \lam {x} e1 => \case e1 \with {
+             | byLeft a => sax a
+             | byRight b => transport axioms b e
+           },
+           E-Subst t t' (byRight idp) phi (weaken p' (byLeft __)) p)
+
+  \func TermCongruence {L : Language} (axioms : Ensemble (Formula 0)) : Equivalence (Term 0) \cowith
+    | ~ x y => TruncP (axioms ⊢ equal x y)
+    | ~-reflexive => inP (E-Refl idp)
+    | ~-symmetric {x} {y} (inP h) => inP
+        (⊢.MP (equal x y)
+            h
+            (E-Subst x y (byRight idp) (equal (var 0) (lift x)) {?} (pmap2 equal idp (subTermLift x y))))
+    | ~-transitive => {?}
+    \where {
+      \func subTermLift {L : Language} {n : Nat} (x y : Term {L} n) : x = subTerm (\lam (p0 : Fin (suc n)) => (\case p0 \with {
+        | zero => y
+        | suc i => var i
+      })) (lift x) \elim x
+        | var f => idp
+        | apply f d => {?}
     }
 }

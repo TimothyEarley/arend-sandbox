@@ -22,6 +22,7 @@
 \open IntEuclidean (natMod<right)
 \open Semantics (Interpretation, ≡, ⊧, ⊭)
 \open LeipnizIsEqual (j)
+\open Term (lift)
 
 -- http://r6.ca/Goedel/goedel1.html
 
@@ -55,6 +56,13 @@
         | :: a arr, 0 => join-left
         | :: a arr, suc j => <=-transitive maxTermDepthIsBigger join-right
   }
+
+  \func lift {L : Language} {n : Nat} (t : Term n) : Term (suc n) \elim t
+    | var f => var (suc f)
+    | apply f d => apply f (lifts d)
+  \func lifts {L : Language} {n l : Nat} (t : Array (Term n) l) : Array (Term (suc n)) l \elim l, t
+    | 0, nil => nil
+    | suc l, :: a arr => (lift a) :: (lifts arr)
 }
 
 \data Formula {L : Language} (variables : Nat) : \Set
