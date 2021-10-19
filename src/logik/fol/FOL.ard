@@ -13,7 +13,7 @@
 \import Util
 \import logik.fol.Semantics
 \import sets.MySet
-\import sets.Sized
+\import sets.finite.Sized
 \import sets.subset
 \import util.ArrayUtils
 \import util.CantorPair

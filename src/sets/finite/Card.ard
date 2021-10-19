@@ -1,14 +1,15 @@
 \import Arith.Nat
 \import Function
+\import Function.Meta ($)
 \import Logic
 \import Paths
 \import Paths.Meta
 \import Set
 \import sets.Add
 \import sets.Disjoint
-\import sets.Finite
+\import sets.finite.FiniteS
 \import sets.MySet
-\import sets.Sized
+\import sets.finite.Sized
 \import sets.remove
 \import sets.subset
 \import sets.union
@@ -18,29 +19,31 @@
   | suc n => add-card (S' : Ensemble A) {a : A} (a ∉ S') (Card S' n) (S = add S' a)
 
   \where {
-    \use \coerce fromSized {A : \Set} {S : Ensemble A} {n : Nat} (h : Sized S n) : Card S n
+    \use \coerce fromSized {n : Nat} (S : SizedEnsemble { | size => n}) : Card S.S S.size
     \elim n
-      | 0 => empty-card (Sized.sizedZeroIsEmpty h)
+      | 0 => empty-card (SizedEnsemble.sizeZeroIsEmpty {S} idp)
       | suc n =>
-        \let (a, aIn) => Sized.first S h
-        \in
-          add-card
-              (remove S a)
-              {a}
-              (remove.removed-not-element S)
-              (fromSized (Sized.removeFirst S h))
-              (remove.addBack aIn (Sized.decSet h))
+        \let
+          | (a, aIn) => SizedEnsemble.getElement {S} 0
+          \in add-card
+            (remove S a)
+            {a}
+            (remove.removed-not-element S.S)
+            (fromSized SizedEnsemble.removeFirstSized)
+            (remove.addBack aIn SizedEnsembleDecElements)
 
     -- here we run into the decidability issues / truncated stuff
-    \func toSized {A : DecSet} {S : Ensemble A} {n : Nat} (h : Card S n) : TruncP (Sized S n)
+    \func toSized {A : DecSet} {S : Ensemble A} {n : Nat} (h : Card S n) : TruncP (DecSizedEnsemble { | A => A | S => S | size => n})
     \elim n, h
-      | 0, empty-card idp => inP Sized.emptySized
-      | suc n, add-card S' nIn h idp => TruncP.map (toSized h) (Sized.addNew __ nIn)
+      | 0, empty-card idp => inP $ DecSizedEnsemble.fromSizedEnsemble (SizedEnsemble.emptySized)
+      | suc n, add-card S' {a} nIn h idp => \case toSized h \with {
+        | inP (DS' : DecSizedEnsemble) => inP (DS'.addSized a nIn)
+      }
 
-    \func toFinite {A : \Set} {S : Ensemble A} {n : Nat} (h : Card S n) : Finite S
+    \func toFinite {A : \Set} {S : Ensemble A} {n : Nat} (h : Card S n) : FiniteS S
       \elim n, h
-        | 0, empty-card idp => Finite.empty-finite
-        | suc n, add-card S' n1 h idp => Finite.finite-union (toFinite h) Finite.single-finite
+        | 0, empty-card idp => FiniteS.empty-finite
+        | suc n, add-card S' n1 h idp => FiniteS.finite-union (toFinite h) FiniteS.single-finite
 
     \func singleCard {A : \Set} {a : A} : Card (single a) 1 => add-card ∅ id (empty-card idp) single.isAddToEmpty
 

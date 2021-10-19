@@ -3,9 +3,9 @@
 \import Set
 \import Set.Fin
 \import sets.MySet
-\import sets.Sized
+\import sets.finite.Sized
 \import sets.count
-\import sets.Finite
+\import sets.finite.FiniteS
 
 
 \record DigraphData
@@ -18,8 +18,8 @@
 \class WellformedDigraph \extends PreDigraph
 
 \class FinDigraph \extends PreDigraph
-  | finiteVerts : SizedSet G.verts
-  | finiteArcs : SizedSet G.arcs
+  | finiteVerts : BishopFinite G.verts
+  | finiteArcs : BishopFinite G.arcs
 
 \class LoopFreeDigraph \extends WellformedDigraph
   | noLoops : \Pi {e : G.arcs} -> e.1 /= e.2

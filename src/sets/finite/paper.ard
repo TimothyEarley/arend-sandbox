@@ -1,0 +1,275 @@
+\import Algebra.Meta
+\import Data.Array
+\import Equiv
+\import Function.Meta ($)
+\import HLevel
+\import LeipnizEquality
+\import Logic
+\import Logic.Meta
+\import LogicUtil
+\import Meta
+\import Paths
+\import Paths.Meta
+\import Set
+\import Util
+\import identity.FinIdentity
+\import sets.Elements
+\import sets.MySet
+\import sets.union
+\import util.ArrayUtils
+\import util.TruncOrUtils
+\open DArray (!!)
+\open FinSet.NoDup (NoDup')
+\open FinSet (DecIn, Listable)
+\open ArrayUtils (++-length)
+
+-- http://firsov.ee/finset/finset.pdf
+
+\module FinSet \where {
+  \func All (A : \Set) (l : Array A) : \Set => \Pi (a : A) -> Index a l
+
+  \func NoDup {A : \Type} (l : Array A) : \Type => \Pi (a : A) -> isProp (Index a l)
+    \where {
+      \func NoDup' {A : \Type} (l : Array A) : \Type \elim l
+        | nil => \Sigma
+        | :: a arr => \Sigma (Not (Index a arr)) (NoDup' arr)
+
+      \func from' {A : \Set} {l : Array A} (h : NoDup' l) : NoDup l \elim l
+        | nil => \lam a aIn aIn' => \case aIn \with {
+        ((), _)
+        }
+        | :: a arr => \lam x aIn aIn' => \case \elim aIn, \elim aIn' \with {
+          | (0, aIn), (0, aIn') => ext idp
+          | (0, aIn), (suc i', aIn') => absurd (h.1 (i', aIn' *> (inv aIn)))
+          | (suc i, aIn), (0, aIn') => absurd (h.1 (i, aIn *> (inv aIn')))
+          | (suc i, aIn), (suc i', aIn') => \let rec => from' h.2 x (i, aIn) (i', aIn')
+                                            \in ext (pmap fsuc (pmap __.1 rec))
+        }
+    }
+
+  -- This is the stronger version, the weaker version has an Array A
+
+  \func Listable {A : \Set} (S : Ensemble A) : \Set => \Sigma (l : Array (Elements S))
+                                                              (All (Elements S) l)
+    \where {
+      \func empty-listable {A : \Set} : Listable (∅ {A}) => (nil, \lam (a, e) => absurd e)
+
+      \func single-listable {A : \Set} {a : A} : Listable (single a) => ((a, idp) :: nil, \lam (x, e) => (0, ext e))
+    }
+
+  \func JunkListable {A : \Set} (S : Ensemble A) : \Set => \Sigma (l : Array A)
+                                                                  (\Pi {a : A} (a ∈ S) -> Index a l)
+
+  \func ListableNoDup {A : \Set} (S : Ensemble A) : \Set =>
+    \Sigma (l : Array (Elements S)) (NoDup l) (All (Elements S) l)
+
+  \func FinSurj {A : \Set} (S : Ensemble A) : \Set => \Sigma (n : Nat)
+                                                             (fromFin : Fin n -> Elements S)
+                                                             (toFin : Elements S -> Fin n)
+                                                             (\Pi (x : Elements S) -> fromFin (toFin x) = x)
+
+  \func listable<->finS {A : \Set} (S : Ensemble A) : Listable S <-> FinSurj S => (\lam (l, h) => (DArray.len {l},
+                                                                                                   \lam f => l !! f,
+                                                                                                   \lam e => (h e).1,
+                                                                                                   \lam x => (h x).2),
+                                                                                   \lam (n, f, t, h) => (mkArray f,
+                                                                                                         \lam a => (t a, h a))
+  )
+
+  \data Dec (A : \Set) : \Set
+    | yes A
+    | no (Not A)
+
+  \func DecIn (A : \Set) : \Set => \Pi (a : A) (as : Array A) -> Dec (Index a as)
+
+  \func deq2din {A : \Set} (d : DecSet A) : DecIn A => deq2din-helper d
+    \where {
+      \func deq2din-helper {A : \Set} (d : DecSet A) (a : A) (as : Array A) : Dec (Index a as) \elim as
+        | nil => no (\lam (i, _) => \case i)
+        | :: a1 arr => \case decideEq a1 a, deq2din-helper d a arr \with {
+          | Set.Dec.yes e, _ => yes (0, e)
+          | Set.Dec.no n, yes a2 => yes (suc a2.1, a2.2)
+          | Set.Dec.no n, no n1 => no (\lam in => \case in \with {
+            | (0, h) => n h
+            | (suc f, h) => n1 (f, h)
+          })
+        }
+    }
+
+  \func din2deq {A : \Set} (d : DecIn A) : DecSet A => \new DecSet {
+    | decideEq => din2deq-helper d
+  }
+    \where {
+      \func din2deq-helper {A : \Set} (d : DecIn A) (x y : A) : Set.Dec (x = y) => \let | arr => x :: nil
+                                                                                        | yIn => d y arr
+                                                                                   \in \case yIn \with {
+          | yes (0, h) => Set.yes h
+          | no n => Set.no (\lam p => n (0, p))
+        }
+    }
+
+  \func listable2deq {A : \Set} {S : Ensemble A} (d : Listable S) : DecSet (Elements S) \cowith
+    | decideEq x y => \case decideEq {FinIdentity} (d.2 x).1 (d.2 y).1 \with {
+      | Set.Dec.yes e => Set.Dec.yes (
+        \let
+          | px => (d.2 x).2
+          | py => (d.2 y).2
+        \in (inv px) *> (pmap d.1 e) *> py)
+      | Set.Dec.no n => Set.Dec.no (\lam p => n (rewrite p idp))
+    }
+
+  \func remDup {A : \Set} (d : DecIn A) (l : Array A) : Array A \elim l
+    | nil => nil
+    | :: a arr => \case d a arr \with {
+      | yes a1 => remDup d arr
+      | no n => a :: (remDup d arr)
+    }
+    \where {
+      \func complete {A : \Set} {d : DecIn A} {a : A} {l : Array A} (h : Index a l) : Index a (remDup d l) \elim l, h
+        | nil, ((),p)
+        | :: a1 arr, (0, p) => mcases \with {
+          | yes a2 => complete (transport (Index __ arr) p a2)
+          | no n => (0, p)
+        }
+        | :: a1 arr, (suc i,p) => mcases \with {
+          | yes a2 => complete (i, p)
+          | no n => \let i' => complete (i, p) \in (suc i'.1, i'.2)
+        }
+
+      \func sound {A : \Set} {d : DecIn A} {a : A} {l : Array A} (h : Index a (remDup d l)) : Index a l \elim l, h
+        | nil, ((),p)
+        | :: a1 arr, h => sound-lemma (d a1 arr) h
+        \where {
+          \func sound-lemma {A : \Set} {d : DecIn A} {a a1 : A} {arr : Array A} (in? : Dec (Index a1 arr)) (h : Index a (\case in? \with {
+            | yes a2 => remDup d arr
+            | no n => a1 :: remDup d arr
+          })) : Index a (a1 :: arr) \elim in?, h
+            | yes a2, h => \let s' => sound h \in (suc s'.1, s'.2)
+            | no n, (0, p) => (0, p)
+            | no n, (suc i, p) => \let s' => sound (i, p) \in (suc s'.1, s'.2)
+        }
+
+      \func progress {A : \Set} {d : DecIn A} {l : Array A} : NoDup (remDup d l) => NoDup.from' progress'
+        \where {
+          \func progress' {A : \Set} {d : DecIn A} {l : Array A} : NoDup' (remDup d l) \elim l
+            | nil => ()
+            | :: a arr => mcases \with {
+              | yes a1 => progress'
+              | no n => (\lam i => n (sound i), progress')
+            }
+        }
+    }
+
+  \func lstbl2lstblnd {A : \Set} {S : Ensemble A} (l : Listable S) : ListableNoDup S \elim l
+    | (l, a) => (remDup (deq2din (listable2deq (l, a))) l,
+                 remDup.progress,
+                 \lam a1 => remDup.complete (a a1))
+
+  \func lstblnd2lstbl {A : \Set} {S : Ensemble A} (l : ListableNoDup S) : Listable S \elim l
+    | (l, n, a) => (l, a)
+}
+
+-- https://cs.ru.nl/~nweide/FiniteSetsInHoTT.pdf
+
+\truncated \data Kuratowski (A : \Set) : \Set
+  | KEmpty \alias k∅
+  | \coerce KSingle A
+  | KUnion \alias \infixl 6 k∪ (x y : Kuratowski A)
+  -- laws
+  | nl {x : Kuratowski A} (i : I) \elim i {
+    | left => k∅ {A} k∪ x
+    | right => x
+  }
+  | idem {x : A} (i : I) \elim i {
+    | left => (KSingle x) k∪ (KSingle x)
+    | right => KSingle x
+  }
+  | assoc {x y z : Kuratowski A} (i : I) \elim i {
+    | left => x k∪ (y k∪ z)
+    | right => (x k∪ y) k∪ z
+  }
+  | com {x y : Kuratowski A} (i : I) \elim i {
+    | left => x k∪ y
+    | right => y k∪ x
+  }
+  \where {
+    \func nr {A : \Set} {x : Kuratowski A} : (KUnion x KEmpty) = x => (path com) *> (path nl)
+
+    \func union-idem {A : \Set} {x : Kuratowski A} : x k∪ x = x \elim x
+      | KEmpty => path nl
+      | KSingle a => path idem
+      | KUnion x x1 => equation
+          ((x k∪ x1) k∪ (x k∪ x1)) {path assoc}
+          ((x k∪ x1 k∪ x) k∪ x1) {pmap (__ k∪ _) (inv (path assoc))}
+          ((x k∪ (x1 k∪ x)) k∪ x1) {pmap ((_ k∪ __) k∪ _) (path com)}
+          ((x k∪ (x k∪ x1)) k∪ x1) {pmap (__ k∪ _) (path assoc)}
+          ((x k∪ x k∪ x1) k∪ x1) {inv (path assoc)}
+          ((x k∪ x) k∪ (x1 k∪ x1)) {pmap2 (k∪) union-idem union-idem}
+          (x k∪ x1)
+
+    \func member \alias \infix 6 ∈ {A : \Set} (a : A) (S : Kuratowski A) : \Prop \elim S
+      | k∅ => Empty
+      | KSingle b => a = b
+      | k∪ x y => (a ∈ x) || (a ∈ y)
+      | nl {x} i => (||-Empty-left {a ∈ x}) @ i
+      | idem {x} i => (||-collapse {a = x}) @ i
+      | assoc {x} {y} {z} i => (inv $ ||-assoc {a ∈ x} {a ∈ y} {a ∈ z}) @ i
+      | com {x} {y} i => (||-comm {a ∈ x} {a ∈ y}) @ i
+
+    \func single/=empty {A : \Set} {a : A} (p : KSingle a = k∅) : Empty
+      => transport (a ∈ __) p idp
+
+    \func extensionality {A : \Set} {x y : Kuratowski A} : (x = y) = (\Pi (a : A) -> (a ∈ x) = (a ∈ y)) =>
+      ext (transQEquiv lemma1 lemma2)
+      \where {
+        \func lemma1 {A : \Set} {x y : Kuratowski A} : QEquiv {x = y} {\Sigma (y k∪ x = x) (x k∪ y = y)} \cowith
+          | f p => rewrite p (union-idem, union-idem)
+          | ret (p, p') => (inv p) *> (path com) *> p'
+          | ret_f p => \case \elim x, \elim p \with {
+            | x, idp => {?}
+          }
+          | f_sec (p, p') => {?}
+
+        \func lemma2 {A : \Set} {x y : Kuratowski A} : QEquiv {\Sigma (y k∪ x = x) (x k∪ y = y)} {\Pi (a : A) -> (a ∈ x) = (a ∈ y)} \cowith
+          | f (p, p') a => lemma2-f p p'
+          | ret => {?}
+          | ret_f => {?}
+          | f_sec => {?}
+          \where {
+            \func lemma2-f {A : \Set} {a : A} {x y : Kuratowski A} (p : y k∪ x = x) (p' : x k∪ y = y) : a ∈ x = a ∈ y \elim x, y
+              | k∅, k∅ => idp
+              | k∅, KSingle a1 => using (single/=empty, (inv nr) *> p) contradiction
+              | k∅, k∪ x y => \let q => (inv nr) *> p \in ext (absurd,
+                                                               transport (a ∈ __) q)
+              | KSingle a1, k∅ => using (single/=empty, (inv nr) *> p') contradiction
+              | KSingle a1, KSingle a2 => ext (\lam m => transport (a ∈ __) p' (byLeft m),
+                                               \lam m => transport (a ∈ __) p  (byLeft m))
+              | KSingle a1, k∪ x y => ext (\lam m => transport (a ∈ __) p' (byLeft m),
+                                           \lam m => transport (a ∈ __) p (byLeft m))
+              | k∪ x x1, k∅ => \let q => (inv nr) *> p' \in ext (transport (a ∈ __) q,
+                                                           absurd)
+              | k∪ x x1, KSingle a1 => ext (\lam m => transport (a ∈ __) p' (byLeft m),
+                                            \lam m => transport (a ∈ __) p (byLeft m))
+              | k∪ x x1, k∪ x2 y => ext (\lam m => transport (a ∈ __) p' (byLeft m),
+                                         \lam m => transport (a ∈ __) p (byLeft m))
+          }
+      }
+
+    \func Listable' (A : \Set) => \Sigma (S : Ensemble A) (Listable S)
+
+    \func same-as-listable {A : \Set} : Kuratowski A = Listable' A => ext (\new QEquiv {
+      | f => k2l
+      | ret => {?}
+      | ret_f => {?}
+      | f_sec => {?}
+    }) \where {
+      \func k2l {A : \Set} (K : Kuratowski A) : Listable' A \elim K
+        | k∅ => (∅, Listable.empty-listable)
+        | KSingle a => (single a, Listable.single-listable)
+        | k∪ x y => {?}
+        | nl i => {?}
+        | idem i => {?}
+        | assoc i => {?}
+        | com i => {?}
+    }
+  }

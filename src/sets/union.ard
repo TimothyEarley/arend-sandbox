@@ -9,11 +9,12 @@
 \import sets.Add
 \import sets.Disjoint
 \import sets.Elements
-\import sets.Finite
+\import sets.finite.FiniteS
 \import sets.MySet
 \import sets.Complement
 \import sets.Intersect
 \import sets.union
+\import util.TruncOrUtils
 
 \func union \alias \infixl 6 ∪ {E : \Set} (a b : Ensemble E) : Ensemble E => \lam e => (e ∈ a) || (e ∈ b)
 
@@ -89,31 +90,6 @@
           | byRight xS' => inP (S', byRight idp, xS')
         })
 }
-
-\func ||-comm {A B : \Type} : A || B = B || A => propExt ||-swap ||-swap
-
-\func ||-swap {A B : \Type} (h : A || B) : B || A \elim h
-  | byLeft a => byRight a
-  | byRight b => byLeft b
-
-\func ||-assoc {A B C : \Type} : (A || B) || C = A || B || C => propExt
-    (\lam h => \case \elim h \with {
-      | byLeft (byLeft a) => byLeft a
-      | byLeft (byRight b) => byRight (byLeft b)
-      | byRight c => byRight (byRight c)
-    })
-    (\lam h => \case \elim h \with {
-      | byLeft a => byLeft (byLeft a)
-      | byRight (byLeft b) => byLeft (byRight b)
-      | byRight (byRight c) => byRight c
-    })
-
-\func ||-collapse {A : \Prop} : A || A = A => propExt
-    (\lam h => \case \elim h \with {
-      | byLeft a => a
-      | byRight a => a
-    })
-    byLeft
 
 \func disjointUnion \alias \infix 6 ⊎ {A : \Set} (S S' : Ensemble A) : Ensemble (\Sigma Bool A)
   => \lam (b, a) => (\Sigma (So b) (a ∈ S)) || (\Sigma (So (not b)) (a ∈ S'))

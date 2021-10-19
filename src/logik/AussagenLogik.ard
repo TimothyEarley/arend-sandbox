@@ -7,7 +7,7 @@
 \import sets.Add
 \import sets.Elements
 \import sets.Complement
-\import sets.Finite
+\import sets.finite.FiniteS
 \import sets.Intersect
 \import sets.pow
 \import sets.subset

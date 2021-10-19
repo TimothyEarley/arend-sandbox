@@ -12,7 +12,7 @@
 \import util.MappedPreOrder
 \import sets.Elements
 \import sets.Complement
-\import sets.Finite
+\import sets.finite.FiniteS
 \import sets.Intersect
 \import sets.pow
 \import sets.subset
@@ -159,14 +159,14 @@
           | inl a => inl (x :: a)
           | inr (l, terminating) => inr (x :: l, terminating)
 
-        \func tracesAreFinite {E : \Set} (P : ProcessExpression E) : Finite (traces P)
+        \func tracesAreFinite {E : \Set} (P : ProcessExpression E) : FiniteS (traces P)
         \elim P
-          | STOP => Finite.single-finite
-          | SKIP => Finite.finite-union Finite.single-finite Finite.single-finite
-          | --> x P => Finite.finite-union
-              (Finite.smap-finite (tracesAreFinite P))
-              Finite.single-finite
-          | ⊓ P Q => Finite.finite-union (tracesAreFinite P) (tracesAreFinite Q)
+          | STOP => FiniteS.single-finite
+          | SKIP => FiniteS.finite-union FiniteS.single-finite FiniteS.single-finite
+          | --> x P => FiniteS.finite-union
+              (FiniteS.smap-finite (tracesAreFinite P))
+              FiniteS.single-finite
+          | ⊓ P Q => FiniteS.finite-union (tracesAreFinite P) (tracesAreFinite Q)
       }
 
     \func process-equiv \alias \infix 6 ≈ {E : \Set} (P Q : ProcessExpression E) : \Prop => traces P = traces Q

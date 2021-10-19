@@ -175,5 +175,5 @@
     | (e1, byRight e2) => byRight (e1, e2)
   }
 
-\func product \alias \infix 6 x {A B : \Set} (S1 : Ensemble A) (S2 : Ensemble B) : Ensemble (\Sigma A B) =>
+\func product \alias \infix 6 ⋇ {A B : \Set} (S1 : Ensemble A) (S2 : Ensemble B) : Ensemble (\Sigma A B) =>
   \lam s => \Sigma (s.1 ∈ S1) (s.2 ∈ S2)

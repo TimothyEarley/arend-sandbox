@@ -10,7 +10,7 @@
 \import logik.fol.FOL
 \import logik.fol.Semantics
 \import sets.Add
-\import sets.Finite
+\import sets.finite.FiniteS
 \import sets.MySet
 \import sets.subset
 \import sets.union
@@ -160,15 +160,15 @@
   -- TODO show that it is subset
 
   \func sequentProofUsesFiniteAxioms {L : Language} {axioms : Ensemble (Formula 0)} {f : Formula 0}
-                                     (h : axioms ⊢ f) : \Sigma (reducedAxioms : Ensemble (Formula 0)) (Finite reducedAxioms) (reducedAxioms ⊆ axioms) (reducedAxioms ⊢ f)
+                                     (h : axioms ⊢ f) : \Sigma (reducedAxioms : Ensemble (Formula 0)) (FiniteS reducedAxioms) (reducedAxioms ⊆ axioms) (reducedAxioms ⊢ f)
   \elim f, h
-    | f, Ass e => (single f, Finite.single-finite, \lam {x} e1 => transport axioms e1 e, Ass idp)
+    | f, Ass e => (single f, FiniteS.single-finite, \lam {x} e1 => transport axioms e1 e, Ass idp)
     | f, PC psi h1 h2 =>
       \let
         | (ax1, fax1, sax1, p1) => sequentProofUsesFiniteAxioms h1
         | (ax2, fax2, sax2, p2) => sequentProofUsesFiniteAxioms h2
       \in (ax1 ∪ ax2,
-           Finite.finite-union fax1 fax2,
+           FiniteS.finite-union fax1 fax2,
            {?},
            PC psi (weaken p1 (\lam {x} e => byLeft (byLeft {?}))) (weaken p2 (\lam {x} e => byLeft (byRight e))))
     | f, Ctr psi h1 h2 =>
@@ -176,14 +176,14 @@
         | (ax1, fax1, sax1, p1) => sequentProofUsesFiniteAxioms h1
         | (ax2, fax2, sax2, p2) => sequentProofUsesFiniteAxioms h2
       \in (ax1 ∪ ax2,
-           Finite.finite-union fax1 fax2,
+           FiniteS.finite-union fax1 fax2,
            {?},
            Ctr psi (weaken p1 (\lam {x} e => byLeft (byLeft e))) (weaken p2 (\lam {x} e => byLeft (byRight e))))
-    | equal x y, E-Refl p => (∅, Finite.empty-finite, ⊆.∅-is-⊆, E-Refl p)
+    | equal x y, E-Refl p => (∅, FiniteS.empty-finite, ⊆.∅-is-⊆, E-Refl p)
     | f, E-Subst t t' e phi h p =>
       \let (ax, fax, sax, p') => sequentProofUsesFiniteAxioms h
       \in (add ax (equal t t'),
-           Finite.add-finite fax,
+           FiniteS.add-finite fax,
            \lam {x} e1 => \case e1 \with {
              | byLeft a => sax a
              | byRight b => transport axioms b e

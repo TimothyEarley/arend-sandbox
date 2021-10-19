@@ -9,10 +9,10 @@
 \import Set
 \import Util
 \import sets.Add
-\import sets.Card
+\import sets.finite.Card
 \import sets.Disjoint
 \import sets.Elements
-\import sets.Finite
+\import sets.finite.FiniteS
 \import sets.MySet
 \import sets.Complement
 \import sets.Intersect

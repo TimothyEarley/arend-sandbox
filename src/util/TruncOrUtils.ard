@@ -1,0 +1,33 @@
+\import Logic
+
+\func ||-comm {A B : \Type} : A || B = B || A => propExt ||-swap ||-swap
+
+\func ||-swap {A B : \Type} (h : A || B) : B || A \elim h
+  | byLeft a => byRight a
+  | byRight b => byLeft b
+
+\func ||-assoc {A B C : \Type} : (A || B) || C = A || B || C => propExt
+    (\lam h => \case \elim h \with {
+      | byLeft (byLeft a) => byLeft a
+      | byLeft (byRight b) => byRight (byLeft b)
+      | byRight c => byRight (byRight c)
+    })
+    (\lam h => \case \elim h \with {
+      | byLeft a => byLeft (byLeft a)
+      | byRight (byLeft b) => byLeft (byRight b)
+      | byRight (byRight c) => byRight c
+    })
+
+\func ||-collapse {A : \Prop} : A || A = A => propExt
+    (\lam h => \case \elim h \with {
+      | byLeft a => a
+      | byRight a => a
+    })
+    byLeft
+
+\func ||-Empty-left {A : \Prop} : Empty || A = A => propExt
+    (\case __ \with {
+      | byLeft ()
+      | byRight a => a
+    })
+    (\lam a => byRight a)

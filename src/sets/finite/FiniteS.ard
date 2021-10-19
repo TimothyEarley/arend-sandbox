@@ -18,7 +18,7 @@
 \import sets.Add
 \import sets.Elements
 \import sets.MySet
-\import sets.Sized
+\import sets.finite.Sized
 \import sets.remove
 \import sets.union
 \import util.ArrayUtils
@@ -27,7 +27,7 @@
 \open DArray (!!)
 -- the difference to sized is that we might not know the exact number of elements (only upper bound)
 
-\func Finite {A : \Set} (S : Ensemble A) : \Prop =>
+\func FiniteS {A : \Set} (S : Ensemble A) : \Prop =>
   ∃ (n : Nat) (Fin n ->> (Elements S))
 
   \where {
@@ -36,13 +36,13 @@
 
     \func finite' {A : \Set} (S : Ensemble A) : \Prop => ∃ (n : Nat) (Elements S = Fin n)
 
-    \func finite'=>finite {A : \Set} {S : Ensemble A} (f : finite' S) : Finite S \elim f
+    \func finite'=>finite {A : \Set} {S : Ensemble A} (f : finite' S) : FiniteS S \elim f
       | inP (n, p) => inP (n, \new Surjection {
         | f => transport id (inv p)
         | isSurj e => inP (transport id p e, transport_inv_id id p e)
       })
 
-    \func empty-finite {A : \Set} : Finite (∅ {A}) => inP (0, \new Surjection {
+    \func empty-finite {A : \Set} : FiniteS (∅ {A}) => inP (0, \new Surjection {
       | f => \lam f => \case f \with {
       }
       | isSurj e => \case e \with {
@@ -50,7 +50,7 @@
       }
     })
 
-    \func single-finite {A : \Set} {a : A} : Finite (single a) =>
+    \func single-finite {A : \Set} {a : A} : FiniteS (single a) =>
       inP (1, \new Surjection {
         | f _ => (a, idp)
         | isSurj e => \case \elim e \with {
@@ -58,7 +58,7 @@
         }
       })
 
-    \func array-finite {A : \Set} {n : Nat} {l : Array A n} : Finite (setOf l) =>
+    \func array-finite {A : \Set} {n : Nat} {l : Array A n} : FiniteS (setOf l) =>
       inP (n, \new Surjection {
         | f => \lam f => (l !! f, inP (f, idp))
         | isSurj => \lam y => \case \elim y \with {
@@ -70,7 +70,7 @@
     -- Idea, build the surjection by appending the surjection for S1 with the surjection for S2
 
     \func finite-union {A : \Set} {S1 S2 : Ensemble A}
-                       (h1 : Finite S1) (h2 : Finite S2) : Finite (S1 ∪ S2) \elim h1, h2
+                       (h1 : FiniteS S1) (h2 : FiniteS S2) : FiniteS (S1 ∪ S2) \elim h1, h2
       | inP (n1, p1 : Fin n1 ->> Elements S1), inP (n2, p2 : Fin n2 ->> Elements S2) =>
         inP (n1 Nat.+ n2,
              \new Surjection {
@@ -129,10 +129,10 @@
           }
       }
 
-    \func add-finite {A : \Set} {S : Ensemble A} {a : A} (h : Finite S) : Finite (add S a)
-      => finite-union h single-finite
+    \func add-finite {A : \Set} {S : Ensemble A} {a : A} (h : FiniteS S) : FiniteS (add S a) =>
+      finite-union h single-finite
 
-    \func smap-finite {A B : \Set} {S : Ensemble A} {f : A -> B} (Sfin : Finite S) : Finite (S smap f)
+    \func smap-finite {A B : \Set} {S : Ensemble A} {f : A -> B} (Sfin : FiniteS S) : FiniteS (S smap f)
     \elim Sfin
       | inP (n, proof : Fin n ->> Elements S) => inP (n,
                                                       \new Surjection {
@@ -149,16 +149,20 @@
     \func infinite'-set : \Sigma (A : \Set) (S : Ensemble A) (Not (finite' S)) =>
       (Nat,
        full,
-       \lam f => \case \elim f \with {
-         -- TODO clean up diff between Elements full and Nat
-         | inP (n, p) => helper
-             Elements.full-eq
-             full
-             (table {Nat} {full} p)
-             (transport (Array __ n) Elements.full-eq (table {Nat} {full} p))
-             idp
-             (table-is-complete full p)
-             (nat-array-cannot-be-complete  (transport (Array __ n) Elements.full-eq (table {Nat} {full} p)))
+       \case __ \with {
+         | inP (n, p) =>
+           \let
+            -- repackage the fact Nat is finite
+             | Si : SizedEnsemble Nat full n => \new SizedEnsemble {
+               | sizeProof => p
+             }
+            \in helper {Elements full} {Nat}
+               full.full=A
+               full
+               (table Si)
+               _ idp
+               (table-is-complete Si)
+               (nat-array-cannot-be-complete _)
        })
 
       \where {
@@ -173,12 +177,10 @@
           | idp, idp, inP (x, h') => h' (h x)
       }
 
-    \func table {A : \Set} {S : Ensemble A}
-                {n : Nat} (f : Sized S n) : Array (Elements S) n => mkArray (transport id (inv f))
+    \func table (S : SizedEnsemble) : Array (Elements S.S) S.size => mkArray S.getElement
 
-    \func table-is-complete {A : \Set} (S : Ensemble A) {n : Nat}
-                            (f : Sized S n) (e : Elements S)
-      : Index e (table {A} {S} f) => (Sized.getIndex f e, transport_inv_id id f e)
+    \func table-is-complete (S : SizedEnsemble) (e : Elements S.S)
+      : Index e (table S) => (S.getIndex e, S.element-index)
 
     -- idea: the max + 1 is not in the array
 
@@ -198,7 +200,7 @@
           | suc a => helper (suc<=suc.conv h)
       }
 
-    \func finSet->finite {A : \Set} (F : FinSet A) : Finite (full {A})
+    \func finSet->finite {A : \Set} (F : FinSet A) : FiniteS (full {A})
     \elim F
       | (n, inP p) => finite'=>finite {_} {full} (inP (n, full.full=A *> p))
   }

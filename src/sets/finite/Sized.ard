@@ -1,0 +1,145 @@
+\import Arith.Nat
+\import Data.Bool
+\import Equiv
+\import Function
+\import Function.Meta ($)
+\import Identity
+\import Logic
+\import Logic.Meta
+\import LogicUtil
+\import SetTheory.OD
+\import Util
+\import identity.FinIdentity
+\import Meta
+\import Paths
+\import Paths.Meta
+\import Set
+\import identity.DecMaps
+\import sets.Add
+\import sets.Disjoint
+\import sets.Elements
+\import sets.MySet
+\import sets.remove
+\import sets.union
+\open SizedEnsemble (element-index, getElement, getIndex, index-element, unGetIndex)
+
+-- Bishop-finite without truncated equality, very strong notion of finite
+
+-- citing https://cs.ru.nl/~nweide/FiniteSetsInHoTT.pdf
+-- "Next we look at the union of Bishop-finite subobjects, and
+-- here decidable equality is both sufficient and necessary."
+
+\class SizedEnsemble (A : \Set) {
+  | \classifying S : Ensemble A
+  | size : Nat
+  | sizeProof : Elements S = Fin size
+
+  \func getIndex (a : Elements S) : Fin size => transport id sizeProof a
+
+  \func getElement (i : Fin size) : Elements S => transport id (inv sizeProof) i
+
+  \lemma element-index {a : Elements S} : getElement (getIndex a) = a => transport_inv_id id sizeProof a
+
+  \lemma index-element {i : Fin size} : getIndex (getElement i) = i => transport_id_inv id sizeProof i
+
+  \func unGetElement {x y : Fin size} (p : getElement x = getElement y) : x = y =>
+    (inv index-element) *> (pmap getIndex p) *> index-element
+
+  \func unGetIndex {x y : Elements S} (p : getIndex x = getIndex y) : x = y =>
+    (inv element-index) *> (pmap getElement p) *> element-index
+
+  \func sizeZeroIsEmpty (h : size = 0) : S = ∅ => extSet
+      (\lam {x} e => \case (rewriteF h $ getIndex (x, e)))
+      (\lam {x} e => \case e)
+} \where {
+  \func emptySized {A : \Set} : SizedEnsemble \cowith
+    | A => A
+    | S => ∅
+    | size => 0
+    | sizeProof => absurdExt __.2 (\case __)
+
+  \func removeFirstSized {A : \Set} {n : Nat} {S : SizedEnsemble A { | size => suc n }} : SizedEnsemble A \cowith
+    | S => remove S.S (S.getElement 0).1
+    | size => n
+    | sizeProof => ext (\new QEquiv {
+      | f => newGetIndex
+      | ret => newGetElement
+      | ret_f => newElement-newIndex
+      | f_sec => newIndex-newElement
+    })
+    \where {
+      \func newGetIndex {A : \Set} {n : Nat} {S : SizedEnsemble A { | size => suc n }}
+                        (e : Elements (remove S (S.getElement 0).1)) : Fin n => fpred
+          (S.getIndex (e.1, e.2.1))
+      -- if index is 0, then it is the removed element
+          (\lam p => e.2.2 $ pmap __.1 (inv (pmap getElement p) *> element-index))
+
+      \func newGetElement {A : \Set} {n : Nat} {S : SizedEnsemble A { | size => suc n }}
+                          (i : Fin n) : Elements (remove S.S (S.getElement 0).1) =>
+        \let
+          | e => S.getElement (suc i)
+          | h' : getElement 0 /= e => \lam p => using (unGetElement p) contradiction
+          | h : (getElement 0).1 /= e.1 => \lam p => h' (ext p)
+        \in (e.1, (e.2, h))
+
+      \func newElement-newIndex {A : \Set} {n : Nat} {S : SizedEnsemble A { | size => suc n }}
+                                (e : Elements (remove S (S.getElement 0).1)) : newGetElement (newGetIndex e) = e =>
+        unfold (newGetIndex, newGetElement) $ ext $ unfold_let $ rewrite (fsucfpred, element-index) idp
+
+      \func newIndex-newElement {A : \Set} {n : Nat} {S : SizedEnsemble A { | size => suc n }}
+                                (i : Fin n) : newGetIndex (newGetElement {_} {n} {S} i) = i =>
+        \let
+          | goal : fpred (getIndex (getElement (suc i))) _ = i =>
+            transportInv {\Sigma (z : Fin (suc n)) (z /= 0)}
+                (\lam z => fpred z.1 z.2 = i)
+                {(getIndex (S.getElement (suc i)), rewrite index-element (suc/=0 __))}
+                {(fsuc i, suc/=0 __)}
+                (ext index-element)
+                idp
+        \in goal
+    }
+}
+
+\class DecSizedEnsemble \extends SizedEnsemble {
+  | decA : DecSet A
+
+  \func addSized (a : A) (h : a ∉ S) : DecSizedEnsemble A (add S a) (suc size) \cowith
+    | sizeProof => ext (\new QEquiv {
+      | f e => \case decideEq e.1 a \with {
+        | yes e1 => 0
+        | no n => suc (getIndex (add.existingElement e n))
+      }
+      | ret i => \case i \with {
+        | 0 => (a, byRight idp)
+        | suc f => \let el => getElement f \in (el.1, byLeft el.2)
+      }
+      | ret_f e => cases (decideEq e.1 a) \with {
+        | yes e1 => ext (inv e1)
+        | no n => ext (pmap __.1 element-index)
+      }
+      | f_sec i => \case \elim i \with {
+        | 0 => rewrite (decideEq=_reduce idp) idp
+        | suc i => rewrite (decideEq/=_reduce $ unfold_let $ (\lam q => h (rewriteI q (getElement i).2)))
+            (pmap fsuc index-element)
+      }
+    })
+    | decA => decA
+
+  \func unionSized (S' : SizedEnsemble A) : SizedEnsemble A \cowith
+    | S => {?}
+    | size => {?}
+    | sizeProof => {?}
+} \where {
+  \func fromSizedEnsemble {A : DecSet} (S : SizedEnsemble { | A => A }) : DecSizedEnsemble \cowith
+    | A => A
+    | S => S.S
+    | size => S.size
+    | sizeProof => S.sizeProof
+    | decA => A
+}
+
+\instance SizedEnsembleDecElements {S : SizedEnsemble} : DecSet (Elements S.S)
+  | decideEq x y => \case (S.getIndex x) fin≟ (S.getIndex y) \with {
+    | yes e => yes (unGetIndex e)
+    | no n => no (\lam p => n (pmap getIndex p))
+  }

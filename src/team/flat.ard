@@ -2,7 +2,7 @@
 \import LogicUtil
 \import Paths
 \import Paths.Meta
-\import sets.Card
+\import sets.finite.Card
 \import team.emptyProp
 \import util.Maybe
 \import Set.Fin

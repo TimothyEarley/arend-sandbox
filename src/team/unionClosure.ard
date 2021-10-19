@@ -2,9 +2,9 @@
 \import Equiv
 \import Logic
 \import Paths.Meta
-\import sets.Card
+\import sets.finite.Card
 \import sets.Elements
-\import sets.Finite
+\import sets.finite.FiniteS
 \import sets.MySet
 \import sets.remove
 \import sets.subset

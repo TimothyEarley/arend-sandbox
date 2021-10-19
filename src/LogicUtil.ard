@@ -1,5 +1,6 @@
 \import Data.Bool
 \import Data.Or
+\import Equiv
 \import Function
 \import Logic
 \import Logic.Meta
@@ -56,3 +57,11 @@
 
 \func notNot {a : Bool} : not (not a) = a
   => cases a idp
+
+
+\func absurdExt {A B : \Type} (ha : A -> Empty) (hb : B -> Empty) : A = B => ext (\new QEquiv {
+  | f a => absurd (ha a)
+  | ret b => absurd (hb b)
+  | ret_f a => absurd (ha a)
+  | f_sec b => absurd (hb b)
+})
