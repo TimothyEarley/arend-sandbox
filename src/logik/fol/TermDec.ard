@@ -1,0 +1,63 @@
+\import Function.Meta ($)
+\import Logic
+\import LogicUtil
+\import Paths
+\import Paths.Meta
+\import Set
+\import identity.DecMaps
+\import identity.FinIdentity
+\import identity.Identity
+\import identity.NatIdentity
+\import logik.fol.FOL
+\import util.ArrayUtils
+\open ArrayUtils (headOr, tail)
+
+\instance TermDec {L : DecLanguage} {n : Nat} : Identity.Decidable (Term n)
+  | Code => Code
+  | code-refl => code-refl
+  | code-decode => code-decode
+  | code-encode => code-encode
+  | code-decide => code-decide
+  \where {
+    \func Code {L : Language} {n : Nat} (x y : Term n) : \Prop \elim x, y
+      | var f, var f1 => f = f1
+      | var f, apply f1 d => Empty
+      | apply f d, var f1 => Empty
+      | apply f d, apply f1 d1 => (f, d) = {\Sigma (f : Functions) (Array (Term n) (functionArity f))} (f1, d1)
+
+    \func code-refl {L : Language} {n : Nat} (x : Term n) : Code x x \elim x
+      | var f => idp
+      | apply f d => idp
+
+    \func code-encode {L : Language} {n : Nat} {x y : Term n} (p : x = y) : Code x y \elim p
+      | idp => code-refl x
+
+    \func code-decode {L : Language} {n : Nat} {x y : Term n} (h : Code x y) : x = y \elim x, y, h
+      | var f, var f1, h => pmap var h
+      | apply f d, apply f1 d1, h => pmap (\lam z => apply z.1 z.2) h
+
+    \func code-decide {L : DecLanguage} {n : Nat} (x y : Term n) : Dec (Code x y) \elim x, y
+      | var f, var f1 => f fin≟ f1
+      | var f, apply f1 d => no absurd
+      | apply f d, var f1 => no absurd
+      | apply f d, apply f1 d1 => \case L.decFunctions.decideEq f f1 \with {
+        | yes e => \case \elim f1, \elim e, \elim d1, terms-decide d d1 \with {
+          | f1, idp, d1, yes idp => yes idp
+          | f1, idp, d1, no n => no (\lam c => n (pmap __.2 c))
+        }
+        | no n1 => no (\lam c => n1 (pmap __.1 c))
+      }
+
+    \func terms-decide {L : DecLanguage} {n : Nat} (x y : Array (Term n))
+      : Dec (x = {Array (Term n)} y) \elim x, y
+      | nil, nil => yes idp
+      | nil, :: a arr => no (\case __)
+      | :: a arr, nil => no (\case __)
+      | :: a arr, :: a1 arr1 => \case code-decide a a1 \with {
+        | yes e => \case terms-decide arr arr1 \with {
+          | yes e1 => yes (transport2 (\lam z z' => a :: arr = {Array (Term n)} z :: z') (code-decode e) e1 idp)
+          | no n1 => no (\lam p => n1 (pmap tail p))
+        }
+        | no n1 => no (\lam p => n1 (code-encode (pmap (headOr a) p)))
+      }
+  }

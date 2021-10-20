@@ -1,9 +1,12 @@
 \import Function
+\import Logic
 \import Paths.Meta
+\import sets.Add
 \import sets.Elements
 \import sets.MySet
 \import sets.Complement
 \import sets.Intersect
+\import sets.remove
 \import sets.subset
 \import sets.union
 
@@ -36,4 +39,25 @@
 
     \func preCompose {A : \Set} {x y : Ensemble A} (s : x ⊆ y) {B : \Type} (f : Elements y -> B) : Elements x -> B
       => \lam e => f (toFunction s e)
+
+    \func singleSubset {A : \Set} {a : A} {as : Ensemble A} (h : a ∈ as) : single a ⊆ as
+      => \lam {x} e => rewriteI e h
+
+    \func unionSubset {A : \Set} {as bs cs : Ensemble A} (h : as ⊆ cs) (h' : bs ⊆ cs) : (as ∪ bs) ⊆ cs
+      => \lam {x} e => \case e \with {
+        | byLeft a => h a
+        | byRight b => h' b
+      }
+
+    \func unionSubset' {A : \Set} {as bs cs ds : Ensemble A} (h : as ⊆ cs) (h' : bs ⊆ ds) : (as ∪ bs) ⊆ (cs ∪ ds)
+      => \lam {x} e => \case e \with {
+        | byLeft a => byLeft (h a)
+        | byRight b => byRight (h' b)
+      }
+
+    \func removeAdd {A : \Set} {as bs : Ensemble A} {a : A} (h : as ⊆ add bs a) : remove as a ⊆ bs
+      => \lam {x} (e, ne) => \case h e \with {
+        | byLeft xBs => xBs
+        | byRight x=a => absurd (ne x=a)
+      }
   }

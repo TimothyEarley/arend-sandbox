@@ -14,6 +14,14 @@
   | no n, _ => no (\lam h => n (f1.2 h.1))
   | _, no n => no (\lam h => n (f2.2 h.2))
 
+\func decMap'2 {P1 P2 Q : \Prop}
+               (d1 : Dec P1) (d2 : Dec P2)
+               (f : P1 -> P2 -> Q)
+               (g : Q -> (\Sigma P1 P2)) : Dec Q \elim d1, d2
+  | yes e, yes e1 => yes (f e e1)
+  | _, no n => no (\lam q => n (g q).2)
+  | no n, _ => no (\lam q => n (g q).1)
+
 \func decMap3 {P1 P2 P3 Q1 Q2 Q3 : \Prop}
               (d1 : Dec P1) (d2 : Dec P2) (d3 : Dec P3)
               (f1 : P1 <-> Q1) (f2 : P2 <-> Q2) (f3 : P3 <-> Q3) : Dec (\Sigma Q1 Q2 Q3) \elim d1, d2, d3
@@ -30,7 +38,6 @@
   | _, no n, _, _ => no (\lam h => n (f2.2 h.2))
   | _, _, no n, _ => no (\lam h => n (f3.2 h.3))
   | _, _, _, no n => no (\lam h => n (f4.2 h.4))
-
 
 \func decMap6 {P1 P2 P3 P4 P5 P6 Q1 Q2 Q3 Q4 Q5 Q6 : \Prop}
               (d1 : Dec P1) (d2 : Dec P2) (d3 : Dec P3) (d4 : Dec P4) (d5 : Dec P5) (d6 : Dec P6)

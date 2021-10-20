@@ -8,16 +8,46 @@
 \import Set
 \import Util
 \import logik.fol.FOL
+\import logik.fol.FormulaDec
 \import logik.fol.Semantics
 \import sets.Add
+\import sets.DecidableSet
 \import sets.finite.FiniteS
 \import sets.MySet
+\import sets.finite.Sized
+\import sets.finite.paper
+\import sets.remove
 \import sets.subset
 \import sets.union
 \import util.ArrayUtils
 \open Semantics (Interpretation, evaluate, ⊧)
 \open Term (AnyFreeVar, FreeVar, lift)
 \open Formula (Subst, extends, sub, subTerm, subTerms, subTermsAt, subst)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
+\open Interpretation (subOneRename)
 \open Interpretation (subOneRename)
 \open Interpretation (subOneRename)
 \open Interpretation (subOneRename)
@@ -159,36 +189,79 @@
 
   -- TODO show that it is subset
 
-  \func sequentProofUsesFiniteAxioms {L : Language} {axioms : Ensemble (Formula 0)} {f : Formula 0}
-                                     (h : axioms ⊢ f) : \Sigma (reducedAxioms : Ensemble (Formula 0)) (FiniteS reducedAxioms) (reducedAxioms ⊆ axioms) (reducedAxioms ⊢ f)
+  \func sequentProofUsesFiniteAxioms {L : DecLanguage} {axioms : DecElementEnsemble (Formula 0)} {f : Formula 0}
+                                     (h : axioms ⊢ f) : \Sigma (reducedAxioms : DecSizedEnsemble (Formula 0)) (reducedAxioms.S ⊆ axioms) (reducedAxioms ⊢ f)
   \elim f, h
-    | f, Ass e => (single f, FiniteS.single-finite, \lam {x} e1 => transport axioms e1 e, Ass idp)
+    | f, Ass e => (DecSizedEnsemble.fromSizedEnsemble $ SizedEnsemble.singleSized f, ⊆.singleSubset e, Ass idp)
+    | equal x y, E-Refl p => (DecSizedEnsemble.fromSizedEnsemble $ SizedEnsemble.emptySized, ⊆.∅-is-⊆, E-Refl p)
     | f, PC psi h1 h2 =>
       \let
-        | (ax1, fax1, sax1, p1) => sequentProofUsesFiniteAxioms h1
-        | (ax2, fax2, sax2, p2) => sequentProofUsesFiniteAxioms h2
-      \in (ax1 ∪ ax2,
-           FiniteS.finite-union fax1 fax2,
-           {?},
-           PC psi (weaken p1 (\lam {x} e => byLeft (byLeft {?}))) (weaken p2 (\lam {x} e => byLeft (byRight e))))
-    | f, Ctr psi h1 h2 =>
-      \let
-        | (ax1, fax1, sax1, p1) => sequentProofUsesFiniteAxioms h1
-        | (ax2, fax2, sax2, p2) => sequentProofUsesFiniteAxioms h2
-      \in (ax1 ∪ ax2,
-           FiniteS.finite-union fax1 fax2,
-           {?},
-           Ctr psi (weaken p1 (\lam {x} e => byLeft (byLeft e))) (weaken p2 (\lam {x} e => byLeft (byRight e))))
-    | equal x y, E-Refl p => (∅, FiniteS.empty-finite, ⊆.∅-is-⊆, E-Refl p)
-    | f, E-Subst t t' e phi h p =>
-      \let (ax, fax, sax, p') => sequentProofUsesFiniteAxioms h
-      \in (add ax (equal t t'),
-           FiniteS.add-finite fax,
-           \lam {x} e1 => \case e1 \with {
-             | byLeft a => sax a
-             | byRight b => transport axioms b e
-           },
-           E-Subst t t' (byRight idp) phi (weaken p' (byLeft __)) p)
+        | (ax1 : DecSizedEnsemble, sax1, pax1) => sequentProofUsesFiniteAxioms {_} {axioms.addElement psi} h1
+        | (ax2 : DecSizedEnsemble, sax2, pax2) => sequentProofUsesFiniteAxioms {_} {axioms.addElement (notH psi)} h2
+        -- we need to remove psi from ax1 (if it has it) unless it was already present in axioms
+      \in \case axioms.decElement psi, ax1.decElement psi, axioms.decElement (notH psi), ax2.decElement (notH psi) \with {
+        -- psi is already in axioms, we can cut the tree to that branch of PC
+        | yes e, _, _, _ => (ax1, ⊆.trans sax1 (⊆.unionSubset ⊆.refl (⊆.singleSubset e)), pax1)
+        -- same thing for notH psi
+        | _, _, yes e, _ => (ax2, ⊆.trans sax2 (⊆.unionSubset ⊆.refl (⊆.singleSubset e)), pax2)
+        -- psi and notH psi need to be removed
+        | no n, yes psiIn, no n1, yes nPsiIn =>
+          \let
+            | ax1' : DecSizedEnsemble => ax1.removeSized psiIn
+            | ax2' : DecSizedEnsemble => ax2.removeSized nPsiIn
+            | axioms' => ax1'.unionSized ax2'
+            | ax1sub : ax1.S ⊆ add axioms' psi => \lam {x} e => \case decideEq psi x \with {
+              | yes e1 => byRight e1
+              | no n2 => byLeft (byLeft (e, n2))
+            }
+            | ax2sub : ax2.S ⊆ add axioms' (notH psi) => \lam {x} e => \case decideEq (notH psi) x \with {
+              | yes e1 => byRight e1
+              | no n2 => byLeft (byRight (e, n2))
+            }
+          \in (axioms', ⊆.unionSubset (⊆.removeAdd sax1) (⊆.removeAdd sax2),
+               PC psi (weaken pax1 ax1sub) (weaken pax2 ax2sub)
+          )
+
+        -- only psi needs to be removed
+        | no n, yes psiIn, no n1, no n2 =>
+          \let
+            | ax1' : DecSizedEnsemble => ax1.removeSized psiIn
+            | axioms' => ax1'.unionSized ax2
+            | sax2' : ax2.S ⊆ axioms => rewrite (remove.alreadyGone n2) $ ⊆.removeAdd sax2
+            | ax1sub : ax1.S ⊆ add axioms' psi => \lam {x} e => \case decideEq psi x \with {
+              | yes e1 => byRight e1
+              | no n2 => byLeft (byLeft (e, n2))
+            }
+            | ax2sub : ax2.S ⊆ add axioms' (notH psi) => \lam {x} e => byLeft (byRight e)
+          \in (axioms', ⊆.unionSubset (⊆.removeAdd sax1) sax2', PC psi (weaken pax1 ax1sub) (weaken pax2 ax2sub))
+
+        -- only notH psi needs to be removed
+        | no n, no n1, no n2, yes nPsiIn =>
+          \let
+            | ax2' : DecSizedEnsemble => ax2.removeSized nPsiIn
+            | axioms' => ax1.unionSized ax2'
+            | sax1' : ax1.S ⊆ axioms => rewrite (remove.alreadyGone n1) $ ⊆.removeAdd sax1
+            | ax1sub : ax1.S ⊆ add axioms' psi => \lam {x} e => \case decideEq psi x \with {
+              | yes e1 => byRight e1
+              | no n2 => byLeft (byLeft e)
+            }
+            | ax2sub : ax2.S ⊆ add axioms' (notH psi) => \lam {x} e => \case decideEq (notH psi) x \with {
+              | yes e1 => byRight e1
+              | no n2 => byLeft (byRight (e, n2))
+            }
+          \in (axioms', ⊆.unionSubset sax1' (⊆.removeAdd sax2),
+               PC psi (weaken pax1 ax1sub) (weaken pax2 ax2sub)
+          )
+        -- we don't need to remove anything
+        | no n, no n1, no n2, no n3 =>
+          \let
+            | ax1sub : ax1.S ⊆ axioms => rewrite (remove.alreadyGone n1) (⊆.removeAdd sax1)
+            | ax2sub : ax2.S ⊆ axioms => rewrite (remove.alreadyGone n3) (⊆.removeAdd sax2)
+          \in (ax1.unionSized ax2, ⊆.unionSubset ax1sub ax2sub, PC psi (weaken pax1 (byLeft $ byLeft __)) (weaken pax2 (byLeft $ byRight __)))
+      }
+
+    | f, Ctr psi h1 h2 => {?}
+    | f, E-Subst t t' e phi h p => {?}
 
   \func TermCongruence {L : Language} (axioms : Ensemble (Formula 0)) : Equivalence (Term 0) \cowith
     | ~ x y => TruncP (axioms ⊢ equal x y)

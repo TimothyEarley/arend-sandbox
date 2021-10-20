@@ -31,6 +31,9 @@
 
 \func Ensemble (A : \Set) : \Set => A -> \Prop
 
+\class BaseEnsemble \extends BaseSet
+  | \classifying S : Ensemble E
+
 \func element \alias \infix 6 ∈ {A : \Set} (a : A) (S : Ensemble A) : \Prop => S a
 
 \func not-element \alias \infix 6 ∉ {A : \Set} (a : A) (S : Ensemble A) : \Prop => Not (S a)
@@ -48,15 +51,14 @@
 
 \func empty \alias ∅ {A : \Set} : Ensemble A => \lam _ => Empty
 
-\func show-empty {A : \Set} {S : Ensemble A} (h : Not (Elements S)) : S = ∅
-  => extSet (\lam {x} e => h (x, e)) (\lam {x} e => absurd e)
+\func show-empty {A : \Set} {S : Ensemble A} (h : Not (Elements S)) : S = ∅ =>
+  extSet (\lam {x} e => h (x, e)) (\lam {x} e => absurd e)
 
 \func Not-empty {A : \Set} (S : Ensemble A) : \Prop => ∃ (a : A) (a ∈ S)
 
 \func full {A : \Set} : Ensemble A => \lam _ => \Sigma
-\where {
-  \func full=A {A : \Set} : Elements (full {A}) = A
-    => ext (\new QEquiv {
+  \where {
+    \func full=A {A : \Set} : Elements (full {A}) = A => ext (\new QEquiv {
       | f e => e.1
       | ret a => (a, ())
       | ret_f x => \case \elim x \with {
@@ -64,7 +66,7 @@
       }
       | f_sec a => idp
     })
-}
+  }
 
 \func full/=empty {A : \Set} (witness : A) : Not (full {A} = ∅) => \lam p => (coerce p (witness, ())).2
 
@@ -73,65 +75,66 @@
     \lemma extract {A : \Set} {a a' : A} (h : single a = single a') : a = a' => transportInv ((∈) a') h idp
 
     -- x ∈ S, S ∈ {{c}} => c = x
-    \lemma tele {A : \Set} {x c : A} {S : Ensemble A} (hx : x ∈ S) (h : S ∈ (single (single c))) : c = x
-      => transportInv (\lam _x => x ∈ _x) h hx
+
+    \lemma tele {A : \Set} {x c : A} {S : Ensemble A} (hx : x ∈ S) (h : S ∈ (single (single c))) : c = x =>
+      transportInv (\lam _x => x ∈ _x) h hx
 
     \lemma notTwoElements {A : \Set} {a x x' : A}
                           (h : x /= x')
                           (e1 : x ∈ single a) (e2 : x' ∈ single a)
       : Empty
-      \elim e1, e2
-        | idp, idp => h idp
+    \elim e1, e2
+      | idp, idp => h idp
 
-    \func isAddToEmpty {A : \Set} {a : A} : single a = add ∅ a
-      => extSet (\lam e => byRight e) (\lam {x} e => \case e \with {
+    \func isAddToEmpty {A : \Set} {a : A} : single a = add ∅ a =>
+      extSet (\lam e => byRight e) (\lam {x} e => \case e \with {
         | byLeft ()
         | byRight b => b
       })
 
-    \func splitIntoSingles {A : \Set} (S : Ensemble A) : Ensemble (Ensemble A)
-      => \lam e => ∃ (a : A) (a ∈ S) (e = single a)
-    \where {
-      \func emptySplit {A : \Set} : splitIntoSingles ∅ = ∅ {Ensemble A}
-        => show-empty (\lam (x, inP y) => y.2)
-      \func addSplit {A : \Set} {S : Ensemble A} {a : A} : splitIntoSingles (add S a) = add (splitIntoSingles S) (single a)
-        => extSet
-            (\lam {x} (inP (a', a'Sa, p)) => \case a'Sa \with {
-              | byLeft a'S => byLeft (inP (a', a'S, p))
-              | byRight a'=a => byRight (rewrite a'=a (inv p))
-            })
-            (\lam {x} e => \case e \with {
-              | byLeft (inP xSS) => inP (xSS.1, byLeft xSS.2, xSS.3)
-              | byRight xa => inP (a, byRight idp, inv xa)
-            })
-      \func bigUnionUnsplit {A : \Set} {S : Ensemble A} : ⋃ (splitIntoSingles S) = S
-        => extSet
+    \func splitIntoSingles {A : \Set} (S : Ensemble A) : Ensemble (Ensemble A) =>
+      \lam e => ∃ (a : A) (a ∈ S) (e = single a)
+      \where {
+        \func emptySplit {A : \Set} : splitIntoSingles ∅ = ∅ {Ensemble A} => show-empty (\lam (x, inP y) => y.2)
+
+        \func addSplit {A : \Set} {S : Ensemble A} {a : A} : splitIntoSingles (add S a) = add (splitIntoSingles S) (single a) =>
+          extSet
+              (\lam {x} (inP (a', a'Sa, p)) => \case a'Sa \with {
+                | byLeft a'S => byLeft (inP (a', a'S, p))
+                | byRight a'=a => byRight (rewrite a'=a (inv p))
+              })
+              (\lam {x} e => \case e \with {
+                | byLeft (inP xSS) => inP (xSS.1, byLeft xSS.2, xSS.3)
+                | byRight xa => inP (a, byRight idp, inv xa)
+              })
+
+        \func bigUnionUnsplit {A : \Set} {S : Ensemble A} : ⋃ (splitIntoSingles S) = S => extSet
             (\lam {x} (inP (S', inP (a, aS, idp), idp)) => aS)
             (\lam {x} xS => inP (single x, inP (x, xS, idp), idp))
-    }
+      }
   }
 
 \func setOf {A : \Set} {n : Nat} (l : Array A n) : Ensemble A => \lam a => ∃ (i : Fin n) (l i = a)
 
 \func \infixl 6 smap {A B : \Set} (S : Ensemble A) (f : A -> B) : Ensemble B => \lam b => ∃ (a : A) (b = f a) (a ∈ S)
-\where {
-  \func empty-smap {A B : \Set} {f : A -> B} : ∅ smap f = ∅
-    => extSet
-        (\lam {x} e => \case e \with { inP a => a.3})
+  \where {
+    \func empty-smap {A B : \Set} {f : A -> B} : ∅ smap f = ∅ => extSet
+        (\lam {x} e => \case e \with {
+        inP a => a.3
+        })
         (\lam e => absurd e)
 
-  \func add-smap {A B : \Set} {f : A -> B} {S : Ensemble A} {a : A} : ((add S a) smap f) = add (S smap f) (f a)
-    => extSet
-        (\lam {x} e => \case e \with {
-          | inP (a', p, byLeft a'S) => byLeft (inP (a', p, a'S))
-          | inP (a', p, byRight a'=a) => byRight (pmap f a'=a *> (inv p))
-        })
-        (\lam {x} e => \case e \with {
-          | byLeft (inP xFs) => inP (xFs.1, xFs.2, byLeft xFs.3)
-          | byRight x=fa => inP (a, inv x=fa, byRight idp)
-        })
-}
-
+    \func add-smap {A B : \Set} {f : A -> B} {S : Ensemble A} {a : A} : ((add S a) smap f) = add (S smap f) (f a) =>
+      extSet
+          (\lam {x} e => \case e \with {
+            | inP (a', p, byLeft a'S) => byLeft (inP (a', p, a'S))
+            | inP (a', p, byRight a'=a) => byRight (pmap f a'=a *> (inv p))
+          })
+          (\lam {x} e => \case e \with {
+            | byLeft (inP xFs) => inP (xFs.1, xFs.2, byLeft xFs.3)
+            | byRight x=fa => inP (a, inv x=fa, byRight idp)
+          })
+  }
 
 \func distribute-intersect-union \alias distribute-∩-∪ {E : \Set} {A B S : Ensemble E} : (A ∪ B) ∩ S = (A ∩ S) ∪ (B ∩ S) =>
   extSet

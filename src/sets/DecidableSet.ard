@@ -1,0 +1,54 @@
+\import Data.Bool
+\import Equiv
+\import Function.Meta ($)
+\import Logic
+\import Meta
+\import Paths
+\import Paths.Meta
+\import Set
+\import sets.Add
+\import sets.MySet
+\import util.So
+\import util.True
+
+\class DecElementEnsemble \extends BaseEnsemble {
+  | decElement (a : E) : Dec (a ∈ S)
+
+
+  \func addElement {D : DecSet E} (a : E) : DecElementEnsemble E (add S a) \cowith
+    | decElement e => \case D.decideEq a e, decElement e \with {
+      | yes h, _ => yes (byRight h)
+      | _, yes h => yes (byLeft h)
+      | no n, no n' => no (\case __ \with {
+        | byLeft eS => n' eS
+        | byRight a=e => n a=e
+      })
+    }
+}
+
+\func BoolEnsemble (A : \Set) => A -> Bool
+  \where {
+    \func asEnsemble {A : \Set} (b : BoolEnsemble A) : Ensemble A => \lam a => So (b a)
+
+    \func fromDecEnsemble (D : DecElementEnsemble) : BoolEnsemble D.E => \lam a => decToBool (D.decElement a)
+
+    \func decInEnsemble {A : \Set} {b : BoolEnsemble A} (a : A) : Dec (a ∈ asEnsemble b) => cases (b a arg addPath) \with {
+      | false, q => no (unfold (∈, BoolEnsemble.asEnsemble) $ rewrite q (\case __))
+      | true, q => yes (unfold (∈, BoolEnsemble.asEnsemble) $ rewrite q so)
+    }
+
+    \func asDecEnsemble {A : \Set} (b : BoolEnsemble A) : DecElementEnsemble A \cowith
+      | S => BoolEnsemble.asEnsemble b
+      | decElement => BoolEnsemble.decInEnsemble
+
+    \func decEnsembleIsBoolEnsemble {A : \Set} : DecElementEnsemble A = BoolEnsemble A => ext (\new QEquiv {
+      | f => fromDecEnsemble __
+      | ret => asDecEnsemble
+      | ret_f x => ext (extSet
+          (\lam bc => toWitness (True.fromSo bc))
+          (\lam e => soYes e)
+      )
+      -- arend does not think decElement {asDecEnsemble b} == decInEnsmble
+      | f_sec y => ext {?}
+    })
+  }

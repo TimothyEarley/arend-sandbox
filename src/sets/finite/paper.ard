@@ -19,33 +19,14 @@
 \import util.ArrayUtils
 \import util.TruncOrUtils
 \open DArray (!!)
-\open FinSet.NoDup (NoDup')
-\open FinSet (DecIn, Listable)
 \open ArrayUtils (++-length)
+\open NoDup (NoDup', remDup)
+\open FinSet (Listable)
 
 -- http://firsov.ee/finset/finset.pdf
 
 \module FinSet \where {
   \func All (A : \Set) (l : Array A) : \Set => \Pi (a : A) -> Index a l
-
-  \func NoDup {A : \Type} (l : Array A) : \Type => \Pi (a : A) -> isProp (Index a l)
-    \where {
-      \func NoDup' {A : \Type} (l : Array A) : \Type \elim l
-        | nil => \Sigma
-        | :: a arr => \Sigma (Not (Index a arr)) (NoDup' arr)
-
-      \func from' {A : \Set} {l : Array A} (h : NoDup' l) : NoDup l \elim l
-        | nil => \lam a aIn aIn' => \case aIn \with {
-        ((), _)
-        }
-        | :: a arr => \lam x aIn aIn' => \case \elim aIn, \elim aIn' \with {
-          | (0, aIn), (0, aIn') => ext idp
-          | (0, aIn), (suc i', aIn') => absurd (h.1 (i', aIn' *> (inv aIn)))
-          | (suc i, aIn), (0, aIn') => absurd (h.1 (i, aIn *> (inv aIn')))
-          | (suc i, aIn), (suc i', aIn') => \let rec => from' h.2 x (i, aIn) (i', aIn')
-                                            \in ext (pmap fsuc (pmap __.1 rec))
-        }
-    }
 
   -- This is the stronger version, the weaker version has an Array A
 
@@ -80,7 +61,9 @@
     | yes A
     | no (Not A)
 
-  \func DecIn (A : \Set) : \Set => \Pi (a : A) (as : Array A) -> Dec (Index a as)
+
+  -- TODO I moved DecIn to be the ttruncated one, here we need non truncated
+  {-
 
   \func deq2din {A : \Set} (d : DecSet A) : DecIn A => deq2din-helper d
     \where {
@@ -118,48 +101,6 @@
       | Set.Dec.no n => Set.Dec.no (\lam p => n (rewrite p idp))
     }
 
-  \func remDup {A : \Set} (d : DecIn A) (l : Array A) : Array A \elim l
-    | nil => nil
-    | :: a arr => \case d a arr \with {
-      | yes a1 => remDup d arr
-      | no n => a :: (remDup d arr)
-    }
-    \where {
-      \func complete {A : \Set} {d : DecIn A} {a : A} {l : Array A} (h : Index a l) : Index a (remDup d l) \elim l, h
-        | nil, ((),p)
-        | :: a1 arr, (0, p) => mcases \with {
-          | yes a2 => complete (transport (Index __ arr) p a2)
-          | no n => (0, p)
-        }
-        | :: a1 arr, (suc i,p) => mcases \with {
-          | yes a2 => complete (i, p)
-          | no n => \let i' => complete (i, p) \in (suc i'.1, i'.2)
-        }
-
-      \func sound {A : \Set} {d : DecIn A} {a : A} {l : Array A} (h : Index a (remDup d l)) : Index a l \elim l, h
-        | nil, ((),p)
-        | :: a1 arr, h => sound-lemma (d a1 arr) h
-        \where {
-          \func sound-lemma {A : \Set} {d : DecIn A} {a a1 : A} {arr : Array A} (in? : Dec (Index a1 arr)) (h : Index a (\case in? \with {
-            | yes a2 => remDup d arr
-            | no n => a1 :: remDup d arr
-          })) : Index a (a1 :: arr) \elim in?, h
-            | yes a2, h => \let s' => sound h \in (suc s'.1, s'.2)
-            | no n, (0, p) => (0, p)
-            | no n, (suc i, p) => \let s' => sound (i, p) \in (suc s'.1, s'.2)
-        }
-
-      \func progress {A : \Set} {d : DecIn A} {l : Array A} : NoDup (remDup d l) => NoDup.from' progress'
-        \where {
-          \func progress' {A : \Set} {d : DecIn A} {l : Array A} : NoDup' (remDup d l) \elim l
-            | nil => ()
-            | :: a arr => mcases \with {
-              | yes a1 => progress'
-              | no n => (\lam i => n (sound i), progress')
-            }
-        }
-    }
-
   \func lstbl2lstblnd {A : \Set} {S : Ensemble A} (l : Listable S) : ListableNoDup S \elim l
     | (l, a) => (remDup (deq2din (listable2deq (l, a))) l,
                  remDup.progress,
@@ -167,6 +108,8 @@
 
   \func lstblnd2lstbl {A : \Set} {S : Ensemble A} (l : ListableNoDup S) : Listable S \elim l
     | (l, n, a) => (l, a)
+
+  -}
 }
 
 -- https://cs.ru.nl/~nweide/FiniteSetsInHoTT.pdf

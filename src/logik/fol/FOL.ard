@@ -9,6 +9,7 @@
 \import Meta
 \import Order.Lattice
 \import Order.PartialOrder
+\import Set
 \import Set.Fin
 \import Util
 \import logik.fol.Semantics
@@ -31,6 +32,10 @@
   | relationsArity : Relations -> Nat
   | Functions : \Set
   | functionArity : Functions -> Nat
+
+\class DecLanguage \extends Language
+  | decRelations : DecSet Relations
+  | decFunctions : DecSet Functions
 
 \data Term {L : Language} (variables : Nat) : \Set
   | var (Fin variables)

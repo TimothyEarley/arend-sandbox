@@ -1,4 +1,5 @@
 \import Arith.Nat
+\import Data.Array
 \import Data.Bool
 \import Equiv
 \import Function
@@ -16,12 +17,14 @@
 \import Set
 \import identity.DecMaps
 \import sets.Add
+\import sets.DecidableSet
 \import sets.Disjoint
 \import sets.Elements
 \import sets.MySet
 \import sets.remove
 \import sets.union
-\open SizedEnsemble (element-index, getElement, getIndex, index-element, unGetIndex)
+\import util.ArrayUtils
+\open SizedEnsemble (element-index, getElement, getIndex, index-element, removeSizedExt, toArray, toArray', unGetIndex)
 
 -- Bishop-finite without truncated equality, very strong notion of finite
 
@@ -29,8 +32,7 @@
 -- "Next we look at the union of Bishop-finite subobjects, and
 -- here decidable equality is both sufficient and necessary."
 
-\class SizedEnsemble (A : \Set) {
-  | \classifying S : Ensemble A
+\class SizedEnsemble \extends BaseEnsemble{
   | size : Nat
   | sizeProof : Elements S = Fin size
 
@@ -48,26 +50,51 @@
   \func unGetIndex {x y : Elements S} (p : getIndex x = getIndex y) : x = y =>
     (inv element-index) *> (pmap getElement p) *> element-index
 
+  \func toArray : Array (Elements S) size => mkArray getElement
+    \where {
+      \func complete (e : Elements S) : Index e (toArray) => (getIndex e, element-index)
+    }
+
+  \func toArray' : Array E size => map __.1 toArray
+
   \func sizeZeroIsEmpty (h : size = 0) : S = ∅ => extSet
       (\lam {x} e => \case (rewriteF h $ getIndex (x, e)))
       (\lam {x} e => \case e)
+
+  \func removeSized {a : E} (aIn : a ∈ S) : SizedEnsemble => removeSizedExt (\new SizedEnsemble E S size sizeProof) aIn
 } \where {
   \func emptySized {A : \Set} : SizedEnsemble \cowith
-    | A => A
+    | E => A
     | S => ∅
     | size => 0
     | sizeProof => absurdExt __.2 (\case __)
 
+  \func singleSized {A : \Set} (a : A) : SizedEnsemble \cowith
+    | E => A
+    | S => single a
+    | size => 1
+    | sizeProof => ext (\new QEquiv {
+      | f _ => 0
+      | ret _ => (a, idp)
+      | ret_f (a', p) => ext p
+      | f_sec => \case \elim __ \with {
+        | 0 => idp
+      }
+    })
+
   \func removeFirstSized {A : \Set} {n : Nat} {S : SizedEnsemble A { | size => suc n }} : SizedEnsemble A \cowith
     | S => remove S.S (S.getElement 0).1
     | size => n
-    | sizeProof => ext (\new QEquiv {
-      | f => newGetIndex
-      | ret => newGetElement
-      | ret_f => newElement-newIndex
-      | f_sec => newIndex-newElement
-    })
+    | sizeProof => removedSizeProof
     \where {
+      \func removedSizeProof {A : \Set} {n : Nat} {S : SizedEnsemble A { | size => suc n }} : Elements (remove S.S (getElement {S} 0).1) = Fin n =>
+        ext (\new QEquiv {
+          | f => newGetIndex
+          | ret => newGetElement
+          | ret_f => newElement-newIndex
+          | f_sec => newIndex-newElement
+        })
+
       \func newGetIndex {A : \Set} {n : Nat} {S : SizedEnsemble A { | size => suc n }}
                         (e : Elements (remove S (S.getElement 0).1)) : Fin n => fpred
           (S.getIndex (e.1, e.2.1))
@@ -98,12 +125,75 @@
                 idp
         \in goal
     }
+
+  \func removeSizedExt (S : SizedEnsemble) {a : S.E} (aIn : a ∈ S) : SizedEnsemble S.E (remove S a) \elim S
+    | (E,e,0,p) \as S => \case getIndex (a, aIn)
+    | (E,e,suc n,p) \as S => removeSized' S aIn
+
+  \func removeSized' {n : Nat} (S : SizedEnsemble { | size => suc n }) {a : S.E} (aIn : a ∈ S) : SizedEnsemble \cowith
+    | E => S.E
+    | S => remove S.S a
+    | size => n
+    | sizeProof => (pmap Elements (swapToFirst= aIn)) *> removeFirstSized.removedSizeProof {E} {n} {swapToFirst S aIn}
+    \where {
+      \func swapToFirst {A : \Set} {n : Nat} (S : SizedEnsemble A { | size => suc n }) {a : A} (aIn : a ∈ S) : SizedEnsemble A \cowith
+        | S => S
+        | size => S.size
+        | sizeProof => ext (\new QEquiv {
+          | f e => \case decideEq {SizedEnsembleDecElements} e (a, aIn) \with {
+            | yes e1 => 0 -- we put a to index 0
+            | no n => \case S.getIndex e \with {
+              -- the thing at place 0 needs to move to the orignal position of a
+              | 0 => S.getIndex (a, aIn)
+              | suc f => suc f
+            }
+          }
+          | ret i => \case i \with {
+            | 0 => (a, aIn)
+            | suc f => \case decideEq {SizedEnsembleDecElements} (getElement (suc f)) (a, aIn) \with {
+              | yes e => getElement 0 -- this is where we swapped the orignal 0 to
+              | no n1 => getElement (suc f)
+            }
+          }
+          | ret_f => {?}
+          | f_sec i => \case \elim i \with {
+            | 0 => rewrite (decideEq=_reduce idp) idp
+            | suc i => cases (decideEq {SizedEnsembleDecElements} (getElement (suc i)) (a, aIn)) \with {
+              | yes e => rewrite
+                  (decideEq/=_reduce (\lam (p : getElement 0 = (a, aIn)) => suc/=0 (S.unGetElement {suc i} {0} (e *> inv p))),
+                   index-element)
+                  (inv (rewriteF index-element (pmap S.getIndex e)))
+              | no n1 => {?}
+            }
+          }
+        })
+
+      \func swapToFirstIsFirst {A : \Set} {n : Nat} {S : SizedEnsemble A { | size => suc n }} {a : A} {aIn : a ∈ S}
+        : getElement {swapToFirst S aIn} 0 = (a, aIn) => {?} -- TODO this should hold by definiton
+
+      \func swapToFirst= {n : Nat} {S : SizedEnsemble { | size => suc n }} {a : S.E} (aIn : a ∈ S)
+        : (remove S a) = (remove {S.E} (SizedEnsemble.S {swapToFirst S aIn}) (getElement {swapToFirst S aIn} 0).1) =>
+        extSet
+            (\lam {x} (e, e') => (e,
+                                  \lam p => e' ({?} *> p)))
+            (\lam {x} (e, e') => ({?},
+                                  {?}))
+    }
 }
 
-\class DecSizedEnsemble \extends SizedEnsemble {
-  | decA : DecSet A
+\class DecSizedEnsemble \extends SizedEnsemble, DecElementEnsemble, DecSet {
+  | decElement a =>
+    \let
+      | con => ArrayUtils.contains toArray' a
+    \in \case con \with {
+      | yes (inP in) => \let (a', p, in') => ArrayUtils.indexMap toArray __.1 in \in yes (rewriteI p a'.2)
+      | no n => no (\lam aIn => n (\let in => toArray.complete (a, aIn) \in inP (ArrayUtils.indexMap' __.1 in)))
+    }
 
-  \func addSized (a : A) (h : a ∉ S) : DecSizedEnsemble A (add S a) (suc size) \cowith
+  \func removeSized {a : E} (aIn : a ∈ S) : DecSizedEnsemble E (remove S a) =>
+    fromSizedEnsemble {\this} (removeSizedExt (\new SizedEnsemble E S size sizeProof) aIn)
+
+  \func addSized (a : E) (h : a ∉ S) : DecSizedEnsemble E (add S a) (suc size) \cowith
     | sizeProof => ext (\new QEquiv {
       | f e => \case decideEq e.1 a \with {
         | yes e1 => 0
@@ -123,19 +213,30 @@
             (pmap fsuc index-element)
       }
     })
-    | decA => decA
+    | decideEq => decideEq
 
-  \func unionSized (S' : SizedEnsemble A) : SizedEnsemble A \cowith
-    | S => {?}
-    | size => {?}
-    | sizeProof => {?}
+  \func unionSized (S' : DecSizedEnsemble E) : DecSizedEnsemble E \cowith
+    | S => S ∪ S'
+    | size => DArray.len {NoDup.remDup (toArray' ++ S'.toArray')}
+    | sizeProof => unionProof
+    | decideEq => decideEq
+  \where {
+    \func unionProof {S' : DecSizedEnsemble E} : Elements (S ∪ S') = Fin (DArray.len {NoDup.remDup (toArray' ++ S'.toArray')})
+      => ext (\new QEquiv {
+        | f e => {?}
+        | ret => {?}
+        | ret_f => {?}
+        | f_sec => {?}
+      })
+  }
+
 } \where {
-  \func fromSizedEnsemble {A : DecSet} (S : SizedEnsemble { | A => A }) : DecSizedEnsemble \cowith
-    | A => A
+  \func fromSizedEnsemble {A : DecSet} (S : SizedEnsemble { | E => A }) : DecSizedEnsemble \cowith
+    | E => A
     | S => S.S
     | size => S.size
     | sizeProof => S.sizeProof
-    | decA => A
+    | decideEq => A.decideEq
 }
 
 \instance SizedEnsembleDecElements {S : SizedEnsemble} : DecSet (Elements S.S)
