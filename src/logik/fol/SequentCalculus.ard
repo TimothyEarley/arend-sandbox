@@ -1,3 +1,4 @@
+\import Data.Array
 \import Function.Meta ($)
 \import Logic
 \import Meta
@@ -21,38 +22,8 @@
 \import sets.union
 \import util.ArrayUtils
 \open Semantics (Interpretation, evaluate, ⊧)
-\open Term (AnyFreeVar, FreeVar, lift)
-\open Formula (Subst, extends, sub, subTerm, subTerms, subTermsAt, subst)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
-\open Interpretation (subOneRename)
+\open Term (AnyFreeVar, FreeVar, lift, liftN, liftNL, lifts, liftsN)
+\open Formula (Subst, extends, extendsN, sub, subN, subTerm, subTermLift, subTerms, subTermsAt, subst)
 \open Interpretation (subOneRename)
 
 \module SequentCalulus \where {
@@ -60,33 +31,76 @@
 
   -- TODO finite axioms
 
-  \data SequentProof \alias \infix 6 ⊢ {L : Language} (axioms : Ensemble (Formula 0)) (toShow : Formula 0)
+  \data SequentProof \alias \infix 6 ⊢ {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) (toShow : Formula n)
   \elim toShow
     | toShow => Ass (toShow ∈ axioms)
-    | toShow => PC (psi : Formula 0) (add axioms psi ⊢ toShow) (add axioms (notH psi) ⊢ toShow)
-    | toShow => Ctr (psi : Formula 0)
+    | toShow => PC (psi : Formula n) (add {Formula n} axioms psi ⊢ toShow) (add axioms (notH psi) ⊢ toShow)
+    | toShow => Ctr (psi : Formula n)
                     (add axioms (notH toShow) ⊢ psi) (add axioms (notH toShow) ⊢ (notH psi))
 
     -- TODO ...
 
     | equal x y => E-Refl (x = y)
-    | toShow => E-Subst (t t' : Term 0) (equal t t' ∈ axioms)
-                        (phi : Formula 1)
+    | toShow => E-Subst (t t' : Term n) (equal t t' ∈ axioms)
+                        (phi : Formula (suc n))
                         (axioms ⊢ sub phi t)
                         (p : toShow = sub phi t')
     \where {
-      \func Contr' {L : Language} {axioms :  Ensemble (Formula 0)} {toShow : Formula 0}
-                   (phi : Formula 0) (h : axioms ⊢ phi) (h' : axioms ⊢ notH phi) : axioms ⊢ toShow =>
+      \func Contr' {L : Language} {n : Nat} {axioms :  Ensemble (Formula n)} {toShow : Formula n}
+                   (phi : Formula n) (h : axioms ⊢ phi) (h' : axioms ⊢ notH phi) : axioms ⊢ toShow =>
         Ctr phi (weaken h (byLeft __)) (weaken h' (byLeft __))
 
-      \func MP {L : Language} {axioms :  Ensemble (Formula 0)} {toShow : Formula 0}
-               (phi : Formula 0) (h : axioms ⊢ phi) (h' : add axioms phi ⊢ toShow)
+      \func MP {L : Language} {n : Nat} {axioms :  Ensemble (Formula n)} {toShow : Formula n}
+               (phi : Formula n) (h : axioms ⊢ phi) (h' : add axioms phi ⊢ toShow)
         : axioms ⊢ toShow => PC phi
           h'
           (Contr' phi (weaken h (byLeft __)) (Ass (byRight idp)))
+
+      \func E-Subst' {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
+                     (t t' : Term n) (te : axioms ⊢ equal t t') (phi : Formula (suc n))
+                     (h : axioms ⊢ sub phi t)
+                     {toShow : Formula n} (p : toShow = sub phi t') : axioms ⊢ toShow =>
+        MP (equal t t') te (E-Subst t t' (byRight idp) phi (weaken h (byLeft __)) p)
+
+      \func E-Symm {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
+                   {x y : Term n}
+                   (h : axioms ⊢ equal x y) : axioms ⊢ equal y x =>
+        E-Subst'
+            x y h
+            (equal (var 0) (lift x))
+            (unfold (sub) $ rewrite (subTermLift _ (\lam f => idp)) (E-Refl idp))
+            (unfold (sub) $ rewrite (subTermLift _ (\lam f => idp)) idp)
+
+      \func E-Trans {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
+                    {x y z : Term n}
+                    (h : axioms ⊢ equal x y) (h' : axioms ⊢ equal y z) : axioms ⊢ equal x z =>
+        \let h'' :  add axioms (equal y z) ⊢ equal x y => weaken h (byLeft __)
+        \in E-Subst' y z h'
+            (equal (lift x) (var 0))
+            (unfold (sub) $ rewrite (subTermLift _ (\lam f => idp)) h)
+            (unfold (sub) $ rewrite (subTermLift _ (\lam f => idp)) idp)
+
+      -- TruncP because thats where we use it
+
+      \func E-SubstN {L : Language} {baseNum numOfAdded : Nat}
+                     {toShow : Formula baseNum}
+                     (axioms : Ensemble (Formula baseNum))
+                     (d d' : Array (Term baseNum) numOfAdded)
+                     (f : Formula (baseNum Nat.+ numOfAdded))
+                     (hp : axioms ⊢ subN f d)
+                     (dd' : DArray (\lam i => TruncP (axioms ⊢ equal (d i) (d' i))))
+                     (tsp : subN f d' = toShow)
+        : TruncP (axioms ⊢ toShow) \elim numOfAdded, d, d', dd'
+        | 0, nil, nil, nil => rewriteI tsp (inP hp)
+        | suc numOfAdded, :: t d, :: t' d', :: (inP t=t') dd' =>
+          E-SubstN axioms d d'
+              (sub f (liftN _ t'))
+              (E-Subst' t t' t=t' {?} {?} {?})
+              dd'
+              ((inv subN.recurseSub) *> tsp)
     }
 
-  \func weaken {L : Language} {axioms axioms' : Ensemble (Formula 0)} {toShow : Formula 0}
+  \func weaken {L : Language} {n : Nat} {axioms axioms' : Ensemble (Formula n)} {toShow : Formula n}
                (h : axioms ⊢ toShow) (s : axioms ⊆ axioms') : axioms' ⊢ toShow \elim toShow, h
     | toShow, Ass e => Ass (s e)
     | toShow, PC psi h1 h2 => PC psi
@@ -260,22 +274,111 @@
           \in (ax1.unionSized ax2, ⊆.unionSubset ax1sub ax2sub, PC psi (weaken pax1 (byLeft $ byLeft __)) (weaken pax2 (byLeft $ byRight __)))
       }
 
-    | f, Ctr psi h1 h2 => {?}
-    | f, E-Subst t t' e phi h p => {?}
+    | f, Ctr psi h1 h2 =>
+      \let
+        | (ax1 : DecSizedEnsemble, sax1, pax1) => sequentProofUsesFiniteAxioms {_} {axioms.addElement (notH f)} h1
+        | (ax2 : DecSizedEnsemble, sax2, pax2) => sequentProofUsesFiniteAxioms {_} {axioms.addElement (notH f)} h2
+      \in \case axioms.decElement (notH f), ax1.decElement (notH f), ax2.decElement (notH f) \with {
+        | yes e, _, _ => (ax1.unionSized ax2,
+                          ⊆.unionSubset
+                              (⊆.trans sax1 (⊆.unionSubset ⊆.refl (\lam {x} x=notH => transport (__ ∈ axioms.S) x=notH e)))
+                              (⊆.trans sax2 (⊆.unionSubset ⊆.refl (\lam {x} x=notH => transport (__ ∈ axioms.S) x=notH e))),
+                          Ctr psi (weaken pax1 (\lam z => byLeft (byLeft z))) (weaken pax2 (\lam z => byLeft (byRight z))))
+        | no n, yes e, yes e1 => \let
+          | ax1' : DecSizedEnsemble => ax1.removeSized e
+          | ax2' : DecSizedEnsemble => ax2.removeSized e1
+          | axioms' => ax1'.unionSized ax2'
+          | ax1sub : ax1.S ⊆ add axioms' (notH f) => \lam {x} e => \case decideEq (notH f) x \with {
+            | yes e1 => byRight e1
+            | no n2 => byLeft (byLeft (e, n2))
+          }
+          | ax2sub : ax2.S ⊆ add axioms' (notH f) => \lam {x} e => \case decideEq (notH f) x \with {
+            | yes e1 => byRight e1
+            | no n2 => byLeft (byRight (e, n2))
+          }
+                                 \in (axioms', ⊆.unionSubset (⊆.removeAdd sax1) (⊆.removeAdd sax2),
+                                      Ctr psi (weaken pax1 ax1sub) (weaken pax2 ax2sub)
+          )
+        | no n, yes e, no n1 => \let
+          | ax1' : DecSizedEnsemble => ax1.removeSized e
+          | axioms' => ax1'.unionSized ax2
+          | sax2' : ax2.S ⊆ axioms => rewrite (remove.alreadyGone n1) $ ⊆.removeAdd sax2
+          | ax1sub : ax1.S ⊆ add axioms' (notH f) => \lam {x} e => \case decideEq (notH f) x \with {
+            | yes e1 => byRight e1
+            | no n2 => byLeft (byLeft (e, n2))
+          }
+          | ax2sub : ax2.S ⊆ add axioms' (notH f) => \lam z => byLeft (byRight z)
+                                \in (axioms', ⊆.unionSubset (⊆.removeAdd sax1) sax2',
+                                     Ctr psi (weaken pax1 ax1sub) (weaken pax2 ax2sub))
+        | no n, no n1, yes e => \let
+          | ax2' : DecSizedEnsemble => ax2.removeSized e
+          | axioms' => ax1.unionSized ax2'
+          | sax1' : ax1.S ⊆ axioms => rewrite (remove.alreadyGone n1) $ ⊆.removeAdd sax1
+          | ax1sub : ax1.S ⊆ add axioms' (notH f) => \lam z => byLeft (byLeft z)
+          | ax2sub : ax2.S ⊆ add axioms' (notH f) => \lam {x} e => \case decideEq (notH f) x \with {
+            | yes e1 => byRight e1
+            | no n2 => byLeft (byRight (e, n2))
+          }
+                                \in (axioms', ⊆.unionSubset sax1' (⊆.removeAdd sax2),
+                                     Ctr psi (weaken pax1 ax1sub) (weaken pax2 ax2sub))
+        | no n, no n1, no n2 => \let
+          | axioms' => ax1.unionSized ax2
+          | sax1' : ax1.S ⊆ axioms => rewrite (remove.alreadyGone n1) $ ⊆.removeAdd sax1
+          | sax2' : ax2.S ⊆ axioms => rewrite (remove.alreadyGone n2) $ ⊆.removeAdd sax2
+          | ax1sub : ax1.S ⊆ add axioms' (notH f) => \lam z => byLeft (byLeft z)
+          | ax2sub : ax2.S ⊆ add axioms' (notH f) => \lam z => byLeft (byRight z)
+                                \in (axioms', ⊆.unionSubset sax1' sax2',
+                                     Ctr psi (weaken pax1 ax1sub) (weaken pax2 ax2sub))
+      }
+    | f, E-Subst t t' e phi h p => \let
+      | (ax : DecSizedEnsemble, sax, pax) => sequentProofUsesFiniteAxioms h
+      \in (ax.addSized' (equal t t'),
+           \case \elim __ \with {
+             | byLeft z => sax z
+             | byRight z => transport (__ ∈ axioms) z e
+           },
+           E-Subst t t' (byRight idp) phi (weaken pax (byLeft __)) p)
 
-  \func TermCongruence {L : Language} (axioms : Ensemble (Formula 0)) : Equivalence (Term 0) \cowith
+  \class TermCongruence {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) \extends Equivalence
+    | A => Term n
+    | fCong (f : Functions)
+            (d : Array (Term n) (functionArity f))
+            (d' : Array (Term n) (functionArity f))
+            (d~d' : \Pi (i : Fin (functionArity f)) -> d i ~ d' i) : apply f d ~ apply f d'
+    | relCong  (r : Relations)
+               (d : Array (Term n) (relationsArity r))
+               (d' : Array (Term n) (relationsArity r))
+               (d~d' : \Pi (i : Fin (relationsArity r)) -> d i ~ d' i)
+               (h : axioms ⊢ atomic r d) : axioms ⊢ atomic r d'
+
+  \func T~ {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) : TermCongruence \cowith
+    | L => L
+    | n => n
+    | axioms => axioms
     | ~ x y => TruncP (axioms ⊢ equal x y)
     | ~-reflexive => inP (E-Refl idp)
-    | ~-symmetric {x} {y} (inP h) => inP
-        (⊢.MP (equal x y)
-            h
-            (E-Subst x y (byRight idp) (equal (var 0) (lift x)) {?} (pmap2 equal idp (subTermLift x y))))
-    | ~-transitive => {?}
+    | ~-symmetric {x} {y} (inP h) => inP (⊢.E-Symm h)
+    | ~-transitive {x} {y} {z} (inP h) (inP h') => inP (⊢.E-Trans h h')
+    | fCong f d d' d~d' => {?}
+    | relCong r d d' d~d' h => {?}
+
+  \func TermInterpretation {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) : Interpretation n =>
+    (\new Semantics.Structure {
+       | Universe => Quotient {Term n} (~ {T~ axioms})
+       | rel => relInterpretation axioms
+       | funcs f d => {?}
+     },
+     \lam f => in~ (var f))
     \where {
-      \func subTermLift {L : Language} {n : Nat} (x y : Term {L} n) : x = subTerm (\lam (p0 : Fin (suc n)) => (\case p0 \with {
-        | zero => y
-        | suc i => var i
-      })) (lift x) \elim x
+      \func relInterpretation {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) (r : Relations) (d : Array (Quotient {Term n} (~ {T~ axioms})) (relationsArity r)) : \Prop =>
+        \let d'  => ArrayUtils.mapRepresentatives d
+        \in TruncP.rec {Array (Term n) (relationsArity r)}
+            {?}
+            d'
+            (\lam d'' => TruncP (axioms ⊢ atomic r d''))
+
+      \func termInterpretationIsQuotient {L : Language} {axioms : Ensemble (Formula 0)} {t : Term 0}
+        : evaluate (TermInterpretation axioms) t = in~ t \elim t
         | var f => idp
         | apply f d => {?}
     }

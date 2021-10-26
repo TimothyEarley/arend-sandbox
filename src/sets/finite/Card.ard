@@ -33,7 +33,7 @@
             (remove.addBack aIn SizedEnsembleDecElements)
 
     -- here we run into the decidability issues / truncated stuff
-    \func toSized {A : DecSet} {S : Ensemble A} {n : Nat} (h : Card S n) : TruncP (DecSizedEnsemble { | A => A | S => S | size => n})
+    \func toSized {A : DecSet} {S : Ensemble A} {n : Nat} (h : Card S n) : TruncP (DecSizedEnsemble { | E => A | S => S | size => n})
     \elim n, h
       | 0, empty-card idp => inP $ DecSizedEnsemble.fromSizedEnsemble (SizedEnsemble.emptySized)
       | suc n, add-card S' {a} nIn h idp => \case toSized h \with {

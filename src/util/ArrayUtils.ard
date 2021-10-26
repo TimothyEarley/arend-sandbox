@@ -18,6 +18,7 @@
 \import Order.PartialOrder
 \import Paths
 \import Paths.Meta
+\import Relation.Equivalence
 \import Set (BaseSet, Dec, DecSet, no, yes)
 \import Util
 \import identity.DecMaps
@@ -178,6 +179,12 @@
   \func indexMap' {A B : \Type} {a : A} {arr : Array A} (f : A -> B)
                   (h : Index a arr)
     : Index (f a) (map f arr) => (h.1, pmap f h.2)
+
+  \func mapRepresentatives {A : \Type} {R : A -> A -> \Type} {l : Nat} (d : Array (Quotient R) l) : TruncP (Array A l) \elim l, d
+    | 0, nil => inP nil
+    | suc l, :: (in~ a) d => \case mapRepresentatives d \with {
+      | inP d' => inP (a :: d')
+    }
 }
 
 \func NoDup {A : \Type} (l : Array A) : \Type => \Pi (a : A) -> isProp (Index a l)

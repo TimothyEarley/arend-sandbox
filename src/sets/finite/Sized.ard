@@ -193,6 +193,16 @@
   \func removeSized {a : E} (aIn : a ∈ S) : DecSizedEnsemble E (remove S a) =>
     fromSizedEnsemble {\this} (removeSizedExt (\new SizedEnsemble E S size sizeProof) aIn)
 
+  \func addSized' (a : E) : DecSizedEnsemble E (add S a)
+    => \case decElement a \with {
+      | yes e => \new DecSizedEnsemble {
+        | size => size
+        | sizeProof => rewrite (add.alreadyIn e) sizeProof
+        | decideEq => decideEq
+      }
+      | no n => addSized a n
+    }
+
   \func addSized (a : E) (h : a ∉ S) : DecSizedEnsemble E (add S a) (suc size) \cowith
     | sizeProof => ext (\new QEquiv {
       | f e => \case decideEq e.1 a \with {
