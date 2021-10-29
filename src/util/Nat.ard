@@ -1,12 +1,50 @@
 \import Arith.Nat
 \import Data.Or
 \import Logic
+\import Meta
 \import Order.LinearOrder
 \import Order.PartialOrder
+\import Paths.Meta
 \open LinearOrder (<=-dec)
+\open NatSemiring (<)
+\open Nat (+)
 
 \func not<=0 {n : Nat} (h : suc n <= 0) : Empty
   => \case <=-dec h \with {
     | inl ()
     | inr ()
   }
+
+\func minusTruncated \alias \infix 6 ∸ (x y : Nat) : Nat \elim x, y
+  | x, 0 => x
+  | 0, suc y => 0
+  | suc x, suc y => x ∸ y
+
+\where {
+  \func minus0 {n : Nat} : n ∸ 0 = n \elim n
+    | 0 => idp
+    | suc n => idp
+
+  \func =0 {n : Nat} : n ∸ n = 0 \elim n
+    | 0 => idp
+    | suc n => =0
+
+  \func =0->x<=y {x y : Nat} (h : x ∸ y = 0) : x < suc y \elim x, y, h
+    | 0, _, _ => <.zero<suc
+    | suc x, suc y, h => <.suc<suc (=0->x<=y h)
+
+  \func +-assoc (m : Nat) {n o : Nat} (h : o < suc n) : (m + n) ∸ o = m + (n ∸ o)
+    \elim n, o, h
+      | n, 0, <.zero<suc => rewrite (minus0, minus0) idp
+      | 0, suc o, <.suc<suc ()
+      | suc n, suc o, <.suc<suc h => +-assoc m h
+}
+
+
+\func n<sucn {n : Nat} : n < suc n \elim n
+  | 0 => <.zero<suc
+  | suc n => <.suc<suc n<sucn
+
+\func n<k<sn {n k : Nat} (h : n < k) (h' : k < suc n) : Empty
+  | {0}, {suc k}, <.zero<suc, <.suc<suc ()
+  | {suc n}, {suc k}, <.suc<suc h, <.suc<suc h' => n<k<sn h h'

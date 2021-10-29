@@ -1,35 +1,137 @@
+\import Algebra.Meta
+\import Arith.Nat
 \import Equiv
+\import Function.Meta
+\import Logic
+\import Meta
+\import Paths
+\import Paths.Meta
+\import identity.NatIdentity
+\import logik.fol.Semantics
+\import util.Nat
+\open Nat (+)
+\open NatSemiring (<, <-irreflexive, <-transitive)
+\open Semantics (≡)
 
--- cPair x y == x + ∑(i = 1, …, x + y) i
+-- https://git8.cs.fau.de/software/duration-monad-agda/-/blob/451eeb46ded67c95c75aac8dd931e5d8a15aa5df/Cantor.agda
+
 \func cPair (x y : Nat) : Nat
-  => x Nat.+ sumTo (x Nat.+ y)
-\where {
-  \func sumTo (x : Nat) : Nat
-    | 0 => 0
-    | suc x => (suc x) Nat.+ (sumTo x)
+  | 0, 0 => 0
+  | 0, suc y => cPair 0 y + suc y + 1
+  | suc x, y => cPair x y + suc (x + y)
 
-
-  \func unPair (c : Nat) : \Sigma Nat Nat
-    \elim c
-      | 0 => (0, 0)
-      -- x + ∑(i = 1, …, x + y) i
-      -- so x has to be at least 1
-      -- x suc x'
-      -- (suc x') + ∑(i = 1, …, (suc x') + y) i
-      -- = suc (x' + ∑(i = 1, …, x' + y) i + (suc x' + y))
-      -- = suc c
-      | suc c =>
-        {?}
-
-  \func pairWorks : QEquiv {Nat} {\Sigma Nat Nat} \cowith
-    | f => unPair
-    | ret (x, y) => cPair x y
-    | ret_f => {?}
-    | f_sec => {?}
   \where {
-    \func ret (x : Nat) : cPair (unPair x).1 (unPair x).2 = x
-      | 0 => idp
-      | suc x => {?}
+    \func unPair1 (x : Nat) : Nat \elim x
+      | 0 => 0
+      | suc x => \case unPair1 x \with {
+        | 0 => suc (unPair2 x)
+        | suc n => n
+      }
+
+    \func unPair2 (x : Nat) : Nat \elim x
+      | 0 => 0
+      | suc x => \case unPair1 x \with {
+        | 0 => 0
+        | suc n => suc (unPair2 x)
+      }
+
+    \func unPair (x : Nat) : \Sigma Nat Nat => (unPair1 x, unPair2 x)
   }
 
-}
+\func CantorPairing : QEquiv {\Sigma Nat Nat} {Nat} \cowith
+  | f p => cPair p.1 p.2
+  | ret => cPair.unPair
+  | ret_f => unPaircPair
+  | f_sec => pairUnPair
+  \where {
+    \func cPair-suc {x y : Nat} : cPair x (suc y) = suc (cPair (suc x) y) \elim x
+      | 0 => idp
+      | suc x => rewrite (cPair-suc) idp
+
+    \func cPair-expand {x y : Nat} : cPair x y = cPair (x + y) 0 + y \elim y
+      | 0 => idp
+      | suc y => equation
+          (cPair x (suc y)) {cPair-suc}
+          (suc (cPair (suc x) y)) {pmap suc $ cPair-expand {suc x} {y}}
+          (suc (cPair ((suc x) + y) 0 + y)) {idp}
+          (suc (suc (cPair (x + y) 0 + (x + y) + y)))
+
+    \func cPair0 (n : Nat) : Nat
+      | 0 => 0
+      | suc n => cPair0 n + suc n
+
+    \func cPair0= {n : Nat} : cPair0 n = cPair n 0 \elim n
+      | 0 => idp
+      | suc n => pmap (\lam z => suc (z + _)) cPair0=
+
+    \func h1 (n k : Nat) (h : k < suc n) : cPair.unPair1 (cPair0 n + k) = n ∸ k
+      | 0, 0, <.zero<suc => idp
+      | 0, suc k, <.suc<suc ()
+      | suc n, 0, h => rewrite (h1 n n n<sucn, ∸.=0) (pmap suc (h2 n n n<sucn))
+      | suc n, suc k, <.suc<suc k<=n => rewrite (h1 (suc n) k (<-transitive k<=n n<sucn)) (cases (suc n ∸ k arg addPath) \with {
+        | 0, q => \let
+          | n<k : n < k => \case (∸.=0->x<=y q) \with {
+            | <.suc<suc n<k => n<k
+          } \in absurd (n<k<sn n<k k<=n) -- n < k < sn
+        | suc x, q => unsuc (inv q *> (∸.+-assoc 1 k<=n))
+      })
+
+    \func h2 (n k : Nat) (h : k < suc n) : cPair.unPair2 (cPair0 n + k) = k
+      | 0, 0, <.zero<suc => idp
+      | 0, suc k, <.suc<suc ()
+      | suc n, 0, <.zero<suc => rewrite (h1 n n n<sucn, ∸.=0) idp
+      | suc n, suc k, <.suc<suc k<=n => rewrite (h1 (suc n) k (<-transitive k<=n n<sucn)) (cases (suc n ∸ k arg addPath) \with {
+        | 0, p => \let n<k : n < k => \case ∸.=0->x<=y p \with {
+          | <.suc<suc _x => _x
+        } \in absurd (n<k<sn n<k k<=n)
+        | suc x, p => pmap suc (h2 (suc n) k (<-transitive k<=n n<sucn))
+      })
+
+    \func unPaircPair1-0 (x : Nat) : cPair.unPair1 (cPair x 0) = x =>
+      rewriteI cPair0= (rewriteF ∸.minus0 $ h1 x 0 <.zero<suc)
+
+    \func unPaircPair2-0 (x : Nat) : cPair.unPair2 (cPair x 0) = 0 => rewriteI cPair0= (h2 x 0 <.zero<suc)
+
+    \func unPaircPair1 (x y : Nat) : cPair.unPair1 (cPair x y) = x
+      | 0, 0 => idp
+      | suc x, 0 => unPaircPair1-0 (suc x)
+      | x, suc y => equation
+          (cPair.unPair1 (cPair x (suc y))) {pmap cPair.unPair1 cPair-suc}
+          (cPair.unPair1 (suc (cPair (suc x) y))) {idp}
+          (\case (cPair.unPair1 (cPair (suc x) y)) \return Nat \with {
+            | 0 => suc (cPair.unPair2 (cPair (suc x) y))
+            | suc n => n
+          }) {rewrite (unPaircPair1 (suc x) y) idp}
+          (\case (suc x) \return Nat \with {
+            | 0 => suc (cPair.unPair2 (cPair (suc x) y))
+            | suc n => n
+          }) {idp}
+          x
+
+    \func unPaircPair2 (x y : Nat) : cPair.unPair2 (cPair x y) = y \elim x, y
+      | 0, 0 => idp
+      | suc x, 0 => unPaircPair2-0 (suc x)
+      | x, suc y => equation
+          (cPair.unPair2 (cPair x (suc y))) {pmap cPair.unPair2 cPair-suc}
+          (cPair.unPair2 (suc (cPair (suc x) y))) {idp}
+          (\case (cPair.unPair1 (cPair (suc x) y)) \return Nat\with {
+            | 0 => 0
+            | suc n => suc (cPair.unPair2 (cPair (suc x) y))
+          }) {rewrite (unPaircPair1 (suc x) y) idp}
+          (\case (suc x) \return Nat\with {
+            | 0 => 0
+            | suc n => suc (cPair.unPair2 (cPair (suc x) y))
+          })
+          (suc (cPair.unPair2 (cPair (suc x) y))) {pmap suc (unPaircPair2 (suc x) y)}
+          (suc y)
+
+    \func unPaircPair (x : \Sigma Nat Nat) : cPair.unPair (cPair x.1 x.2) = x => ext
+        (unPaircPair1 x.1 x.2, unPaircPair2 x.1 x.2)
+
+    \func pairUnPair' {n : Nat} : cPair (cPair.unPair1 n + cPair.unPair2 n) 0 + cPair.unPair2 n = n \elim n
+      | 0 => idp
+      | suc n => {?} -- TODO split on unPair1 n
+
+    \func pairUnPair (x : Nat) : cPair (cPair.unPair1 x) (cPair.unPair2 x) = x
+      => cPair-expand *> pairUnPair'
+  }
