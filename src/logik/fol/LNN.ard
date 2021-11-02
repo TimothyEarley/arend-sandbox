@@ -1,4 +1,5 @@
 \import Arith.Nat
+\import Data.Maybe
 \import Logic
 \import identity.NatIdentity
 \import logik.fol.FOL
@@ -10,23 +11,80 @@
 \import util.CantorPair
 \open Semantics (Structure, ⊧)
 \open NatSemiring (<)
+\open LNN (LNN_Functions, LNN_Relatios)
 
-\func LNN : Language \cowith
-  | Relations => LNN_Relatios
-  | relationsArity => \case __ \with {
-    | LNN.Less => 2
-  }
-  | Functions => LNN_Functions
-  | functionArity => \case __ \with {
-    | LNN.Plus => 2
-    | LNN.Times => 2
-    | LNN.Succ => 1
-    | LNN.Zero => 0
-  }
+\func LNN : CodeableLanguage \cowith
+  | Relations => LNN'.Relations
+  | relationsArity => LNN'.relationsArity
+  | Functions => LNN'.Functions
+  | functionArity => LNN'.functionArity
+  | encode => encodeFormula
+  | natToTerm => natToTerm
+  | decode => decodeFormula
   \where {
+    -- seperate Lang definition, bc otherwise encode cannot be implemented (need Lang to already be defined)
+    \func LNN' : Language \cowith
+      | Relations => LNN_Relatios
+      | relationsArity => \case __ \with {
+        | LNN.Less => 2
+      }
+      | Functions => LNN_Functions
+      | functionArity => \case __ \with {
+        | LNN.Plus => 2
+        | LNN.Times => 2
+        | LNN.Succ => 1
+        | LNN.Zero => 0
+      }
+
     \data LNN_Relatios | Less
 
     \data LNN_Functions | Plus | Times | Succ | Zero
+
+    \func encodeFormula {n : Nat} (f : Formula {LNN'} n) : Nat
+    \elim f
+      | equal x y => cPair 0 (cPair (encodeTerm x) (encodeTerm y))
+      | atomic Less d => cPair 1 (termsToNat d)
+      | impH x f => cPair 2 (cPair (encodeFormula x) (encodeFormula f))
+      | notH f => cPair 3 (encodeFormula f)
+      | forallH f => cPair 4 (encodeFormula f)
+
+
+    \func decodeFormula (n : Nat) (freeVars : Nat) : Maybe (Formula {LNN'} freeVars)
+      => \case cPair.unPair n \with {
+        | (0, n2) => \let (x, y) => cPair.unPair n2 \in {?}
+        | (1, n2) => {?}
+        | (2, n2) => {?}
+        | (3, n2) => {?}
+        | (4, n2) => {?}
+        | (_, _) => nothing
+      }
+
+    \func encodeTerm {n : Nat} (t : Term {LNN'} n) : Nat
+    \elim t
+      | var f => cPair 0 f
+      | apply Plus d => cPair 1 (termsToNat d)
+      | apply Times d => cPair 2 (termsToNat d)
+      | apply Succ d => cPair 3 (termsToNat d)
+      | apply Zero d => cPair 4 (termsToNat d)
+
+    \func decodeTerm (n : Nat) (freeVars : Nat) : Maybe (Term {LNN'} freeVars)
+      => \case cPair.unPair n \with {
+        | (0,n2) => {?}
+        | (1,n2) => {?}
+        | (2,n2) => {?}
+        | (3,n2) => {?}
+        | (4,n2) => {?}
+        | _ => nothing
+      }
+
+    \func termsToNat {n : Nat} (ts : Array (Term {LNN'} n)) : Nat
+    \elim ts
+      | nil => 0
+      | :: a arr => cPair (encodeTerm a) (termsToNat arr)
+
+    \func natToTerm (n : Nat) : Term {LNN'} 0
+      | 0 => apply Zero nil
+      | suc n => apply Succ (natToTerm n :: nil)
   }
 
 \func NN : System {LNN} => \let axioms : Array (Formula {LNN} 0) =>
@@ -52,41 +110,6 @@
   -- ∀x1. ∀x0. (x1 < x0 ∨ x1 = x0 ∨ x0 < x1)
   {?} ::
   nil \in setOf axioms
-
-\func LNNCode : CodeableLanguage LNN \cowith
-  | encode => formulaToNat
-  | natToTerm => natToTerm
-  \where {
-    \func termToNat {n : Nat} (t : Term {LNN} n) : Nat
-    \elim t
-      | var f => cPair 0 f
-      | apply LNN.Plus d => cPair 1 (termsToNat d)
-      | apply LNN.Times d => cPair 2 (termsToNat d)
-      | apply LNN.Succ d => cPair 3 (termsToNat d)
-      | apply LNN.Zero d => cPair 4 (termsToNat d)
-
-    \func termsToNat {n : Nat} (ts : Array (Term {LNN} n)) : Nat
-    \elim ts
-      | nil => 0
-      | :: a arr => cPair (termToNat a) (termsToNat arr)
-
-    \func formulaToNat {n : Nat} (f : Formula {LNN} n) : Nat
-    \elim f
-      | equal x y => cPair 0 (cPair (termToNat x) (termToNat y))
-      | atomic LNN.Less d => cPair 1 (termsToNat d)
-      | impH x f => cPair 2 (cPair (formulaToNat x) (formulaToNat f))
-      | notH f => cPair 3 (formulaToNat f)
-      | forallH f => cPair 4 (formulaToNat f)
-
-    \func natToTerm (n : Nat) : Term {LNN} 0
-      | 0 => apply LNN.Zero nil
-      | suc n => apply LNN.Succ (natToTerm n :: nil)
-  }
-
-\record SystemModel (L : Language) (S : System)
-  | structure : Structure L
-  | modelsAll : \Pi (f : Elements S) -> (structure, \case __) ⊧ f.1
-
 
 \func NNModel : SystemModel LNN NN \cowith
   | structure => \new Structure {
@@ -121,5 +144,5 @@
     | (_, inP (6, idp)) => {?}
     | (_, inP (7 ,idp)) => {?}
     | (_, inP (8 ,idp)) => {?}
-    | (a,inP _) => {?} -- error???
+    | _ => {?} -- error in pattern matching?
   }

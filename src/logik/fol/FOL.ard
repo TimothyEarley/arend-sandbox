@@ -128,7 +128,7 @@
     \func subTermLift {L : Language} {n : Nat} {x : Term n}
                       (s : Subst (suc n) n)
                       (h : \Pi (f : Fin n) -> s (suc f) = var f)
-      : subTerm s (lift x) = x \elim x
+      : subTerm s (Term.lift x) = x \elim x
       | var f => h f
       | apply f d => pmap (apply f) (subTermsLift {_} {_} {functionArity f} h)
 
@@ -195,6 +195,9 @@
         }
       }
 
+    \func subN' {L : Language} {n : Nat} (f : Formula n) (with : Array (Term 0) n) : Formula 0
+      => subN f with
+
     \func subN {L : Language} {n m : Nat} (f : Formula (n Nat.+ m)) (with : Array (Term n) m) : Formula n
       => subst (substFunction with) f
     \where {
@@ -216,6 +219,13 @@
       | impH x f => (FreeVar x i) || (FreeVar f i)
       | notH f => FreeVar f i
       | forallH f => FreeVar f (suc i)
+
+    \func lift {L : Language} {n : Nat} (f : Formula n) : Formula (suc n) \elim f
+      | equal x y => equal (Term.lift x) (Term.lift y)
+      | atomic r d => atomic r (Term.lifts d)
+      | impH x f => (lift x) impH (lift f)
+      | notH f => notH (lift f)
+      | forallH f => forallH (lift f) -- TODO this is wrong
   }
 
 -- x --> y = y or not x
@@ -245,6 +255,9 @@
     \lemma and3  {L : Language} {n : Nat} {x y : Formula {L} n} {I : Interpretation n} (h : I ⊭ y) : I ⊭ x andH y =>
       \lam m => m (\lam m1 m2 => h m2)
   }
+
+\func \infix 7 <->H {L : Language} {n : Nat} (x y : Formula n) : Formula n
+  => (x impH y) andH (y impH x)
 
 \func System {L : Language} => Ensemble (Formula {L} 0)
 

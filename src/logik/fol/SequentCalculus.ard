@@ -1,37 +1,30 @@
-\import Data.Array
-\import Function.Meta ($)
+\import Function.Meta
 \import Logic
 \import Meta
-\import Misc
 \import Paths
 \import Paths.Meta
 \import Relation.Equivalence
-\import Set
-\import Util
+\import Set \hiding (#)
 \import logik.fol.FOL
-\import logik.fol.FormulaDec
 \import logik.fol.Semantics
 \import sets.Add
 \import sets.DecidableSet
-\import sets.finite.FiniteS
 \import sets.MySet
 \import sets.finite.Sized
-\import sets.finite.paper
 \import sets.remove
 \import sets.subset
-\import sets.union
 \import util.ArrayUtils
+\import logik.fol.FormulaDec
+\import util.CantorPair
+\open Formula (Subst, extends, sub, subN, subTerm, subTermLift, subTermsAt, subst)
 \open Semantics (Interpretation, evaluate, ⊧)
-\open Term (AnyFreeVar, FreeVar, lift, liftN, liftNL, lifts, liftsN)
-\open Formula (Subst, extends, extendsN, sub, subN, subTerm, subTermLift, subTerms, subTermsAt, subst)
 \open Interpretation (subOneRename)
+\open CantorPairing (h1)
 
 \module SequentCalulus \where {
 
 
-  -- TODO finite axioms
-
-  \data SequentProof \alias \infix 6 ⊢ {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) (toShow : Formula n)
+  \data SequentProof \alias \infix 5 ⊢ {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) (toShow : Formula n)
   \elim toShow
     | toShow => Ass (toShow ∈ axioms)
     | toShow => PC (psi : Formula n) (add {Formula n} axioms psi ⊢ toShow) (add axioms (notH psi) ⊢ toShow)
@@ -39,6 +32,10 @@
                     (add axioms (notH toShow) ⊢ psi) (add axioms (notH toShow) ⊢ (notH psi))
 
     -- TODO ...
+
+    | impH x y => impIntro (add axioms x ⊢ y)
+    | impH x y => impIntro' (axioms ⊢ notH x)
+    | toShow =>   impElim (phi psi : Formula n) ((phi impH psi) ∈ axioms) (add axioms (notH phi) ⊢ toShow) (add axioms psi ⊢ toShow)
 
     | equal x y => E-Refl (x = y)
     | toShow => E-Subst (t t' : Term n) (equal t t' ∈ axioms)
@@ -65,10 +62,9 @@
       \func E-Symm {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
                    {x y : Term n}
                    (h : axioms ⊢ equal x y) : axioms ⊢ equal y x =>
-        E-Subst'
-            x y h
-            (equal (var 0) (lift x))
-            (unfold (sub) $ rewrite (subTermLift _ (\lam f => idp)) (E-Refl idp))
+        E-Subst' x y h
+            (equal (var 0) (Term.lift x))
+            (unfold sub $ rewrite (subTermLift _ (\lam f => idp)) (E-Refl idp))
             (unfold (sub) $ rewrite (subTermLift _ (\lam f => idp)) idp)
 
       \func E-Trans {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
@@ -76,7 +72,7 @@
                     (h : axioms ⊢ equal x y) (h' : axioms ⊢ equal y z) : axioms ⊢ equal x z =>
         \let h'' :  add axioms (equal y z) ⊢ equal x y => weaken h (byLeft __)
         \in E-Subst' y z h'
-            (equal (lift x) (var 0))
+            (equal (Term.lift x) (var 0))
             (unfold (sub) $ rewrite (subTermLift _ (\lam f => idp)) h)
             (unfold (sub) $ rewrite (subTermLift _ (\lam f => idp)) idp)
 
@@ -94,10 +90,97 @@
         | 0, nil, nil, nil => rewriteI tsp (inP hp)
         | suc numOfAdded, :: t d, :: t' d', :: (inP t=t') dd' =>
           E-SubstN axioms d d'
-              (sub f (liftN _ t'))
+              (sub f (Term.liftN _ t'))
               (E-Subst' t t' t=t' {?} {?} {?})
               dd'
               ((inv subN.recurseSub) *> tsp)
+
+      \func CP3 {L : Language} {n : Nat}
+                {axioms : Ensemble (Formula n)} {x y : Formula n}
+                (h : add axioms (notH y) ⊢ x)
+        : add axioms (notH x) ⊢ y => Ctr x
+          (weaken h (\case __ \with {
+            | byLeft a => byLeft (byLeft a) | byRight b => byRight b
+          }))
+          (Ass (byLeft (byRight idp)))
+
+      \func elim-notnot {L : Language} {n : Nat} {axioms : Ensemble (Formula n)} {f : Formula n}
+                        (h : axioms ⊢ notH (notH f))
+        : axioms ⊢ f => MP (notH (notH f)) h (CP3 (Ass (byRight idp)))
+
+--      \func intro-notnot {L : Language} {n : Nat} {axioms : Ensemble (Formula n)} {f : Formula n}
+--                         (h : axioms ⊢ f)
+--        : axioms ⊢ notH (notH f) => {?}
+
+      \func CP4 {L : Language} {n : Nat}
+                {axioms : Ensemble (Formula n)} {x y : Formula n}
+                (h : add axioms y ⊢ notH x)
+        : add axioms x ⊢ (notH y) =>
+        Ctr x
+            (Ass (byLeft (byRight idp)))
+            (MP y
+                (elim-notnot (Ass (byRight idp)))
+                (weaken h (\case __ \with {
+                  | byLeft a => byLeft (byLeft (byLeft a)) | byRight b => byRight b
+                })))
+
+      --      \func intro-not {L : Language} {n : Nat}
+      --                      {axioms : Ensemble (Formula n)} {f : Formula n}
+      --                      (h : Not (axioms ⊢ f))
+      --        : axioms ⊢ notH f => PC f
+      --          {?}
+      --          (Ass (byRight idp))
+
+      \func CtrNot {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
+                   {f : Formula n}
+                   (psi : Formula n)
+                   (h1 : add axioms f ⊢ psi)
+                   (h2 : add axioms f ⊢ notH psi)
+        : axioms ⊢ notH f => Ctr psi
+          (MP f
+              (elim-notnot (Ass (byRight idp)))
+              (weaken h1 (\case __ \with {
+                | byLeft a => (byLeft (byLeft a)) | byRight b => byRight b
+              })))
+          (MP f
+              (elim-notnot (Ass (byRight idp)))
+              (weaken h2 (\case __ \with {
+                | byLeft a => (byLeft (byLeft a)) | byRight b => byRight b
+              })))
+
+      \func elim-or {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
+                    {x y toShow : Formula n} (h : (x orH y) ∈ axioms)
+                    (h1 : add axioms x ⊢ toShow)
+                    (h2 : add axioms y ⊢ toShow)
+        : axioms ⊢ toShow => impElim (notH x) y h
+          (MP x (elim-notnot (Ass (byRight idp))) (weaken h1 (\case __ \with {
+            | byLeft a => byLeft (byLeft a)
+            | byRight b => byRight b
+          })))
+          h2
+
+--      \func intro-or1 {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
+--                      {x y : Formula n} (h : axioms ⊢ x) : axioms ⊢ x orH y => impIntro' (intro-notnot h)
+
+      \func intro-or2 {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
+                      {x y : Formula n} (h : axioms ⊢ y) : axioms ⊢ x orH y => impIntro (weaken h (byLeft __))
+
+      \func intro-and {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
+                      {x y : Formula n} (h1 : axioms ⊢ x) (h2 : axioms ⊢ y) : axioms ⊢ x andH y =>
+        \let | z : Formula n => x -- does not matter
+             | axioms' => add axioms (notH x orH notH y)
+             | proof : \Pi (xi : Formula n) -> axioms' ⊢ xi
+             => \lam xi =>  elim-or {L} {n} {axioms'} {notH x} {notH y} {xi} (byRight idp)
+                   (CP3 (weaken h1 (\lam e => byLeft (byLeft e))))
+                   (CP3 (weaken h2 (\lam e => byLeft (byLeft e))))
+        \in CtrNot
+            z
+            (proof z)
+            (proof (notH z))
+
+      \func intro-<->H {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
+                       {x y : Formula n} (h1 : axioms ⊢ x impH y) (h2 : axioms ⊢ y impH x)
+        : axioms ⊢ (x <->H y) => intro-and h1 h2
     }
 
   \func weaken {L : Language} {n : Nat} {axioms axioms' : Ensemble (Formula n)} {toShow : Formula n}
@@ -119,6 +202,9 @@
         }))
     | equal x y, E-Refl p => E-Refl p
     | toShow, E-Subst t t' e phi h p => E-Subst t t' (s e) phi (weaken h s) p
+    | impH x toShow, impIntro h => impIntro (weaken h (⊆.unionSubset' s ⊆.refl))
+    | impH x toShow, impIntro' h => impIntro' (weaken h s)
+    | toShow, impElim x y h h1 h2 => impElim x y (s h) (weaken h1 (⊆.unionSubset' s ⊆.refl)) (weaken h2 (⊆.unionSubset' s ⊆.refl))
 
   \func entails \alias \infix 6 ⊫e {L : Language} (from : Ensemble (Formula 0)) (to : Formula 0) =>
     \Pi (I : Interpretation 0) (h : \Pi {f : Formula 0} (f ∈ from) -> I ⊧ f) -> I ⊧ to
@@ -162,6 +248,21 @@
           | p => h1 e
           | IphiT => proofIsEntails decidable h I h1
         \in subModel IphiT p
+    | impH x to, impIntro h => \lam I mf mx => proofIsEntails decidable h I (\case __ \with {
+      | byLeft a => mf a
+      | byRight b => rewriteI b mx
+    })
+    | impH x to, impIntro' h => \lam I mf mx => absurd (proofIsEntails decidable h I mf mx)
+    | toShow, impElim x y el h1 h2 => \lam I h => \case decidable I x \with {
+        | yes Ix => proofIsEntails decidable h2 I (\case __ \with {
+          | byLeft inFrom => h inFrom
+          | byRight =y => rewriteI =y $ h el Ix
+        })
+        | no Inx => proofIsEntails decidable h1 I (\case __ \with {
+          | byLeft inFrom => h inFrom
+          | byRight =nx => rewriteI =nx $ Inx
+        })
+      }
 
   \func subModel {L : Language} {I : Interpretation 0} {phi : Formula 1} {t t' : Term 0}
                  (h : I ⊧ sub phi t) (e : evaluate I t = evaluate I t')
@@ -191,7 +292,7 @@
             (h x)
 
       \func evalSubst {L : Language} {n m : Nat} {I : Interpretation m} (t : Term n)
-                      {s s' : Subst n m} (h : \Pi {f : Fin n} (FreeVar t f) -> evaluate I (s f) = evaluate I (s' f))
+                      {s s' : Subst n m} (h : \Pi {f : Fin n} (Term.FreeVar t f) -> evaluate I (s f) = evaluate I (s' f))
         : evaluate I (subTerm s t) = evaluate I (subTerm s' t)
       \elim t
         | var f => h idp
@@ -332,12 +433,23 @@
       }
     | f, E-Subst t t' e phi h p => \let
       | (ax : DecSizedEnsemble, sax, pax) => sequentProofUsesFiniteAxioms h
-      \in (ax.addSized' (equal t t'),
-           \case \elim __ \with {
-             | byLeft z => sax z
-             | byRight z => transport (__ ∈ axioms) z e
-           },
-           E-Subst t t' (byRight idp) phi (weaken pax (byLeft __)) p)
+                                   \in (ax.addSized' (equal t t'),
+                                        \case \elim __ \with {
+                                          | byLeft z => sax z
+                                          | byRight z => transport (__ ∈ axioms) z e
+                                        },
+                                        E-Subst t t' (byRight idp) phi (weaken pax (byLeft __)) p)
+    | impH x f, impIntro h => \let (ax : DecSizedEnsemble, sax, pax) => sequentProofUsesFiniteAxioms {_} {axioms.addElement x} h
+                              \in \case axioms.decElement x, ax.decElement x \with {
+        | yes e, _ => (ax, ⊆.trans sax (⊆.unionSubset ⊆.refl (⊆.singleSubset e)), impIntro (weaken pax (byLeft __)))
+        | no n, yes e => (ax.removeSized e, ⊆.removeAdd sax, impIntro (rewriteI (remove.addBack e _) pax))
+        | no n, no n1 => (ax, \lam {y} e => \case sax e \with {
+          | byLeft a => a
+          | byRight b => absurd (n1 (rewrite b e))
+        }, impIntro (weaken pax (byLeft __)))
+      }
+    | impH x f, impIntro' h => \let (ax, sax, pax) => sequentProofUsesFiniteAxioms h \in (ax, sax, impIntro' pax)
+    | toShow, impElim phi psi e h1 h2 => {?}
 
   \class TermCongruence {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) \extends Equivalence
     | A => Term n
@@ -371,11 +483,7 @@
      \lam f => in~ (var f))
     \where {
       \func relInterpretation {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) (r : Relations) (d : Array (Quotient {Term n} (~ {T~ axioms})) (relationsArity r)) : \Prop =>
-        \let d'  => ArrayUtils.mapRepresentatives d
-        \in TruncP.rec {Array (Term n) (relationsArity r)}
-            {?}
-            d'
-            (\lam d'' => TruncP (axioms ⊢ atomic r d''))
+        {?}
 
       \func termInterpretationIsQuotient {L : Language} {axioms : Ensemble (Formula 0)} {t : Term 0}
         : evaluate (TermInterpretation axioms) t = in~ t \elim t

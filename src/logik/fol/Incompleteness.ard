@@ -1,36 +1,65 @@
+\import Data.Array
+\import Data.Maybe
 \import Data.Or
+\import Function
+\import Function.Meta ($)
 \import Logic.Meta
+\import Paths
+\import Paths.Meta
+\import Set
 \import logik.fol.FOL
 \import logik.fol.LNN
+\import logik.fol.SequentCalculus
+\import sets.DecidableSet
 \import sets.MySet
 \import sets.subset
 \import util.CantorPair
+\open Formula (sub, subN, subN')
+\open SequentCalulus (⊢)
+\open CodeableLanguage (⊻⊼)
 
--- TODO only finitely many axioms
-\data Proof {L : Language} (axioms : Ensemble (Formula 0)) (toShow : Formula 0)
-\elim toShow
-  | toShow => AXM (toShow ∈ axioms)
-  | toShow => MP (via : Formula 0) (Proof axioms (impH via toShow)) (Proof axioms via)
--- TODO ...
+\class CodeableLanguage \extends Language {
+  | encode \alias ⊼ : \Pi {n : Nat} (Formula {\this} n) -> Nat
+  | natToTerm \alias ⊻ : Nat -> Term 0
+  | decode : \Pi (n : Nat) (freeVars : Nat) -> Maybe (Formula freeVars)
+
+  \func encodeToTerm \alias ⊻⊼ {n : Nat} (f : Formula n) : Term 0 => ⊻ (⊼ f)
+}
 
 
-\class CodeableLanguage (L : Language)
-  | encode : \Pi {n : Nat} (Formula n) -> Nat
-  | natToTerm : Nat -> Term 0
+\class AllowsRepresentations (C : CodeableLanguage) (T : System)
+  | functionRepresentation {r : Nat} (f : Array Nat r -> Nat) :
+    \Sigma (phi : Formula (suc r)) (\Pi (a : Array Nat r) -> T ⊢ subN' phi (natToTerm (f a) :: (map natToTerm a)))
+
+\func Inconsistent {L : Language} (T : System) => \Pi (f : Formula 0) -> T ⊢ f
 
 
-\func RepresentsInSelf {L : Language} (C : CodeableLanguage L) (T : System) => ∃ (rep : Formula 1)
-    (\Pi (f : Formula 0) (f ∈ T) -> Proof T (Formula.sub rep (natToTerm (encode f))))
+\func fixedPoint (C : CodeableLanguage) (T : System)
+                 (R : AllowsRepresentations C T)
+                 (psi : Formula 1) : \Sigma (phi : Formula 0) (T ⊢ phi <->H (sub psi (natToTerm (encode phi))))
+  => \let
+     | F : (Array Nat 2) -> Nat => \case __ \with {
+       | :: n (:: m nil) => \case decode n 1 \with {
+         | nothing => 0
+         | just xi => encode (sub xi (natToTerm m))
+       }
+     }
+     | (alpha, fRepH) => R.functionRepresentation F
+     | beta : Formula 1 => forallH ({?} impH {?})
+     | phi : Formula 0 => forallH ({?} impH {?})
+     | betabeta : phi = sub beta (⊻⊼ beta) => {?}
+     | Fbeta : F ((⊼ beta) :: (⊼ beta) :: nil) = ⊼ phi => {?}
+     | h' => rewriteF Fbeta $ fRepH (⊼ beta :: ⊼ beta :: nil)
+     | h : T ⊢ subN' alpha (⊻⊼ phi :: ⊻⊼ beta :: ⊻⊼ beta :: nil) => {?} -- should just be h'
+     \in (phi,
+          ⊢.intro-<->H
+              (SequentCalulus.impIntro {?})
+              {?})
 
-\func DecidableSet {A : \Set} (s : Ensemble A) => \Pi (x : A) -> Or (x ∈ s) (x ∉ s)
-
-\func Inconsistent {L : Language} (T : System) => \Pi (f : Formula 0) -> Proof T f
-
-\func Incompleteness (T : System {LNN})
+\func Incompleteness (T : System {LNN}) {DT : DecElementEnsemble _ T}
                      (hasNN : NN ⊆ T)
-                     (represents : RepresentsInSelf {LNN} LNNCode T)
-                     (decidableSet : DecidableSet T)
+                     (represents : AllowsRepresentations LNN T)
   : \Sigma  (f : Formula {LNN} 0)
-            (Or (Proof {LNN} T f) (Proof {LNN} T (notH f)) -> Inconsistent {LNN} T) =>
+            (Or (T ⊢ {LNN} f) (T ⊢ {LNN} (notH f)) -> Inconsistent {LNN} T) =>
   ({?},
    \lam o f => {?})

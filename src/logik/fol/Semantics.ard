@@ -9,15 +9,18 @@
 \import Order.PartialOrder
 \import Paths
 \import Paths.Meta
+\import Set
 \import Util
 \import lambda.Reduction
 \import logik.fol.FOL
+\import logik.fol.TermDec
+\import sets.Elements
 \import util.ArrayUtils
 \open NatSemiring (+-comm)
 \open Formula (Subst, extends, renamesAt, subTermsAt, subst)
 \open DArray (!!)
 \open Term (AnyFreeVar, FreeVar, termDepth)
-\open Semantics (⊫f)
+\open Semantics (Structure, ⊧, ⊫f)
 \open Semantics.Interpretation (subOne, subOneRename)
 \open LeipnizIsEqual (i)
 
@@ -226,3 +229,7 @@
         }
     }
 }
+
+\record SystemModel (L : Language) (S : System)
+  | structure : Structure L
+  | modelsAll : \Pi (f : Elements S) -> (structure, \case __) ⊧ f.1
