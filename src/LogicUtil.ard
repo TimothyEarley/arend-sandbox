@@ -52,6 +52,10 @@
   | false => idp
   | true => idp
 
+\func andTrue {b : Bool} : b and true = b \elim b
+  | false => idp
+  | true => idp
+
 \func deMorganOr {a b : Bool} : not (a or b) = (not a) and (not b)
   => cases (a, b) idp
 

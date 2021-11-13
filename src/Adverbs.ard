@@ -1,0 +1,71 @@
+\import Algebra.Meta
+\import Data.Bool
+\import Function
+\import LogicUtil
+\import Meta
+\import Paths
+\import Paths.Meta
+\import typeclasses.Functor
+\import typeclasses.Monad
+\open Adverbs (Reader)
+\open Adverbs.B.embedReader ($f)
+
+-- https://lastland.github.io/media/papers/adverbs-preprint.pdf
+
+\module Adverbs \where {
+  \func Reader (V A : \Type) => V -> A
+
+  \func ask {V : \Type} : Reader V V => id
+
+  \func ReaderMonad {V : \Type} : Monad (Reader V) \cowith
+    | return a => \lam _ => a
+    | flatMap m k => \lam v => k (m v) v
+    | left-id => idp
+    | right-id => idp
+    | assoc => idp
+
+  \module B \where {
+    \data Term (Var : \Set)
+      | var Var
+      | ltrue
+      | lfalse
+      | neg (Term Var)
+      | tand (Term Var) (Term Var)
+      | tor (Term Var) (Term Var)
+
+    \func embedReader {Var : \Set} (t : Term Var) : Reader (Var -> Bool) Bool
+      | var x => ReaderMonad.fmap ($f x) ask
+      | ltrue => ReaderMonad.return true
+      | lfalse => ReaderMonad.return false
+      | neg t => ReaderMonad.fmap not (embedReader t)
+      | tand t1 t2 => (embedReader t1) ReaderMonad.>>= (\lam b1 => (embedReader t2) >>= (\lam b2 => ReaderMonad.return (b1 and b2)))
+      | tor t1 t2 => (embedReader t1) ReaderMonad.>>= (\lam b1 => (embedReader t2) >>= (\lam b2 => ReaderMonad.return (b1 or b2)))
+      \where {
+        \func $f {Var : \Set} (x : Var) : (Var -> Bool) -> Bool => \lam f => f x
+      }
+
+    \lemma and_true {V : \Set} (x : V) : (embedReader (var x)) = (embedReader (tand (var x) ltrue)) => equation
+        (embedReader (var x))
+        (ReaderMonad.fmap ($f x) ask)
+        ((embedReader (var x)) ReaderMonad.>>= ReaderMonad.return)
+        ((embedReader (var x)) ReaderMonad.>>= (\lam b1 => ReaderMonad.return b1))
+          {pmap ((embedReader (var x)) ReaderMonad.>>= __) {ReaderMonad.return} {\lam z => ReaderMonad.return (z and true)}
+               (ext (\lam _ _ => rewrite andTrue idp))}
+        ((embedReader (var x)) ReaderMonad.>>= (\lam b1 => ReaderMonad.return (b1 and true)))
+        ((embedReader (var x)) ReaderMonad.>>= (\lam b1 => (ReaderMonad.return true) >>= (\lam b2 => ReaderMonad.return (b1 and b2))))
+        (embedReader (tand (var x) ltrue))
+
+
+    \data FreerMonad (F : \Type -> \Type) (R : \Type)
+      | Ret (r : R)
+      | Bind {X : \Type} (m : F X) (k : X -> FreerMonad F R)
+    \where {
+      \func ret {F : \Type -> \Type} {R : \Type} : R -> FreerMonad F R => Ret
+--      \func bind {F : \Type -> \Type} {A B : \Type}
+--        (m : FreerMonad F A) (k : A -> FreerMonad F B) : FreerMonad F B \elim m
+--        | Ret r => k r
+--        | Bind m' k' => Bind m' (\lam x => bind (k' x) k)
+    }
+
+  }
+}
