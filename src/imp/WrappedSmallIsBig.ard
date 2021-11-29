@@ -6,11 +6,11 @@
 \import LogicUtil
 \import util.Maybe
 \import Paths
-\import moses.BigStep
-\import moses.Deterministic
-\import moses.MOSES
-\import moses.SmallStep
-\import moses.Syntax
+\import imp.BigStep
+\import imp.Deterministic
+\import imp.misc
+\import imp.SmallStep
+\import imp.Syntax
 
 \func wrappedSmallIsBig (a : AExp) (s : State) (n : Num) :
   (WrapperSemAExp a s n) <-> (SemAExp a s n) => (wrappedToBig, bigToWrapped)

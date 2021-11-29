@@ -7,8 +7,8 @@
 \import Paths.Meta
 \import sets.Elements
 \import sets.MySet
-\import moses.MOSES
-\import moses.Syntax
+\import imp.misc
+\import imp.Syntax
 \import sets.Complement
 \import sets.finite.FiniteS
 \import sets.Intersect

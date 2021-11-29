@@ -3,10 +3,12 @@
 \import Arith.Int
 \import Arith.Nat
 \import Data.Bool
+\import Data.List
 \import Logic
 \import Order.PartialOrder
-\import moses.MOSES
-\import moses.Syntax
+\import Set
+\import imp.misc
+\import imp.Syntax
 
 \data SemAExp (a : AExp) (s : State) (n : Num) \elim a
   | aNum n' => rNum (n = n')
@@ -57,3 +59,9 @@
   | ite b then else => rIfF (SemBExp b s false) (SemCom else s s')
   | while b c => rWhT (semB : SemBExp b s true) (s'' : State) (sem1 : SemCom c s s'') (sem2 : SemCom (while b c) s'' s')
   | while b c => rWhF (semB : SemBExp b s false) (s = s')
+
+\func \infix 6 replace (s : State) (new : \Sigma Var Num) : State
+  => \lam v => \case v == new.1 \with {
+    | true => new.2
+    | false => s v
+  }

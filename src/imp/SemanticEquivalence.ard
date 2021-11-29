@@ -1,0 +1,51 @@
+\import Data.Bool
+\import LogicUtil
+\import imp.BigStep
+\import imp.Syntax
+\import imp.misc
+
+\func SemEqBExp (b1 b2 : BExp)  => \Sigma
+  (\Pi (s : State) (SemBExp b1 s false) -> SemBExp b2 s false)
+  (\Pi (s : State) (SemBExp b2 s false) -> SemBExp b1 s false)
+  (\Pi (s : State) (SemBExp b1 s true) -> SemBExp b2 s true)
+  (\Pi (s : State) (SemBExp b2 s true) -> SemBExp b1 s true)
+
+\func aAndb=bAnda {a b : BExp} : SemEqBExp (bAnd a b) (bAnd b a) =>
+  (
+    \lam s sem => \case sem \with {
+      | rAndT sem1 sem2 p => rAndT sem2 sem1 p
+      | rAndF1 sem p => rAndF2 sem p
+      | rAndF2 sem p => rAndF1 sem p
+    },
+    \lam s sem => \case sem \with {
+      | rAndT sem1 sem2 p => rAndT sem2 sem1 p
+      | rAndF1 sem p => rAndF2 sem p
+      | rAndF2 sem p => rAndF1 sem p
+    },
+    \lam s sem => \case sem \with {
+      | rAndT sem1 sem2 p => rAndT sem2 sem1 p
+      | rAndF1 sem p => rAndF2 sem p
+      | rAndF2 sem p => rAndF1 sem p
+    },
+    \lam s sem => \case sem \with {
+      | rAndT sem1 sem2 p => rAndT sem2 sem1 p
+      | rAndF1 sem p => rAndF2 sem p
+      | rAndF2 sem p => rAndF1 sem p
+    })
+
+\func SemEqAExp (a1 a2 : AExp) =>
+  \Pi (s : State) (n : Num) -> (SemAExp a1 s n) <-> (SemAExp a2 s n)
+
+\func SemEqCom (c1 c2 : Com) =>
+  \Pi (s s' : State) -> (SemCom c1 s s') <-> (SemCom c2 s s')
+
+\func exampleSemEqCom {b : BExp} {c : Com} : SemEqCom (while b c) (ite b (seq c (while b c)) skip)
+  => \lam s s' =>
+      (\lam sem => \case \elim sem \with {
+        | rWhT sem s'' s1 s2 => rIfT sem (rSeq s'' s1 s2)
+        | rWhF sem p => rIfF sem (rsk p)
+      },
+       \lam sem => \case \elim sem \with {
+         | rIfT semB (rSeq s'' sem1 sem2) => rWhT semB s'' sem1 sem2
+         | rIfF semB (rsk p) => rWhF semB p
+       })

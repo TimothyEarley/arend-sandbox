@@ -6,9 +6,9 @@
 \import Order.PartialOrder
 \import Paths
 \import Paths.Meta
-\import moses.BigStep
-\import moses.MOSES
-\import moses.Syntax
+\import imp.BigStep
+\import imp.misc
+\import imp.Syntax
 
 \func detAExp {a : AExp} {m m' : Num} {s : State} (sem1 : SemAExp a s m) (sem2 : SemAExp a s m') : m = m' \elim a, sem1, sem2
   | aNum n, rNum p, rNum p1 => rewrite p (rewrite p1 idp)
