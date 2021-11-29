@@ -1,5 +1,7 @@
 \import Data.List
+\import Logic
 \import Logic.Meta
+\import Paths.Meta
 \import sets.MySet
 \import sets.union
 
@@ -7,7 +9,7 @@
 
 \func Word (A : Alphabet) => List A
 
-\func Language (A : Alphabet) => Word A -> \Prop
+\func Language (A : Alphabet) => Ensemble (Word A)
 
 \where {
   \func concat \alias \infix 6 ∘ {A : Alphabet} (L L' : Language A) : Language A =>
@@ -19,4 +21,12 @@
 
   \func star {A : Alphabet} (L : Language A) : Language A =>
     (\lam w => ∃ (n : Nat) (concat-self+1 L n w)) ∪ (single nil)
+  \where {
+    \func addOne {A : Alphabet} {L : Language A} {w w' : Word A}
+      (h : w ∈ L) (h' : w' ∈ (star L)) : (w ++ w') ∈ (star L)
+      \elim h'
+        | byRight idp => byLeft (inP (0, rewrite ++_nil h))
+        | byLeft (inP (n, c)) => byLeft (inP (suc n, inP (w, w', idp, h, c)))
+  }
+
 }

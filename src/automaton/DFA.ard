@@ -1,8 +1,12 @@
+\import Data.Bool
 \import Data.List
+\import Set
 \import automaton.Language
 \import automaton.Regular
+\import sets.DecidableSet
+\import sets.finite.Sized
 
-\record DFA
+\class DFA
   | Action : \Set
   | State : \Set
   | delta : \Pi State Action -> State
@@ -11,11 +15,33 @@
 
 \where {
 
+  \class DecidableDFA \extends DFA
+    | isEnd : DecElementEnsemble State End
+
   \data accepts (d : DFA) (s : d.State) (u : Word d.Action) \elim u
     | nil => isLast (d.End s)
     | :: a tail => isStep (accepts d (d.delta s a) tail)
 
   \func language (d : DFA) : Language d.Action
     => \lam u => accepts d d.start u
+
+  \func accepts? (d : DecidableDFA) (s : d.State) (u : Word d.Action) : Dec (accepts d s u) \elim u
+    | nil => \case d.isEnd.decElement s \with {
+      | yes e => yes (isLast e)
+      | no n => no (\case __ \with {
+        | isLast e => n e
+      })
+    }
+    | :: a l =>
+      \let next => delta s a
+      \in \case accepts? d next l \with {
+        | yes e => yes (isStep e)
+        | no n => no (\case __ \with {
+          | isStep h => n h
+        })
+      }
+
+  \func language? (d : DecidableDFA) (u : Word d.Action) : Dec (language d u)
+    => accepts? d d.start u
 
 }

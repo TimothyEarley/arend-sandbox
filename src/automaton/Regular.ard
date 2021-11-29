@@ -21,4 +21,5 @@
       | * a => lstar (language a)
   }
 
-\func RegularLanguage {A : Alphabet} (l : Language A) => \Sigma (re : RegularExpression A) (RegularExpression.language re = l)
+\func RegularLanguage {A : Alphabet} (l : Language A) =>
+  \Sigma (re : RegularExpression A) (RegularExpression.language re = l)
