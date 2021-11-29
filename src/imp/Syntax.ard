@@ -16,6 +16,9 @@
 \func Var => Nat
 
 \func State => Var -> Num
+ \where {
+   \func zero : State => \lam _ => 0
+ }
 
 \data AExp
   | aNum Num
