@@ -1,10 +1,23 @@
+\import Arith.Int
+\import Arith.Nat
 \import Data.Bool
+\import Function.Meta
+\import Logic
+\import Logic.Meta
 \import LogicUtil
+\import Meta
+\import Order.PartialOrder
+\import Paths
+\import Paths.Meta
+\import Relation.Equivalence
 \import imp.BigStep
+\import imp.Deterministic
 \import imp.Syntax
 \import imp.misc
+\import util.CantorPair
+\open CantorPairing (h2)
 
-\func SemEqBExp (b1 b2 : BExp)  => \Sigma
+\func SemEqBExp (b1 b2 : BExp) => \Sigma
   (\Pi (s : State) (SemBExp b1 s false) -> SemBExp b2 s false)
   (\Pi (s : State) (SemBExp b2 s false) -> SemBExp b1 s false)
   (\Pi (s : State) (SemBExp b1 s true) -> SemBExp b2 s true)
@@ -39,13 +52,60 @@
 \func SemEqCom (c1 c2 : Com) =>
   \Pi (s s' : State) -> (SemCom c1 s s') <-> (SemCom c2 s s')
 
-\func exampleSemEqCom {b : BExp} {c : Com} : SemEqCom (while b c) (ite b (seq c (while b c)) skip)
-  => \lam s s' =>
-      (\lam sem => \case \elim sem \with {
-        | rWhT sem s'' s1 s2 => rIfT sem (rSeq s'' s1 s2)
-        | rWhF sem p => rIfF sem (rsk p)
-      },
-       \lam sem => \case \elim sem \with {
-         | rIfT semB (rSeq s'' sem1 sem2) => rWhT semB s'' sem1 sem2
-         | rIfF semB (rsk p) => rWhF semB p
-       })
+\instance SemEqCom' : Equivalence Com
+  | ~ c1 c2 => \Pi (s s' : State) -> (SemCom c1 s s') <--> (SemCom c2 s s')
+  | ~-reflexive => \lam s s' => <-->.refl
+  | ~-symmetric => \lam _x s s' => <-->.symm (_x s s')
+  | ~-transitive => \lam _x _x1 s s' => <-->.trans (_x s s') (_x1 s s')
+
+\func exampleSemEqCom {b : BExp} {c : Com} : SemEqCom (while b c) (ite b (seq c (while b c)) skip) => \lam s s' =>
+    (\lam sem => \case \elim sem \with {
+      | rWhT sem s'' s1 s2 => rIfT sem (rSeq s'' s1 s2)
+      | rWhF sem p => rIfF sem (rsk p)
+    },
+     \lam sem => \case \elim sem \with {
+       | rIfT semB (rSeq s'' sem1 sem2) => rWhT semB s'' sem1 sem2
+       | rIfF semB (rsk p) => rWhF semB p
+     })
+
+\func homework6 :
+    (seq (assign zero (aNum 0)) (assign zero (aPlus (aVar zero) (aNum 1)))) ~
+    (seq (assign zero (aNum 0)) (while (bLeq (aVar zero) (aNum 0)) (assign zero (aPlus (aVar zero) (aNum 1))))) =>
+  \lam s s' => (\lam h => \case \elim s', h \with {
+    | s', rSeq s'' (r:= n (rNum idp) idp) (r:= _ (rPlus _ (rVar idp) _ (rNum idp) idp) idp) => inP $ rSeq s''
+        (r:= n (rNum idp) idp)
+        (rWhT
+            (rLeqT 0 (rVar (inv $ replace.get {s} {0})) 0 (rNum idp) (pos<=pos zero<=_) idp)
+            s'
+            (r:= _ (rPlus _ (rVar idp) _ (rNum idp) idp) idp)
+            (rWhF (rLeqF 1 (rVar (inv $ replace.get {s} {0})) 0 (rNum idp) (__ idp) idp) idp))
+  },
+                \lam h => \case \elim s', h \with {
+                  | s', rSeq s'' (r:= n (rNum idp) idp) (rWhT semB s''1 (r:= n1 (rPlus n2 (rVar idp) n3 (rNum idp) idp) idp) (rWhF semB1 idp)) =>
+                    inP $ rSeq s''
+                        (r:= 0 (rNum idp) idp)
+                        (r:= 1 (rPlus 0 (rVar (inv $ replace.get {s''} {0})) 1 (rNum idp) idp) idp)
+
+                  | s', rSeq s'' (r:= n (rNum idp) idp) (rWhT semB s''1 (r:= n1 (rPlus n2 (rVar idp) n3 (rNum idp) idp) idp) (rWhT (rLeqT n4 (rVar idp) n5 (rNum idp) xxx p1) s''2 s1 s2)) =>
+                    absurd (xxx (rewrite (replace.get {s} {1}) $ idp))
+                  | s', rSeq s'' (r:= n (rNum idp) idp) (rWhT semB s''1 (r:= n1 (rPlus n2 (rVar idp) n3 (rNum idp) p) idp) (rWhT (rLeqF n4 s n5 s3 n6 ()) s''2 s1 s2))
+                  | s', rSeq s'' _ (rWhF (rLeqT n1 s1 n2 s2 _x ()) _)
+                  | s', rSeq s'' (r:= n (rNum idp) idp) (rWhF (rLeqF n3 (rVar idp) n4 (rNum idp) n5 p) idp) => absurd (n5 $ rewrite (replace.get {s} {0}) $ (pos<=pos zero<=_))
+                })
+
+\func sameResultIsEquiv {c1 c2 : Com}
+                        (h : \Pi (s : State) -> \Sigma (s' : State) (SemCom c1 s s') (SemCom c2 s s'))
+  : SemEqCom c1 c2 => \lam s s' => (\lam se => \let (s'2, c1h, c2h) => h s
+                                                    | p : s' = s'2 => detComExp se c1h \in rewrite p c2h,
+                                    \lam se => \let (s'2, c1h, c2h) => h s
+                                                    | p : s' = s'2 => detComExp se c2h \in rewrite p c1h)
+
+\func homework6' : SemEqCom
+    (seq (assign zero (aNum 0)) (assign zero (aPlus (aVar zero) (aNum 1))))
+    (seq (assign zero (aNum 0)) (while (bLeq (aVar zero) (aNum 0)) (assign zero (aPlus (aVar zero) (aNum 1))))) =>
+  sameResultIsEquiv (\lam s =>
+      \let s' => replace s (zero, 1) | s'' => replace s (zero, 0)
+      \in
+        (s',
+         rSeq s'' (r:= _ (rNum idp) idp) (r:= 1 (rPlus 0 {?} 1 (rNum idp) idp) (inv replace.overrride)),
+         rSeq s'' (r:= _ (rNum idp) idp) (rWhT (rLeqT {?} {?} {?} {?} {?} {?}) {?} {?} {?})))

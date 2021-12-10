@@ -4,8 +4,11 @@
 \import Arith.Nat
 \import Data.Bool
 \import Data.List
+\import Function.Meta ($)
 \import Logic
+\import Meta
 \import Order.PartialOrder
+\import Paths.Meta
 \import Set
 \import imp.misc
 \import imp.Syntax
@@ -49,7 +52,7 @@
   | bAnd b1 b2 => rAndF2 (SemBExp b2 s false) (t = false)
   | bOr b1 b2 => rOrT1 (SemBExp b1 s true) (t = true)
   | bOr b1 b2 => rOrT2 (SemBExp b2 s true) (t = true)
-  | bOr b1 b2 => rOrF (SemBExp b1 s false) (SemBExp b2 s false) (t = true)
+  | bOr b1 b2 => rOrF (SemBExp b1 s false) (SemBExp b2 s false) (t = false)
 
 \data SemCom (c : Com) (s : State) (s' : State) \elim c
   | skip => rsk (s = s')
@@ -64,4 +67,14 @@
   => \lam v => \case v == new.1 \with {
     | true => new.2
     | false => s v
+  }
+  \where {
+    \func get {s : State} {v : Var} {n : Num} : (replace s (v, n)) v = n
+      => unfold (replace) $ unfold (==) $ rewrite (decideEq=_reduce idp) $ idp
+
+    \func overrride {s : State} {v : Var} {n n' : Num} : (replace (replace s (v, n)) (v, n')) = {State} (replace s (v, n'))
+      => unfold (replace) $ ext (\lam v1 => cases (v1 == v) \with {
+        | true => idp
+        | false => idp
+      })
   }

@@ -1,0 +1,72 @@
+\import Algebra.Group
+\import Algebra.Monoid
+\import Arith.Int
+\import Data.Bool
+\import Function.Meta ($)
+\import LogicUtil
+\import Meta
+\import Paths
+\import Paths.Meta
+\import Set
+\import identity.IntIdentity
+\import identity.NatIdentity
+\import imp.BigStep
+\import imp.Syntax
+\import util.ArrayUtils
+\open ArrayUtils (??)
+
+\func aval (a : AExp) (s : State) : Num \elim a
+  | aNum n => n
+  | aVar v => s v
+  | aPlus a1 a2 => (aval a1 s) + (aval a2 s)
+  | aMinus a1 a2 => (aval a1 s) - (aval a2 s)
+  | aTimes a1 a2 => (aval a1 s) * (aval a2 s)
+\where {
+  \func isCorrect {a : AExp} {s : State} : SemAExp a s (aval a s) \elim a
+    | aNum n => rNum idp
+    | aVar v => rVar idp
+    | aPlus a1 a2 => rPlus (aval a1 s) isCorrect (aval a2 s) isCorrect idp
+    | aMinus a1 a2 => rMinus (aval a1 s) isCorrect (aval a2 s) isCorrect idp
+    | aTimes a1 a2 => rTimes (aval a1 s) isCorrect (aval a2 s) isCorrect idp
+}
+
+\func aExpIsDerivable (a : AExp) (s : State) : \Sigma (n : Num) (SemAExp a s n)
+  => (aval a s, aval.isCorrect)
+
+\func bval (b : BExp) (s : State) : Bool \elim b
+  | bTrue => true
+  | bFalse => false
+  | bEq a a1 => (aval a s) == (aval a1 s)
+  | bLeq a a1 => decToBool ((aval a s) int<=? (aval a1 s))
+  | bNot b => not (bval b s)
+  | bAnd b1 b2 => (bval b1 s) and (bval b2 s)
+  | bOr b1 b2 => (bval b1 s) or (bval b2 s)
+
+  \where {
+  \func isCorrect {b : BExp} {s : State} : SemBExp b s (bval b s) \elim b
+    | bTrue => rTrue idp
+    | bFalse => rFalse idp
+    | bEq a a1 => \case decideEq (aval a s) (aval a1 s) \with {
+      | yes e => rEqT (aval a s) aval.isCorrect (aval a1 s) aval.isCorrect e (unfold (==) $ pmap decToBool $ decideEq=_reduce e)
+      | no n => rEqF (aval a s) aval.isCorrect (aval a1 s) aval.isCorrect n (unfold (==) $ pmap decToBool $ decideEq/=_reduce n)
+    }
+    | bLeq a a1 => cases ((aval a s) int<=? (aval a1 s) arg addPath) \with {
+      | yes e, h => rLeqT (aval a s) aval.isCorrect (aval a1 s) aval.isCorrect e idp
+      | no n, h => rLeqF (aval a s) aval.isCorrect (aval a1 s) aval.isCorrect n idp
+    }
+    | bNot b => cases (bval b s arg addPath) \with {
+      | false, h => rNotT (rewriteI h isCorrect) idp
+      | true, h => rNotF (rewriteI h isCorrect) idp
+    }
+    | bAnd b1 b2 => cases (bval b1 s arg addPath, bval b2 s arg addPath) \with {
+      | true, h, true, h' => rAndT (rewriteI h isCorrect) (rewriteI h' isCorrect) idp
+      | false, h, _, _ => rAndF1 (rewriteI h isCorrect) idp
+      | _, _, false, h => rAndF2 (rewriteI h isCorrect) andFalse
+    }
+    | bOr b1 b2 => cases (bval b1 s arg addPath, bval b2 s arg addPath) \with {
+      | true, h, _, _ => rOrT1 (rewriteI h isCorrect) idp
+      | _, _, true, h => rOrT2 (rewriteI h isCorrect) orTrue
+      | false, h, false, h' => rOrF (rewriteI h isCorrect) (rewriteI h' isCorrect) idp
+    }
+
+  }
