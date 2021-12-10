@@ -2,10 +2,12 @@
 \import Logic
 \import Logic.Meta
 \import Paths.Meta
+\import Set
 \import sets.MySet
 \import sets.union
 
 \func Alphabet => \Set
+\func DecAlphabet => DecSet
 
 \func Word (A : Alphabet) => List A
 

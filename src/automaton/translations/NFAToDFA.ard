@@ -1,0 +1,40 @@
+\import Data.List
+\import Logic
+\import Logic.Meta
+\import Paths.Meta
+\import automaton.DFA
+\import automaton.Language
+\import automaton.NFA
+\import sets.Elements
+\import sets.MySet
+
+\func nFAToDFA (nfa : NFA) : DFA \cowith
+  | Action => nfa.Action
+  | State => nfa.State -> \Prop
+  | delta => \lam Q a q' => ∃ (q : nfa.State) (Q q) (nfa.delta (q, a, q'))
+  | start => single nfa.start
+  | End => \lam Q => Any Q nfa.End
+
+  \where {
+    \func respectsLanguage {nfa : NFA} : NFA.language nfa = DFA.language (nFAToDFA nfa) =>
+      ext (\lam w => ext (helper1 nfa.start w (single nfa.start) idp,
+                          \lam h => \case helper2 w (single nfa.start) h \with {
+                            | inP ((_, idp), ac) => ac
+                          }))
+
+    \func helper1 {nfa : NFA} (q : nfa.State) (w : Word nfa.Action)
+                  (Q : DFA.State {nFAToDFA nfa}) (el : Q q) (h : NFA.accepts nfa q w)
+      : DFA.accepts (nFAToDFA nfa) Q w \elim w, h
+      | nil, NFA.isLast e => DFA.isLast (inP ((q, el), e))
+      | :: a tail, NFA.isStep q' d h => DFA.isStep
+          ( helper1 {nfa} q' tail (DFA.delta {nFAToDFA nfa} Q a) (inP (q, el, d)) h)
+
+    \func helper2 {nfa : NFA}
+                  (w : Word nfa.Action)
+                  (Q : nfa.State -> \Prop)
+                  (h : DFA.accepts (nFAToDFA nfa) Q w) : ∃ (q : Elements Q) (NFA.accepts nfa q.1 w) \elim w, h
+      | nil, DFA.isLast (inP (q, qEnd)) => inP (q, NFA.isLast qEnd)
+      | :: a tail, DFA.isStep h => \case helper2 tail (DFA.delta {nFAToDFA nfa} Q a) h \with {
+        | inP ((q', inP (q, qEl, d)), a) => inP ((q, qEl), NFA.isStep q' d a)
+      }
+  }

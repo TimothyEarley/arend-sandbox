@@ -1,0 +1,44 @@
+\import Function.Meta
+\import Logic
+\import Paths.Meta
+\import automaton.Language
+\import automaton.NFAeps
+\import automaton.Regular
+\import sets.DecidableSet
+\open NFAeps (choice, concatNFAEps, language, makeDecidable, noneNFAeps, singleNFAeps, starEps)
+
+\func regToNFAeps {A : Alphabet} (re : RegularExpression A) : NFAeps { | Action => A } \elim re
+  | none => noneNFAeps
+  | alpha a => singleNFAeps a
+  | + a b => choice (regToNFAeps a) (regToNFAeps b)
+  | ⋅ a b => concatNFAEps (regToNFAeps a) (regToNFAeps b)
+  | * a => starEps (regToNFAeps a)
+  \where {
+    \func respectsLanguage {A : Alphabet} {re : RegularExpression A}
+      : RegularExpression.language re = language (regToNFAeps re) =>
+      ext (\lam w => ext (helper1 re w, helper2 re w))
+
+    \func helper1 {A : Alphabet} (re : RegularExpression A) (w : Word A) (h : RegularExpression.language re w)
+      : language (regToNFAeps re) w \elim re, h
+      | alpha a, idp => singleNFAeps.singleInLanguage
+      | + a b, byLeft h => choice.leftInLanguage (helper1 a w h)
+      | + a b, byRight h => choice.rightInLanguage (helper1 b w h)
+      | ⋅ a b, inP (v, v', idp, h, h') => concatNFAEps.concatInLangauge (helper1 a v h) (helper1 b v' h')
+      | * re, byRight idp => starEps.nilInLanguage
+      | * re, byLeft (inP (0, c)) => starEps.origianalInLanguage (helper1 re w c)
+      | * re, byLeft (inP (suc n, inP (v,v', idp, e,e'))) => starEps.addOneInLanguage (helper1 re v e) (helper1 (* re) v' (byLeft (inP (n, e'))))
+
+    \func helper2 {A : Alphabet} (re : RegularExpression A) (w : Word A) (h : language (regToNFAeps re) w)
+      : RegularExpression.language re w
+    \elim re
+      | none => noneNFAeps.hasNoWords h
+      | alpha a => singleNFAeps.onlySingleInLanguage h
+      | + a b => \case choice.inLanguage h \with {
+        | byLeft x => byLeft (helper2 a w x)
+        | byRight x => byRight (helper2 b w x)
+      }
+      | ⋅ a b => \case concatNFAEps.splitLanguage h \with {
+        | inP (v, v', p, e, e') => inP (v, v', p, helper2 a v e, helper2 b v' e')
+      }
+      | * re => rewrite respectsLanguage (starEps.inLanguageIsStar h)
+  }

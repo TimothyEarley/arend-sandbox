@@ -8,6 +8,7 @@
 \import automaton.DFA
 \import automaton.Language
 \import automaton.Regular
+\import sets.DecidableSet
 \import sets.Elements
 \import sets.MySet
 
@@ -17,63 +18,14 @@
   | delta : (\Sigma State Action State) -> \Prop
   | start : State
   | End : State -> \Prop
-
   \where {
+    \class DecidableNFA \extends NFA
+      | isEnd : DecElementEnsemble State End
+
     \truncated \data accepts (d : NFA) (q : d.State) (u : Word d.Action) : \Prop \elim u
       | nil => isLast (d.End q)
       | :: a tail => isStep (q' : d.State) (d.delta (q, a, q')) (accepts d q' tail)
 
     \func language (d : NFA) : Language d.Action => \lam u => accepts d d.start u
-
-    \use \coerce fromDFA (d : DFA) : NFA \cowith
-      | Action => d.Action
-      | State => d.State
-      | delta => \lam t => d.delta t.1 t.2 = t.3
-      | start => d.start
-      | End => d.End
-      \where {
-        \func respectsLanguage {d : DFA} : DFA.language d = language (fromDFA d) =>
-          ext (\lam w => ext (helper1 d.start w, helper2 d.start w))
-
-        \func helper1 {d : DFA} (q : d.State) (w : Word d.Action) (h : DFA.accepts d q w) : accepts d q w \elim w, h
-          | nil, DFA.isLast e => isLast e
-          | :: a tail, DFA.isStep h => isStep (d.delta q a) idp (helper1 (d.delta q a) tail h)
-
-        \func helper2 {d : DFA} (q : d.State) (w : Word d.Action) (h : accepts d q w) : DFA.accepts d q w \elim w, h
-          | nil, isLast e => DFA.isLast e
-          | :: a tail, isStep q' idp ac => DFA.isStep (helper2 q' tail ac)
-      }
-
-    \func toDFA (nfa : NFA) : DFA \cowith
-      | Action => nfa.Action
-      | State => nfa.State -> \Prop
-      | delta => \lam Q a q' => ∃ (q : nfa.State) (Q q) (nfa.delta (q, a, q'))
-      | start => single nfa.start
-      | End => \lam Q => Any Q nfa.End
-
-      \where {
-        \func respectsLanguage {nfa : NFA} : language nfa = DFA.language (toDFA nfa) =>
-          ext (\lam w => ext (helper1 nfa.start w (single nfa.start) idp,
-                              \lam h => \case helper2 w (single nfa.start) h \with {
-                                | inP ((_, idp), ac) => ac
-                              }))
-
-        \func helper1 {nfa : NFA} (q : nfa.State) (w : Word nfa.Action)
-                      (Q : DFA.State {toDFA nfa}) (el : Q q) (h : accepts nfa q w)
-          : DFA.accepts (toDFA nfa) Q w \elim w, h
-          | nil, isLast e => DFA.isLast (inP ((q, el), e))
-          | :: a tail, isStep q' d h => DFA.isStep
-              ( helper1 {nfa} q' tail (DFA.delta {toDFA nfa} Q a) (inP (q, el, d)) h)
-
-        \func helper2 {nfa : NFA}
-                      (w : Word nfa.Action)
-                      (Q : nfa.State -> \Prop)
-                      (h : DFA.accepts (toDFA nfa) Q w) : ∃ (q : Elements Q) (accepts nfa q.1 w) \elim w, h
-          | nil, DFA.isLast (inP (q, qEnd)) => inP (q, isLast qEnd)
-          | :: a tail, DFA.isStep h => \case helper2 tail (DFA.delta {toDFA nfa} Q a) h \with {
-            | inP ((q', inP (q, qEl, d)), a) => inP ((q, qEl), isStep q' d a)
-          }
-      }
-
 
   }

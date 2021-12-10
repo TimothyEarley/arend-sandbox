@@ -1,3 +1,4 @@
+\import Algebra.Meta
 \import Arith.Nat
 \import Data.Bool
 \import Data.List
@@ -13,9 +14,13 @@
 \import automaton.Language
 \import automaton.Regular
 \import identity.OrIdentity
+\import sets.DecidableSet
 \import sets.MySet
 \import sets.union
+\import util.ArrayUtils
 \import util.Or
+\open NFAeps (noneNFAeps, singleNFAeps)
+\open ArrayUtils (::-)
 
 \record NFAeps
   | Action : \Set
@@ -23,8 +28,19 @@
   | delta : (\Sigma State (Label Action) State) -> \Prop
   | start : State
   | End : State -> \Prop
-
   \where {
+    \class DecidableNFAeps \extends NFAeps
+      | isEnd : DecElementEnsemble State End
+    \func makeDecidable (n : NFAeps)
+                        (h : DecElementEnsemble n.State n.End)
+      : DecidableNFAeps \cowith
+      | Action => n.Action
+      | State => n.State
+      | delta => n.delta
+      | start => n.start
+      | End => n.End
+      | isEnd => h
+
     \data Label (A : \Set)
       | epsilon
       | action A
@@ -40,7 +56,6 @@
       | nil => noStep (from = to)
       | :: a tail => oneStep (q : d.State) (d.delta (from, action a, q)) (run d q to tail)
       | w => oneEps (q : d.State) (d.delta (from, epsilon, q)) (run d q to w)
-
       \where {
         \func toAccepts {d : NFAeps} {w : Word d.Action} {q q' : d.State}
                         (h : run d q q' w)
@@ -50,6 +65,24 @@
           | nil, noStep idp => isLast e
           | :: a tail, oneStep q'' de h => isStep q'' de (toAccepts h e)
           | w, oneEps q'' de h => isEps q'' de (toAccepts h e)
+
+        \func fromAccepts {d : NFAeps} {w : Word d.Action} {q : d.State}
+                          (h : accepts d q w) : ∃ (q' : d.State) (d.End q') (run d q q' w)
+        \elim w, h
+          | nil, isLast e => inP (q, e, noStep idp)
+          | :: a tail, isStep q'' del h => \case fromAccepts h \with {
+            | inP (q', q'E, r) => inP (q', q'E, oneStep q'' del r)
+          }
+          | w, isEps q'' del h => \case fromAccepts h \with {
+            | inP (q', q'E, r) => inP (q', q'E, oneEps q'' del r)
+          }
+
+        \func concat {d : NFAeps} {w w' : Word d.Action}
+                     {q q' q'' : d.State}
+                     (r : run d q q' w) (s : run d q' q'' w') : run d q q'' (w ++ w') \elim w, r
+          | nil, noStep idp => s
+          | :: a tail, oneStep q1 d1 r => oneStep q1 d1 (concat r s)
+          | w, oneEps q1 d1 r => oneEps q1 d1 (concat r s)
       }
 
     \data CombinedState (State State' : \Set)
@@ -98,7 +131,7 @@
           | :: x (:: y l), isEps true () _
       }
 
-    \func concat {A : Alphabet} (a b : NFAeps { | Action => A }) : NFAeps { | Action => A } \cowith
+    \func concatNFAEps {A : Alphabet} (a b : NFAeps { | Action => A }) : NFAeps { | Action => A } \cowith
       | State => CombinedState a.State b.State
       | delta qxq' => \case \elim qxq' \with {
         | (startState, epsilon, leftState q') => q' = a.start
@@ -115,25 +148,25 @@
       }
       \where {
         \func concatInLangauge {A : Alphabet} {a b : NFAeps { | Action => A }} {w w' : Word A}
-                               (h : w ∈ language a) (h' : w' ∈ language b) : (w ++ w') ∈ language (concat a b) =>
+                               (h : w ∈ language a) (h' : w' ∈ language b) : (w ++ w') ∈ language (concatNFAEps a b) =>
           isEps (leftState a.start) idp (acceptsLeft a.start h h')
 
         \func acceptsLeft {A : Alphabet} {a b : NFAeps { | Action => A }} {w w' : Word A} (q : a.State)
-                          (h : accepts a q w) (h' : w' ∈ language b) : accepts (concat a b) (leftState q) (w ++ w')
+                          (h : accepts a q w) (h' : w' ∈ language b) : accepts (concatNFAEps a b) (leftState q) (w ++ w')
         \elim w, h
           | nil, isLast e => isEps (rightState b.start) (e, idp) (acceptsRight b.start h')
           | :: a1 tail, isStep q' d h => isStep (leftState q') d (acceptsLeft q' h h')
           | w, isEps q' d h => isEps (leftState q') d (acceptsLeft q' h h')
 
         \func acceptsRight {A : Alphabet} {a b : NFAeps { | Action => A }} {w : Word A} (q : b.State)
-                           (h : accepts b q w) : accepts (concat a b) (rightState q) w
+                           (h : accepts b q w) : accepts (concatNFAEps a b) (rightState q) w
         \elim w, h
           | nil, isLast e => isLast e
           | :: a1 tail, isStep q' d h => isStep (rightState q') d (acceptsRight q' h)
           | w, isEps q' d h => isEps (rightState q') d (acceptsRight q' h)
 
         \func splitLanguage {A : Alphabet} {a b : NFAeps { | Action => A }} {w : Word A}
-                            (h : w ∈ language (concat a b))
+                            (h : w ∈ language (concatNFAEps a b))
           : ∃ (v v' : Word A) (w = v ++ v') (v ∈ language a) (v' ∈ language b) \elim w, h
           | w, isEps (leftState _) idp h => splitLeft a.start h
           | nil, isLast ()
@@ -145,7 +178,7 @@
           \where {
             \func splitLeft {A : Alphabet} {a b : NFAeps { | Action => A }} {w : Word A}
                             (q : a.State)
-                            (h : accepts (concat a b) (leftState q) w)
+                            (h : accepts (concatNFAEps a b) (leftState q) w)
               : ∃ (v v' : Word A) (w = v ++ v') (accepts a q v) (v' ∈ language b) \elim w, h
               | :: x tail, isStep (leftState s) d h => \case splitLeft s h \with {
                 | inP (v,v',p,h',e) => inP (x :: v, v', pmap (x :: __) p, isStep s d h', e)
@@ -162,7 +195,7 @@
 
             \func splitRight {A : Alphabet} {a b : NFAeps { | Action => A }} {w : Word A}
                              (q : b.State)
-                             (h : accepts (concat a b) (rightState q) w)
+                             (h : accepts (concatNFAEps a b) (rightState q) w)
               : (accepts b q w) \elim w, h
               | nil, isLast e => isLast e
               | :: a1 tail, isStep (rightState s) d h => isStep s d (splitRight s h)
@@ -247,79 +280,78 @@
       }
 
     \func starEps {A : Alphabet} (a : NFAeps { | Action => A }) : NFAeps { | Action => A } \cowith
-      | State => a.State
-      | delta (q, x, q') =>
-        a.delta (q, x, q') ||
-        (\Sigma (x = epsilon) (a.End q) (q' = a.start))
-      | start => a.start
-      | End => single a.start
+      | State => EpsState a
+      | delta => \case \elim __ \with {
+        -- start of loop
+        | (startState, epsilon, originalState q') => q' = a.start
+        | (startState, epsilon, startState) => Empty
+        | (startState, action _, _) => Empty
+        -- inside loop
+        | (originalState q, x, originalState q') => a.delta (q, x, q')
+        -- end of loop
+        | (originalState q, epsilon, startState) => a.End q
+        | (originalState q, action _, startState) => Empty
+      }
+      | start => startState
+      | End => single startState
 
       \where {
+        \data EpsState (a : NFAeps) | startState | originalState a.State
+
         \func nilInLanguage {A : Alphabet} {a : NFAeps { | Action => A }} : nil ∈ language (starEps a) => isLast idp
 
         \func origianalInLanguage {A : Alphabet} {a : NFAeps { | Action => A }} {w : Word A} (h : w ∈ language a) : w ∈ language (starEps a) =>
-          origianalAccepts h
+          isEps (originalState a.start) idp (origianalAccepts h)
           \where {
-            \func origianalAccepts {A : Alphabet} {a : NFAeps { | Action => A }} {w : Word A} {q : a.State} (h : accepts a q w) : accepts (starEps a) q w
+            \func origianalAccepts {A : Alphabet} {a : NFAeps { | Action => A }} {w : Word A} {q : a.State}
+                                   (h : accepts a q w) : accepts (starEps a) (originalState q) w
             \elim w, h
-              | nil, isLast e => isEps a.start (byRight (idp, e, idp)) (isLast idp)
-              | :: a1 tail, isStep q' d h => isStep q' (byLeft d) (origianalAccepts h)
-              | w, isEps q' d h => isEps q' (byLeft d) (origianalAccepts h)
+              | nil, isLast e => isEps startState e (isLast idp)
+              | :: a1 tail, isStep q' d h => isStep (originalState q') d (origianalAccepts h)
+              | w, isEps q' d h => isEps (originalState q') d (origianalAccepts h)
           }
 
         \func addOneInLanguage {A : Alphabet} {a : NFAeps { | Action => A }} {w w' : Word A}
                                (h : w ∈ language a) (h' : w' ∈ language (starEps a))
-          : (w ++ w') ∈ language (starEps a) => addOneAccepts h h'
+          : (w ++ w') ∈ language (starEps a) => isEps (originalState a.start) idp (addOneAccepts h h')
           \where {
             \func addOneAccepts {A : Alphabet} {a : NFAeps { | Action => A }}
                                 {q : a.State}
                                 {w w' : Word A}
                                 (h : accepts a q w) (h' : w' ∈ language (starEps a))
-              : accepts (starEps a) q (w ++ w') \elim w, h
-              | nil, isLast e => isEps a.start (byRight (idp, e, idp)) h'
-              | :: x tail, isStep q' d h => isStep q' (byLeft d) (addOneAccepts h h')
-              | w, isEps q' d h => isEps q' (byLeft d) (addOneAccepts h h')
+              : accepts (starEps a) (originalState q) (w ++ w') \elim w, h
+              | nil, isLast e => isEps startState e h'
+              | :: x tail, isStep q' d h => isStep (originalState q') d (addOneAccepts h h')
+              | w, isEps q' d h => isEps (originalState q') d (addOneAccepts h h')
           }
 
         \func inLanguageIsStar {A : Alphabet} {a : NFAeps { | Action => A }} {w : Word A}
                                (h : w ∈ language (starEps a))
-          : w ∈ Language.star (language a) => {?} -- termination is quite tricky
-      }
+          : w ∈ Language.star (language a) \elim w, h
+          | nil, isLast e => byRight idp
+          | w, isEps (originalState s) idp h => inLanguageAccepts nil w (noStep idp) h
+          -- only the above epsilon transition can be first
+          | nil, isEps startState () _
+          | :: a1 l, isStep q' () _
+          | :: a1 l, isEps startState () _
 
-    \use \coerce fromRegularExpression {A : Alphabet} (re : RegularExpression A) : NFAeps { | Action => A } \elim re
-      | none => noneNFAeps
-      | alpha a => singleNFAeps a
-      | + a b => choice (fromRegularExpression a) (fromRegularExpression b)
-      | ⋅ a b => concat (fromRegularExpression a) (fromRegularExpression b)
-      | * a => starEps (fromRegularExpression a)
-
-      \where {
-        \func respectsLanguage {A : Alphabet} {re : RegularExpression A}
-          : RegularExpression.language re = language (fromRegularExpression re) =>
-          ext (\lam w => ext (helper1 re w, helper2 re w))
-
-        \func helper1 {A : Alphabet} (re : RegularExpression A) (w : Word A) (h : RegularExpression.language re w)
-          : language (fromRegularExpression re) w \elim re, h
-          | alpha a, idp => singleNFAeps.singleInLanguage
-          | + a b, byLeft h => choice.leftInLanguage (helper1 a w h)
-          | + a b, byRight h => choice.rightInLanguage (helper1 b w h)
-          | ⋅ a b, inP (v, v', idp, h, h') => concat.concatInLangauge (helper1 a v h) (helper1 b v' h')
-          | * re, byRight idp => starEps.nilInLanguage
-          | * re, byLeft (inP (0, c)) => starEps.origianalInLanguage (helper1 re w c)
-          | * re, byLeft (inP (suc n, inP (v,v', idp, e,e'))) => starEps.addOneInLanguage (helper1 re v e) (helper1 (* re) v' (byLeft (inP (n, e'))))
-
-        \func helper2 {A : Alphabet} (re : RegularExpression A) (w : Word A) (h : language (fromRegularExpression re) w)
-          : RegularExpression.language re w
-        \elim re
-          | none => noneNFAeps.hasNoWords h
-          | alpha a => singleNFAeps.onlySingleInLanguage h
-          | + a b => \case choice.inLanguage h \with {
-            | byLeft x => byLeft (helper2 a w x)
-            | byRight x => byRight (helper2 b w x)
+          \where {
+            \func inLanguageAccepts {A : Alphabet} {a : NFAeps { | Action => A }}
+                                    (v v' : Word A) {q : a.State}
+                                    (r' : run a a.start q v)
+                                    (r : accepts (starEps a) (originalState q) v')
+              : (v ++ v') ∈ Language.star (language a)
+            \elim v', r
+              | nil, isLast ()
+              | :: _ _, isStep startState () r
+              | :: x v', isStep (originalState q') d r =>
+                rewriteF ++-assoc $
+                inLanguageAccepts (v ++ x :: nil) v' (run.concat r' (oneStep q' d (noStep idp))) r
+              | v', isEps (originalState q') d r =>
+                inLanguageAccepts v v' (rewriteF ++_nil $ run.concat r' (oneEps q' d (noStep idp))) r
+              -- end of a loop
+              | v', isEps startState d r =>
+                Language.star.addOne (run.toAccepts r' d) (inLanguageIsStar r)
           }
-          | ⋅ a b => \case concat.splitLanguage h \with {
-            | inP (v, v', p, e, e') => inP (v, v', p, helper2 a v e, helper2 b v' e')
-          }
-          | * re => rewrite respectsLanguage (starEps.inLanguageIsStar h)
       }
   }

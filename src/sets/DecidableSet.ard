@@ -14,7 +14,6 @@
 \class DecElementEnsemble \extends BaseEnsemble {
   | decElement (a : E) : Dec (a ∈ S)
 
-
   \func addElement {D : DecSet E} (a : E) : DecElementEnsemble E (add S a) \cowith
     | decElement e => \case D.decideEq a e, decElement e \with {
       | yes h, _ => yes (byRight h)
@@ -24,6 +23,12 @@
         | byRight a=e => n a=e
       })
     }
+} \where {
+  \func emptyDec {E : \Set} : DecElementEnsemble E ∅ \cowith
+    | decElement => \lam a => no (\lam e => e)
+
+  \func singleDec {E : DecSet} {e : E} : DecElementEnsemble E (single e)
+    => rewriteF (inv single.isAddToEmpty) $ emptyDec.addElement {E} e
 }
 
 \func BoolEnsemble (A : \Set) => A -> Bool
@@ -32,10 +37,11 @@
 
     \func fromDecEnsemble (D : DecElementEnsemble) : BoolEnsemble D.E => \lam a => decToBool (D.decElement a)
 
-    \func decInEnsemble {A : \Set} {b : BoolEnsemble A} (a : A) : Dec (a ∈ asEnsemble b) => cases (b a arg addPath) \with {
-      | false, q => no (unfold (∈, BoolEnsemble.asEnsemble) $ rewrite q (\case __))
-      | true, q => yes (unfold (∈, BoolEnsemble.asEnsemble) $ rewrite q so)
-    }
+    \func decInEnsemble {A : \Set} {b : BoolEnsemble A} (a : A) : Dec (a ∈ asEnsemble b) =>
+      cases (b a arg addPath) \with {
+        | false, q => no (unfold (∈, BoolEnsemble.asEnsemble) $ rewrite q (\case __))
+        | true, q => yes (unfold (∈, BoolEnsemble.asEnsemble) $ rewrite q so)
+      }
 
     \func asDecEnsemble {A : \Set} (b : BoolEnsemble A) : DecElementEnsemble A \cowith
       | S => BoolEnsemble.asEnsemble b

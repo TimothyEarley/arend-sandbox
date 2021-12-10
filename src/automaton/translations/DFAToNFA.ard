@@ -1,0 +1,25 @@
+\import Data.List
+\import Paths.Meta
+\import automaton.DFA
+\import automaton.NFA
+\import automaton.Language
+
+\func dFAToNFA (d : DFA) : NFA \cowith
+  | Action => d.Action
+  | State => d.State
+  | delta => \lam t => d.delta t.1 t.2 = t.3
+  | start => d.start
+  | End => d.End
+  \where {
+    \func respectsLanguage {d : DFA} : DFA.language d = NFA.language (dFAToNFA d) =>
+      ext (\lam w => ext (helper1 d.start w, helper2 d.start w))
+
+    \func helper1 {d : DFA} (q : d.State) (w : Word d.Action) (h : DFA.accepts d q w) : NFA.accepts (dFAToNFA d) q w \elim w, h
+      | nil, DFA.isLast e => NFA.isLast e
+      | :: a tail, DFA.isStep h => NFA.isStep (d.delta q a) idp (helper1 (d.delta q a) tail h)
+
+    \func helper2 {d : DFA} (q : d.State) (w : Word d.Action) (h : NFA.accepts (dFAToNFA d) q w)
+      : DFA.accepts d q w \elim w, h
+      | nil, NFA.isLast e => DFA.isLast e
+      | :: a tail, NFA.isStep q' idp ac => DFA.isStep (helper2 q' tail ac)
+  }
