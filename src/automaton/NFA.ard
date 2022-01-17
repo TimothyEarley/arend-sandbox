@@ -5,23 +5,24 @@
 \import Logic.Meta
 \import Paths
 \import Paths.Meta
+\import Set
 \import automaton.DFA
 \import automaton.Language
 \import automaton.Regular
 \import sets.DecidableSet
 \import sets.Elements
 \import sets.MySet
+\import sets.finite.Sized
 
 \record NFA
   | Action : \Set
-  | State : \Set
+  | State : DecSizedEnsemble
   | delta : (\Sigma State Action State) -> \Prop
   | start : State
   | End : State -> \Prop
-  \where {
-    \class DecidableNFA \extends NFA
-      | isEnd : DecElementEnsemble State End
+  | isEnd : DecElementEnsemble State End
 
+  \where {
     \truncated \data accepts (d : NFA) (q : d.State) (u : Word d.Action) : \Prop \elim u
       | nil => isLast (d.End q)
       | :: a tail => isStep (q' : d.State) (d.delta (q, a, q')) (accepts d q' tail)

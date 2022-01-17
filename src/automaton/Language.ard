@@ -11,7 +11,7 @@
 
 \func Word (A : Alphabet) => List A
 
-\func Language (A : Alphabet) => Ensemble (Word A)
+\func Language (A : Alphabet) : \Set => Ensemble (Word A)
 
 \where {
   \func concat \alias \infix 6 ∘ {A : Alphabet} (L L' : Language A) : Language A =>

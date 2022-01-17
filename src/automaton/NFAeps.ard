@@ -11,36 +11,31 @@
 \import Meta
 \import Paths
 \import Paths.Meta
+\import Set \hiding (#)
 \import automaton.Language
 \import automaton.Regular
+\import identity.BoolIdentity
+\import identity.DecMaps
+\import identity.Identity
 \import identity.OrIdentity
 \import sets.DecidableSet
 \import sets.MySet
+\import sets.finite.Sized
 \import sets.union
 \import util.ArrayUtils
 \import util.Or
-\open NFAeps (noneNFAeps, singleNFAeps)
-\open ArrayUtils (::-)
+
+\import identity.SigmaIdentity
 
 \record NFAeps
   | Action : \Set
-  | State : \Set
+  | State : DecSizedEnsemble
   | delta : (\Sigma State (Label Action) State) -> \Prop
   | start : State
   | End : State -> \Prop
-  \where {
-    \class DecidableNFAeps \extends NFAeps
-      | isEnd : DecElementEnsemble State End
-    \func makeDecidable (n : NFAeps)
-                        (h : DecElementEnsemble n.State n.End)
-      : DecidableNFAeps \cowith
-      | Action => n.Action
-      | State => n.State
-      | delta => n.delta
-      | start => n.start
-      | End => n.End
-      | isEnd => h
+  | isEnd : DecElementEnsemble State End
 
+  \where {
     \data Label (A : \Set)
       | epsilon
       | action A
@@ -89,12 +84,54 @@
       | startState
       | leftState State
       | rightState State'
+    \where {
+      \func DecSized (d1 d2 : DecSizedEnsemble) : DecSizedEnsemble (CombinedState d1 d2) \cowith
+        | S => full
+        | size => suc (d1.size Nat.+ d2.size)
+        | sizeProof => {?}
+        | decideEq => decideEq {CombinedStateId d1 d2}
+
+      \func CombinedStateId {S S' : \Set} (d1 : DecSet S) (d2 : DecSet S') : Identity.Decidable (CombinedState S S') \cowith
+        | Code => \case __, __ \with {
+          | startState, startState => \Sigma
+          | startState, leftState s => Empty
+          | startState, rightState s => Empty
+          | leftState s, startState => Empty
+          | leftState s, leftState s1 => s = s1
+          | leftState s, rightState s1 => Empty
+          | rightState s, startState => Empty
+          | rightState s, leftState s1 => Empty
+          | rightState s, rightState s1 => s = s1
+        }
+        | code-refl => \case \elim __ \with {
+          | startState => ()
+          | leftState s => idp
+          | rightState s => idp
+        }
+        | code-decode {x} {y} c => \case \elim x, \elim y, \elim c \with {
+          | startState, startState, c => idp
+          | leftState s, leftState s1, p => pmap leftState p
+          | rightState s, rightState s1, p => pmap rightState p
+        }
+        | code-decide => \case \elim __, \elim __ \with {
+          | startState, startState => yes ()
+          | startState, leftState s => no id
+          | startState, rightState s => no id
+          | leftState s, startState => no id
+          | leftState s, leftState s1 => decideEq s s1
+          | leftState s, rightState s1 => no id
+          | rightState s, startState => no id
+          | rightState s, leftState s1 => no id
+          | rightState s, rightState s1 => decideEq s s1
+        }
+    }
 
     \func noneNFAeps {A : Alphabet} : NFAeps { | Action => A } \cowith
-      | State => \Sigma
+      | State => DecSizedEnsemble.unit
       | delta => ∅
       | start => ()
       | End => ∅
+      | isEnd => DecElementEnsemble.emptyDec
       \where {
         \func hasNoWords {A : Alphabet} {w : Word A} (h : w ∈ language noneNFAeps) : Empty
         \elim w, h
@@ -104,13 +141,14 @@
       }
 
     \func singleNFAeps {A : Alphabet} (a : A) : NFAeps { | Action => A } \cowith
-      | State => Bool
+      | State => BoolDecSet
       | delta => \case __ \with {
         | (false, action x, true) => x = a
         | _ => Empty
       }
       | start => false
       | End => So
+      | isEnd => DecElementEnsemble.boolSoDec
       \where {
         \func singleInLanguage {A : Alphabet} {a : A} : (a :: nil) ∈ language (singleNFAeps a) =>
           isStep true idp (isLast so)
@@ -132,7 +170,7 @@
       }
 
     \func concatNFAEps {A : Alphabet} (a b : NFAeps { | Action => A }) : NFAeps { | Action => A } \cowith
-      | State => CombinedState a.State b.State
+      | State => CombinedState.DecSized a.State b.State
       | delta qxq' => \case \elim qxq' \with {
         | (startState, epsilon, leftState q') => q' = a.start
         | (leftState q, x, leftState q') => a.delta (q, x, q')
@@ -145,6 +183,13 @@
         | startState => Empty
         | leftState s => Empty
         | rightState s => b.End s
+      }
+      | isEnd => \new DecElementEnsemble {
+        | decElement => \case \elim __ \with {
+          | startState => no id
+          | leftState s => no id
+          | rightState s => b.isEnd.decElement s
+        }
       }
       \where {
         \func concatInLangauge {A : Alphabet} {a b : NFAeps { | Action => A }} {w w' : Word A}
@@ -208,7 +253,7 @@
       }
 
     \func choice {A : Alphabet} (a b : NFAeps { | Action => A }) : NFAeps { | Action => A } \cowith
-      | State => CombinedState a.State b.State
+      | State => CombinedState.DecSized a.State b.State
       | delta qxq' => \case \elim qxq' \with {
         | (startState, epsilon, leftState q') => q' = a.start
         | (startState, epsilon, rightState q') => q' = b.start
@@ -221,6 +266,13 @@
         | startState => Empty
         | leftState s => a.End s
         | rightState s => b.End s
+      }
+      | isEnd => \new DecElementEnsemble {
+        | decElement => \case \elim __ \with {
+          | startState => no id
+          | leftState s => a.isEnd.decElement s
+          | rightState s => b.isEnd.decElement s
+        }
       }
       \where {
         \func leftInLanguage {A : Alphabet} {a b : NFAeps { | Action => A }} {w : Word A} (h : w ∈ language a)
@@ -280,7 +332,7 @@
       }
 
     \func starEps {A : Alphabet} (a : NFAeps { | Action => A }) : NFAeps { | Action => A } \cowith
-      | State => EpsState a
+      | State => EpsState.DecSized a
       | delta => \case \elim __ \with {
         -- start of loop
         | (startState, epsilon, originalState q') => q' = a.start
@@ -294,9 +346,44 @@
       }
       | start => startState
       | End => single startState
+      | isEnd => \new DecElementEnsemble {
+        | decElement => \case \elim __ \with {
+          | starEps.startState => yes idp
+          | starEps.originalState s => no (\case __)
+        }
+      }
 
       \where {
         \data EpsState (a : NFAeps) | startState | originalState a.State
+        \where {
+
+          \func DecSized (a : NFAeps) : DecSizedEnsemble (EpsState a) full \cowith
+            | size => {?}
+            | sizeProof => {?}
+            | decideEq => decideEq {EpsStateDec}
+
+          \instance EpsStateDec {a : NFAeps} : Identity.Decidable (EpsState a)
+            | Code => \case __, __ \with {
+              | startState, startState => \Sigma
+              | startState, originalState s => Empty
+              | originalState s, startState => Empty
+              | originalState s, originalState s1 => s = s1
+            }
+            | code-refl => \case \elim __ \with {
+              | startState => ()
+              | originalState s => idp
+            }
+            | code-decode {x} {y} c => \case \elim x, \elim y, \elim c \with {
+              | startState, startState, c => idp
+              | originalState s, originalState s1, p => pmap originalState p
+            }
+            | code-decide => \case \elim __, \elim __ \with {
+              | startState, startState => yes ()
+              | startState, originalState s => no id
+              | originalState s, startState => no id
+              | originalState s, originalState s1 => a.State.decideEq s s1
+            }
+        }
 
         \func nilInLanguage {A : Alphabet} {a : NFAeps { | Action => A }} : nil ∈ language (starEps a) => isLast idp
 

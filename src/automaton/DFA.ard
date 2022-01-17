@@ -4,44 +4,39 @@
 \import automaton.Language
 \import automaton.Regular
 \import sets.DecidableSet
+\import sets.MySet
 \import sets.finite.Sized
 
 \class DFA
   | Action : \Set
-  | State : \Set
+  | State : DecSizedEnsemble
   | delta : \Pi State Action -> State
   | start : State
-  | End : State -> \Prop
+  | End : Ensemble State
+  | isEnd : DecElementEnsemble State End
 
-\where {
+  \where {
+    \data accepts (d : DFA) (s : d.State) (u : Word d.Action) \elim u
+      | nil => isLast (d.End s)
+      | :: a tail => isStep (accepts d (d.delta s a) tail)
 
-  \class DecidableDFA \extends DFA
-    | isEnd : DecElementEnsemble State End
+    \func language (d : DFA) : Language d.Action => \lam u => accepts d d.start u
 
-  \data accepts (d : DFA) (s : d.State) (u : Word d.Action) \elim u
-    | nil => isLast (d.End s)
-    | :: a tail => isStep (accepts d (d.delta s a) tail)
-
-  \func language (d : DFA) : Language d.Action
-    => \lam u => accepts d d.start u
-
-  \func accepts? (d : DecidableDFA) (s : d.State) (u : Word d.Action) : Dec (accepts d s u) \elim u
-    | nil => \case d.isEnd.decElement s \with {
-      | yes e => yes (isLast e)
-      | no n => no (\case __ \with {
-        | isLast e => n e
-      })
-    }
-    | :: a l =>
-      \let next => delta s a
-      \in \case accepts? d next l \with {
-        | yes e => yes (isStep e)
+    \func accepts? (d : DFA) (s : d.State) (u : Word d.Action) : Dec (accepts d s u) \elim u
+      | nil => \case d.isEnd.decElement s \with {
+        | yes e => yes (isLast e)
         | no n => no (\case __ \with {
-          | isStep h => n h
+          | isLast e => n e
         })
       }
+      | :: a l =>
+        \let next => delta s a
+        \in \case accepts? d next l \with {
+          | yes e => yes (isStep e)
+          | no n => no (\case __ \with {
+            | isStep h => n h
+          })
+        }
 
-  \func language? (d : DecidableDFA) (u : Word d.Action) : Dec (language d u)
-    => accepts? d d.start u
-
-}
+    \func language? (d : DFA) (u : Word d.Action) : Dec (language d u) => accepts? d d.start u
+  }

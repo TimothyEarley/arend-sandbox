@@ -3,7 +3,7 @@
 \import sets.MySet
 \import sets.union
 
-\data RegularExpression (A : Alphabet)
+\data RegularExpression (A : Alphabet) : \Set
   | none
   | \coerce alpha A
   | plus \alias \infix 6 + (a b : RegularExpression A)
