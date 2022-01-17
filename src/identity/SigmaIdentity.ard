@@ -10,3 +10,7 @@
   | code-decode c => ext (code-decode c.1, code-decode c.2)
   | code-decide a b => decMap2 (Identity.code-decide a.1 b.1) (Identity.code-decide a.2 b.2) <->.refl <->.refl
 
+\instance SigmaDecSet : DecSet (\Sigma)
+  | decideEq => \case \elim __, \elim __ \with {
+    | (), () => yes idp
+  }

@@ -29,6 +29,12 @@
 
   \func singleDec {E : DecSet} {e : E} : DecElementEnsemble E (single e)
     => rewriteF (inv single.isAddToEmpty) $ emptyDec.addElement {E} e
+
+  \func boolSoDec : DecElementEnsemble Bool So \cowith
+    | decElement => \case \elim __ \with {
+      | false => no So.absurd
+      | true => yes so
+    }
 }
 
 \func BoolEnsemble (A : \Set) => A -> Bool

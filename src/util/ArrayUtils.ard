@@ -98,6 +98,23 @@
     }
 
   \func HasSome {A : \Type} {n : Nat} (v : Array A n) (P : A -> \Prop) : \Prop => ∃ (i : Fin n) (P (v i))
+  \where {
+    \func hasSome? {A : \Type} {n : Nat} (v : Array A n) {P : A -> \Prop} (d : \Pi (a : A) -> Dec (P a)) : Dec (HasSome v P)
+      \elim n, v
+        | 0, nil => no (\case __ \with {
+          | inP ((), _)
+        })
+        | suc n, :: a v => \case d a \with {
+          | yes e => yes (inP (0, e))
+          | no n1 => \case hasSome? v d \with {
+            | yes (inP (i, p)) => yes (inP (suc i, p))
+            | no n2 => no (\case __ \with {
+              | inP (0, p) => n1 p
+              | inP ((suc f,p)) => n2 (inP (f, p))
+            })
+          }
+        }
+  }
 
   \func toList {A : \Type} (a : Array A) : List A \elim a
     | nil => List.nil

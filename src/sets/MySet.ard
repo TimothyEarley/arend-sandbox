@@ -11,9 +11,11 @@
 \import Meta
 \import Misc
 \import sets.Add
+\import sets.DecidableSet
 \import sets.Elements
 \import sets.Complement
 \import sets.Intersect
+\import sets.finite.Sized
 \import sets.subset
 \import sets.union (union, ∪, ⋃)
 \import Logic
@@ -27,7 +29,9 @@
 \import Paths.Meta
 \import Set
 \import Util
+\import util.ArrayUtils
 \open LeipnizIsEqual (i)
+\open ArrayUtils (HasSome, contains)
 
 \func Ensemble (A : \Set) : \Set => A -> \Prop
 
@@ -48,6 +52,15 @@
 \func All {A : \Set} (S : Ensemble A) (P : Ensemble A) : \Prop => \Pi (s : Elements S) -> P s.1
 
 \func Any {A : \Set} (S : Ensemble A) (P : Ensemble A) : \Prop => ∃ (s : Elements S) (P s.1)
+  \where {
+    \func any? {A : \Set} (S : DecSizedEnsemble A) (P : DecElementEnsemble A) : Dec (Any S.S P) =>
+      \let elements => S.toArray' \in \case HasSome.hasSome? elements P.decElement \with {
+        | yes (inP (i, p)) => yes (inP (S.toArray i, p))
+        | no n => no (\lam (inP a) =>
+            \let (i, ih) => SizedEnsemble.toArray.complete {S} a.1
+            \in n (inP (i, rewrite ih a.2)))
+      }
+  }
 
 \func empty \alias ∅ {A : \Set} : Ensemble A => \lam _ => Empty
 

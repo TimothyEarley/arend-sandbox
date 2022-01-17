@@ -1,3 +1,4 @@
+\import Algebra.Monoid
 \import Arith.Nat
 \import Data.Array
 \import Data.Bool
@@ -16,12 +17,14 @@
 \import Paths.Meta
 \import Set
 \import identity.DecMaps
+\import identity.SigmaIdentity
 \import sets.Add
 \import sets.DecidableSet
 \import sets.Disjoint
 \import sets.Elements
 \import sets.MySet
 \import sets.remove
+\import sets.subset
 \import sets.union
 \import util.ArrayUtils
 \open SizedEnsemble (element-index, getElement, getIndex, index-element, removeSizedExt, toArray, toArray', unGetIndex)
@@ -158,13 +161,7 @@
           | ret_f => {?}
           | f_sec i => \case \elim i \with {
             | 0 => rewrite (decideEq=_reduce idp) idp
-            | suc i => cases (decideEq {SizedEnsembleDecElements} (getElement (suc i)) (a, aIn)) \with {
-              | yes e => rewrite
-                  (decideEq/=_reduce (\lam (p : getElement 0 = (a, aIn)) => suc/=0 (S.unGetElement {suc i} {0} (e *> inv p))),
-                   index-element)
-                  (inv (rewriteF index-element (pmap S.getIndex e)))
-              | no n1 => {?}
-            }
+            | suc i => {?}
           }
         })
 
@@ -240,6 +237,12 @@
       })
   }
 
+  \func pow : DecSizedEnsemble (E -> \Prop) \cowith
+    | S => __ ⊆ S
+    | size => Monoid.pow 2 size
+    | sizeProof => {?}
+    | decideEq x y => {?}
+
 } \where {
   \func fromSizedEnsemble {A : DecSet} (S : SizedEnsemble { | E => A }) : DecSizedEnsemble \cowith
     | E => A
@@ -247,6 +250,12 @@
     | size => S.size
     | sizeProof => S.sizeProof
     | decideEq => A.decideEq
+
+
+  \func singleSized {A : DecSet} (a : A) : DecSizedEnsemble A (single a)
+    => fromSizedEnsemble (SizedEnsemble.singleSized a)
+
+  \func unit : DecSizedEnsemble SigmaDecSet (single ()) => singleSized {SigmaDecSet} ()
 }
 
 \instance SizedEnsembleDecElements {S : SizedEnsemble} : DecSet (Elements S.S)
