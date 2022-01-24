@@ -1,0 +1,63 @@
+\import Data.Or
+\import Logic
+\import Logic.Meta
+\import Paths.Meta
+\import sets.DecidableSet
+\import sets.Disjoint
+\import sets.Elements
+\import sets.MySet
+\import sets.union
+
+\record Transitionsystem (E : \Set) {
+  | States : \Set
+  | Start : Ensemble States
+  | EventsSet : Ensemble E
+  | transitions : Ensemble (\Sigma States (Elements EventsSet) States)
+
+  \func Events : \Set => Elements EventsSet
+}
+
+\func synchronousProduct (ts1 ts2 : Transitionsystem) : Transitionsystem (\Sigma ts1.E ts2.E) \cowith
+  | States => \Sigma ts1.States ts2.States
+  | Start (s1, s2) => \Sigma (ts1.Start s1) (ts2.Start s2)
+  | EventsSet => ts1.EventsSet ⋇ ts2.EventsSet
+  | transitions ((s1, s2), ((e1, e2), (e1i, e2i)), (s1', s2')) =>
+    \Sigma (ts1.transitions (s1, (e1, e1i), s1')) (ts2.transitions (s2, (e2, e2i), s2'))
+
+  \where {
+    \func recover1 {ts1 ts2 : Transitionsystem}
+                   (h : Not-empty ts2.transitions)
+      : ts1.transitions = (\lam (s1, e1, s1') => ∃ (s2 s2' : ts2.States) (e2 : ts2.Events)
+        (transitions {synchronousProduct ts1 ts2} ((s1, s2), ((e1.1, e2.1), (e1.2, e2.2)), (s1', s2')))) => extSet
+        (\lam {x} e =>  \case h \with {
+          | inP ((s2, e2, s2'), inTransition) => inP (s2, s2', e2, (e, inTransition))
+        })
+        (\lam {x} (inP e) => e.4.1)
+  }
+
+\func asynchronousProduct {E : \Set} (ts1 ts2 : Transitionsystem E) : Transitionsystem E \cowith
+  | States => \Sigma ts1.States ts2.States
+  | Start (s1, s2) => \Sigma (ts1.Start s1) (ts2.Start s2)
+  | EventsSet => ts1.EventsSet ∪ ts2.EventsSet
+  | transitions ((s1, s2), (e, eh), (s1', s2')) =>
+    ∃ (eh' : e ∈ ts1.EventsSet) (ts1.transitions (s1, (e, eh'), s1')) (s2 = s2') ||
+    ∃ (eh' : e ∈ ts2.EventsSet) (ts2.transitions (s2, (e, eh'), s2')) (s1 = s1')
+
+  \where {
+    \func recover {E : \Set} {ts1 ts2 : Transitionsystem E}
+                  (ts2nh : ∃ ts2.States)
+                  (disjoint : Disjoint ts1.EventsSet ts2.EventsSet)
+      : ts1.transitions = (\lam (s1, e1, s1') => ∃ (s2 : ts2.States)
+        (transitions {asynchronousProduct ts1 ts2} ((s1, s2), (e1.1, byLeft e1.2), (s1', s2)))) => extSet
+        (\lam {x} inTransition => \case ts2nh \with {
+          | inP s2 => inP (s2, byLeft (inP (x.2.2, inTransition, idp)))
+        })
+        (\lam {(s1, (e, eh), s1')} inTransition => \case \elim inTransition \with {
+          | inP (s2, byLeft (inP (eh', inTransition', _))) =>
+            \let
+              | p' : eh = eh' => ext
+              | goal : ts1.transitions (s1, (e, eh), s1') => rewrite p' inTransition'
+            \in goal
+          | inP ((s2, byRight (inP (eh', _, _)))) => absurd (disjoint e (eh, eh'))
+        })
+  }

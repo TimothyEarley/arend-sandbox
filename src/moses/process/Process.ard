@@ -1,0 +1,32 @@
+\import Data.Array
+\import Data.Or
+\import Logic.Meta
+\import Order.PartialOrder
+\import sets.MySet
+\import util.ArrayUtils
+\import util.MappedPreOrder
+\open ArrayUtils (::-)
+
+\record Process
+  | E : \Set
+  | Tr : Traces E
+  | Tr-non-empty : ∃ (t : Trace E) (Tr t)
+  | Tr-closed-under-prefix : PrefixClosure Tr
+
+  \where {
+    \func Trace (E : \Set) : \Set => Or (Array E) (\Sigma (Array E) Terminating)
+      \where {
+        \func toArray {E : \Set} (t : Trace E) : Array (Or E Terminating) \elim t
+          | inl a => map inl a
+          | inr (l, terminating) => (map inl l) ::- inr terminating
+      }
+
+    \func Traces (E : \Set) : \Set => Ensemble (Trace E)
+
+    \instance TraceOrder {E : \Set} : Preorder (Trace E) => mappedPreOrder {ArrayOrder} Trace.toArray
+
+    \func PrefixClosure {E : \Set} (Tr : Traces E) : \Prop => \Pi (t t' : Trace E) (Tr t) (t' <= t) -> Tr t'
+  }
+
+\data Terminating
+  | terminating

@@ -1,0 +1,92 @@
+\import Algebra.Meta
+\import Data.Array
+\import Data.Maybe
+\import Data.Or
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Order.PartialOrder
+\import Paths
+\import Paths.Meta
+\import moses.process.Transitionsystem
+\import util.ArrayUtils
+\import util.Or
+\open ArrayUtils (::-)
+\open ArrayOrder (<=-prefix)
+\open ::- (heads=)
+
+\func Trace (TS : Transitionsystem) => Array (Or TS.States TS.Events)
+
+\data Traces (TS : Transitionsystem) (t : Trace TS) : \Set
+  | start (s : TS.States) (TS.Start s) (t = (inl s) :: nil)
+  | seq {s s' : TS.States} {e : TS.Events} (t' : Trace TS)
+        (Traces TS (t' ::- (inl s)))
+        (TS.transitions (s, e, s'))
+        (t = t' ::- (inl s) ::- (inr e) ::- (inl s'))
+
+  \where {
+    \func traceEndsWithEventStateOrIsOnlyState {TS : Transitionsystem} {tr : Trace TS}
+                                               (trT : Traces TS tr)
+      : Or (\Sigma (e : TS.Events) (s : TS.States) (tr' : Trace TS) (Traces TS tr') (tr = tr' ::- inr e ::- inl s))
+        (\Sigma (s : TS.States) (tr = inl s :: nil))
+    \elim trT
+      | start s s1 p => inr (s, p)
+      | seq {s} {s'} {e} t' trT t p => inl (e, s', t' ::- inl s, trT, p)
+
+    \func \infix 6 project {A B : \Type} (a : Array A) (f : A -> Maybe B) : Array B \elim a
+      | nil => nil
+      | :: a arr => \case f a \with {
+        | nothing => arr project f
+        | just b => b :: arr project f
+      }
+      \where {
+        \func split++ {A B : \Type} {l l' : Array A} {f : A -> Maybe B} : (l ++ l') project f = (l project f) ++ (l' project f)
+        \elim l
+          | nil => idp
+          | :: a arr => mcases \with {
+            | nothing => split++
+            | just b => pmap {Array B} (b :: __) split++
+          }
+      }
+
+    \func E-Trace (TS : Transitionsystem) => Array TS.Events
+
+    \func E-Traces (TS : Transitionsystem) (t : E-Trace TS) : \Prop =>
+      ∃ (t' : Trace TS) (Traces TS t') (t = t' project inr?)
+
+    \func E-TracesPrefixClosed {TS : Transitionsystem}
+                               (t t' : E-Trace TS)
+                               (h : E-Traces TS t)
+                               (h' : t' <= {ArrayOrder} t) : E-Traces TS t' =>
+      \let (t'', prefix) => <=-prefix h' \in helper t t' t'' h prefix
+      \where {
+        -- use prefix as recursion
+
+        \func helper {TS : Transitionsystem}
+                     (t t' t'' : E-Trace TS)
+                     (h : E-Traces TS t)
+                     (h' : t' ++ t'' = t) : E-Traces TS t' \elim t''
+          | nil => \let p : t' = t => rewriteF ++_nil h' \in transportInv (E-Traces TS) p h
+          | :: a arr => \case helper t (t' ::- a) arr h (::-.compose++ *> h') \with {
+            | inP (x, xTr, p) => \case traceEndsWithEventStateOrIsOnlyState xTr \with {
+              -- x is just a state, but that is impossible since it has at least one event, namely 'a'
+              | inr (_, x=s) => \let p' : t' ::- a = nil => rewriteF x=s p \in absurd (::-.notNil p')
+
+              -- proper case (idea: if we remove e and s we get y, use that)
+              | inl (e, s, y, yTr, x=) =>
+                \let p' : t' ::- a = (y project inr?) ::- e =>
+                       equation
+                           (t' ::- a) {p}
+                           (x project inr?) {pmap (__ project inr?) x=}
+                           ((y ::- inr e ::- inl s) project inr?) {rewrite (::-.to++, ::-.to++) idp}
+                           (((y ++ (inr e :: nil)) ++ (inl s :: nil)) project inr?) {rewrite (project.split++, project.split++) {?}}
+                           (((y project inr?) ++ (e :: nil)) ++ nil) {++_nil}
+                           ((y project inr?) ++ (e :: nil)) {inv ::-.to++}
+                           ((y project inr?) ::- e)
+                     | t'=yp => heads= p'
+
+                \in inP (y, yTr, t'=yp)
+            }
+          }
+      }
+  }
