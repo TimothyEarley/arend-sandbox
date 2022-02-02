@@ -1,0 +1,101 @@
+\import Arith.Nat
+\import Data.Array
+\import Data.Bool
+\import Function.Meta
+\import Logic
+\import Logic.Meta
+\import Meta
+\import NatLike
+\import Order.PartialOrder
+\import Paths
+\import Paths.Meta
+\import identity.NatIdentity
+\import moses.process.Process
+\import moses.process.ProcessExpression
+\import sets.Add
+\import sets.MySet
+\import sets.subset
+\import sets.union
+\import util.ArrayUtils
+\import util.Nat
+\open moses.process.ProcessExpression.traces (emptyTrace)
+\open ArrayUtils (tail)
+\open Process (Traces)
+
+\data RecProcessExpression (E : \Set)
+  | STOP
+  | SKIP
+  | BEFORE \alias \infix 6 --> (x : E) (P : RecProcessExpression E)
+  | OR \alias \infix 6 ⊓ (P Q : RecProcessExpression E)
+  -- TODO here we could use a new type thingy (to hide the fact the it is Traces)
+  | mu (Process.Traces E -> RecProcessExpression E)
+  | tra (Process.Traces E)
+
+\func traces {E : \Set} (P : RecProcessExpression E) : Process.Traces E \elim P
+  | STOP => single {Process.Trace E} (nil, false)
+  | SKIP => single {Process.Trace E} (nil, false) ∪ single {Process.Trace E} (nil, true)
+  | --> x P => (traces P) smap {_} {Process.Trace E} (\lam t => (x :: t.1, t.2)) ∪ emptyTrace
+  | ⊓ P Q => (traces P) ∪ (traces Q)
+  -- | mu P => \lam t => ∃ (X : Process.Traces E) (X = traces (P X)) (t ∈ traces (P X))
+  -- This is probably wrong, but I can't proof anything without weakening the equality to subset
+  | mu P => \lam t => ∃ (X : Process.Traces E) (X ⊆ traces (P X)) (t ∈ traces (P X))
+  | tra t => t
+
+\func clock : RecProcessExpression Tick => mu (\lam clock => tick --> tra clock)
+  \where {
+    \data Tick | tick
+
+    \func tickTracesSet : Process.Traces Tick => (\lam t => So (not t.2))
+
+    \func tickTracesSetN (n : Nat) : Process.Traces Tick => (\lam t => \Sigma (DArray.len {t.1} <= n) (So (not t.2)))
+
+    \lemma tickTraces : traces clock = tickTracesSet => extSet
+        tickTraces-1
+        tickTraces-2
+
+    \lemma tickTraces-1 {t : Process.Trace Tick} (h : t ∈ traces clock) : t ∈ tickTracesSet \elim t, h
+      | (nil, b), inP (X, p, byLeft (inP (a, p', e))) => using (pmap __.1 p') contradiction
+      | (:: tick rest, b), inP (X, p, byLeft (inP (a, p', e))) =>
+        \let q : a = (rest, b) => ext (inv $ pmap tail $ pmap __.1 p', inv $ pmap __.2 p')
+        \in tickTraces-1 {(rest, b)} (inP (X, p, p (rewriteF q e)))
+      | t, inP (X, p, byRight idp) => so
+
+    \lemma tickTraces-2 {t : Process.Trace Tick} (h : t ∈ tickTracesSet) : t ∈ traces clock =>
+      tickTraces-2-n (DArray.len {t.1}) (<=-reflexive, h)
+
+    \lemma tickTraces-2-n (n : Nat) {t : Process.Trace Tick} (h : t ∈ tickTracesSetN n) : t ∈ traces clock
+    \elim n, t, h
+      | n, (_, true), (_, ())
+      | 0, (:: _ _, _), (h, _) => absurd $ not<=0 h
+      | _, (nil, false), h => inP (∅, ⊆.∅-is-⊆, byRight idp)
+      | suc n, (:: tick rest, false), (p, so) => inP (tickTracesSetN n,
+                                                      helper {n},
+                                                      byLeft (inP ((rest, false), idp, (suc<=suc.conv p, so))))
+
+    \lemma helper {n : Nat} {t : Process.Trace Tick} (h : t ∈ tickTracesSetN n) : t ∈ traces (tick --> tra (tickTracesSetN n))
+      \elim n, t, h
+        | n, (_, true), (_, ())
+        | n, (nil, false), (p, so) => byRight idp
+        | 0, (:: _ _, _), (h, _) => absurd $ not<=0 h
+        | suc n, (:: tick rest, false), (p, so) =>
+          byLeft (inP ((rest, false), idp, (<=-transitive (suc<=suc.conv p) n<=sucn, so)))
+  }
+
+\func finiteMu : RecProcessExpression Hello => mu (\lam _ => hello --> SKIP)
+\where {
+  \data Hello | hello
+
+  \func traces= : traces finiteMu =
+    setOf {Process.Trace Hello} ((nil, false) :: (hello :: nil, false) :: (hello :: nil, true) :: nil)
+    => extSet
+        (\lam {x} e => \case \elim x, \elim e \with {
+          | _, inP (X, s, byRight idp) => inP (0, idp)
+          | _, inP (X, s, byLeft (inP (_, idp, byLeft idp))) => inP (1, idp)
+          | _, inP (X, s, byLeft (inP (_, idp, byRight idp))) => inP (2, idp)
+        })
+        (\lam {x} e => \case \elim e \with {
+          | inP (0, p) => rewriteI p (inP (∅, ⊆.∅-is-⊆, byRight idp))
+          | inP (1, p) => rewriteI p (inP (∅, ⊆.∅-is-⊆, byLeft (inP ((nil, false), idp, byLeft idp))))
+          | inP (2, p) => rewriteI p (inP (∅, ⊆.∅-is-⊆, byLeft (inP ((nil, true), idp, byRight idp))))
+        })
+}

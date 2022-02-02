@@ -15,6 +15,10 @@
     | inr ()
   }
 
+\func n<=sucn {n : Nat} : n <= suc n \elim n
+  | 0 => zero<=_
+  | suc n => suc<=suc n<=sucn
+
 \func minusTruncated \alias \infix 6 ∸ (x y : Nat) : Nat \elim x, y
   | x, 0 => x
   | 0, suc y => 0
