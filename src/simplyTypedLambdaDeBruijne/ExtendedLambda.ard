@@ -34,8 +34,7 @@
 
     | ListOf A => nil
     | ListOf A => cons (head : c ⊩ A) (tail : c ⊩ ListOf A)
-    -- TODO lists are a bit useless without recursion
-    | T => caseList {A : ExtendedType} (l : c ⊩ ListOf A) (elimNil : c ⊩ T) (elimCons : c ∕ A ∕ ListOf A ⊩ T)
+    | T => foldList {A : ExtendedType} (l : c ⊩ ListOf A) (elimNil : c ⊩ T) (elimCons : c ∕ A ∕ T ⊩ T)
 
     | T => let {A : ExtendedType} (x : c ⊩ A) (in : c ∕ A ⊩ T)
 
@@ -67,8 +66,8 @@
   | A, caseSum c a b => R-CaseSum' (ExtendedReduction c)
   | ListOf A, cons h t => R-Cons1 (ExtendedReduction h)
   | ListOf A, cons h t => R-Cons2 (ExtendedReduction t) (ExtendedValue h)
-  | A, caseList l h c => R-CaseList (ExtendedValue l)
-  | A, caseList l h c => R-CaseList' (ExtendedReduction l)
+  | A, foldList l h c => R-CaseList (ExtendedValue l)
+  | A, foldList l h c => R-CaseList' (ExtendedReduction l)
   | A, let x in => R-In (ExtendedValue x)
   | A, let x in => R-In' (ExtendedReduction x)
 
@@ -123,7 +122,7 @@
         | inl a => inl (R-CaseSum' a)
         | inr b => inl (R-CaseSum b)
       }
-      | T, caseList l elimNil elimCons => \case decide l \with {
+      | T, foldList l elimNil elimCons => \case decide l \with {
         | inl a => inl (R-CaseList' a)
         | inr b => inl (R-CaseList b)
       }
@@ -153,7 +152,7 @@
       | ⊎ A B, isLeft t => isLeft (rename h t)
       | ⊎ A B, isRight t => isRight (rename h t)
       | T, caseSum t elimA elimB => caseSum (rename h t) (rename (extend h) elimA) (rename (extend h) elimB)
-      | T, caseList l a b => caseList (rename h l) (rename h a) (rename (extend (extend h)) b)
+      | T, foldList l a b => foldList (rename h l) (rename h a) (rename (extend (extend h)) b)
       | T, let x in => let (rename h x) (rename (extend h) in)
       | Unit, unit => unit
       | ListOf A, nil => nil
@@ -179,7 +178,7 @@
       | ⊎ A B, isLeft t => isLeft (subst s t)
       | ⊎ A B, isRight t => isRight (subst s t)
       | T, caseSum t elimA elimB => caseSum (subst s t) (subst (extends s) elimA) (subst (extends s) elimB)
-      | T, caseList l elimNil elimCons => caseList (subst s l) (subst s elimNil) (subst (extends (extends s)) elimCons)
+      | T, foldList l elimNil elimCons => foldList (subst s l) (subst s elimNil) (subst (extends (extends s)) elimCons)
       | T, let x in => let (subst s x) (subst (extends s) in)
       | Unit, unit => unit
       | ListOf A, nil => nil
@@ -211,11 +210,11 @@
       | isRight b, V-Sum2 e1 => sub elimB b
     }
     | T, caseSum t elimA elimB, R-CaseSum' r => caseSum (extendedReduce r) elimA elimB
-    | T, caseList l elimNil elimCons, R-CaseList e => \case \elim l, e \with {
+    | T, foldList l elimNil elimCons, R-CaseList e => \case \elim l, e \with {
       | nil, V-Nil => elimNil
-      | cons head tail, V-Cons e1 e2 => sub2 elimCons head tail
+      | cons head tail, V-Cons e1 e2 => sub2 elimCons head (foldList tail elimNil elimCons)
     }
-    | T, caseList l elimNil elimCons, R-CaseList' r => caseList (extendedReduce r) elimNil elimCons
+    | T, foldList l elimNil elimCons, R-CaseList' r => foldList (extendedReduce r) elimNil elimCons
     | T, let x in, R-In e => sub in x
     | T, let x in, R-In' r => let (extendedReduce r) in
     | ListOf A, cons head tail, R-Cons1 r => cons (extendedReduce r) tail

@@ -1,29 +1,113 @@
+\import Algebra.Meta
+\import Function
+\import Meta
+\import Paths
 \import Paths.Meta
 \import simplyTypedLambdaDeBruijne.GeneralContext
 \import unitypedLambda.Lambda
+\import util.CantorPair
+
+\func UniSubst => Subst {_} {u⊢}
 
 \instance UniSubstOperaions : SubstOperations (u⊢)
   | rename => rename
   | subst => subst
   | s-var l => var l
   | extends => extends
-\where {
-  \func rename {gamma delta : UniContext} (h : Rename gamma delta) {A : UniType}
-               (t : gamma u⊢ A) : delta u⊢ A
+  \where {
+    \func rename {gamma delta : UniContext} (h : Rename gamma delta) {A : UniType}
+                 (t : gamma u⊢ A) : delta u⊢ A
     \elim t
       | var l => var (h l)
       | lam t => lam (rename (extend h) t)
       | ⋅ f arg => rename h f ⋅ rename h arg
 
-  \func extends {gamma delta : UniContext} (h : Subst {_} {u⊢} gamma delta) {B : UniType} : Subst {_} {u⊢} (gamma ∕ B) (delta ∕ B)
-    => \lam {A} l => \case l \with {
-      | Z p => var (Z p)
-      | S l => rename S (h l)
-    }
+    \func extends {gamma delta : UniContext} (h : UniSubst gamma delta) {B : UniType} : UniSubst (gamma ∕ B) (delta ∕ B) =>
+      \lam {A} l => \case l \with {
+        | Z p => var (Z p)
+        | S l => rename S (h l)
+      }
 
-  \func subst {gamma delta : UniContext} (s : Subst  {_} {u⊢} gamma delta) {A : UniType} (h : gamma u⊢ A) : delta u⊢ A
+    \func subst {gamma delta : UniContext} (s : UniSubst gamma delta) {A : UniType} (h : gamma u⊢ A) : delta u⊢ A
     \elim h
       | var l => s l
       | lam body => lam (subst (extends s) body)
       | ⋅ f arg => (subst s f) ⋅ (subst s arg)
+  }
+
+\module SubstitutionAlgebra \where {
+  \func ids {gamma : UniContext} : UniSubst gamma gamma => \lam {A} l => var l
+
+  \func shift {gamma : UniContext} {A : UniType} : UniSubst gamma (gamma ∕ A) => \lam {A1} l => var (S l)
+
+  \func cons \alias \infix 6 ⋅⋅ {gamma delta : UniContext} {A : UniType}
+                                (t :  delta u⊢ A) (s : UniSubst gamma delta) : UniSubst (gamma ∕ A) delta =>
+    \lam {A1} l => \case l \with {
+      | Z p => rewriteI p t
+      | S l1 => s l1
+    }
+
+  \func sequence \alias \infix 6 ++ {gamma delta epsilon : UniContext}
+                                    (s : UniSubst gamma delta) (s' : UniSubst delta epsilon) : UniSubst gamma epsilon =>
+    \lam {A} l => subst s' (s l)
 }
+
+\open SubstitutionAlgebra
+\open CantorPairing (h2)
+
+\func subst-commute
+  {gamma delta : UniContext} {t : gamma ∕ * u⊢ *} {t' : gamma u⊢ *} {s : Subst {UniType} {u⊢} gamma delta}
+  : sub (subst (extends s) t) (subst s t') = subst s (sub t t') => equation
+    (sub (subst (extends s) t) (subst s t'))
+    (subst (sub.extendsOne (subst s t')) (subst (extends s) t))
+    {cong-sub (\lam {A} => subst-Z-cons-ids) idp}
+    (subst (subst s t' ⋅⋅ ids) (subst (extends s) t))
+    {sub-sub}
+    (subst ((extends s) ++ (subst s t' ⋅⋅ ids)) t)
+    {{?}}
+    (subst s (sub t t'))
+  \where {
+    \func subst-Z-cons-ids {gamma : UniContext} {T T' : UniType}
+                           {t : gamma u⊢ T'} : sub.extendsOne t = (t ⋅⋅ ids) {T} =>
+      ext (\case \elim T', \elim t, \elim __ \with {
+        | head, t, Z idp => idp
+        | head, t, S p0 => idp
+      })
+
+    \func exts-seq {gamma delta epsilon : UniContext}
+                   {s1 : UniSubst gamma delta} {s2 : UniSubst delta epsilon}
+                   {A : UniType}
+      : (extends s1 ++ extends s2) {A} = extends (s1 ++ s2) {A} => ext (\case \elim __ \with {
+      | Z p => idp
+      | S x => equation
+          ((extends s1 ++ extends s2) (S x))
+          (subst (extends s2) (rename S (s1 x))) {{?}}
+          (extends (s1 ++ s2) (S x))
+    })
+
+    \func sub-sub {gamma delta epsilon : UniContext}
+                  {s1 : UniSubst gamma delta} {s2 : UniSubst delta epsilon}
+                  {T : UniType} {t : gamma u⊢ T}
+      : subst s2 (subst s1 t) = subst (s1 ++ s2) t \elim t
+      | var l => idp
+      | lam t => equation
+          (subst s2 (subst s1 (lam t)))
+          (lam (subst (extends s2) (subst (extends s1) t))) {pmap lam sub-sub}
+          (lam (subst (extends s1 ++ extends s2) t)) {pmap lam (cong-sub {?} idp)}
+          (subst (s1 ++ s2) (lam t))
+      | ⋅ t t1 => pmap2 (⋅) sub-sub sub-sub
+
+    \func cong-sub {gamma delta : UniContext} {s s' : UniSubst gamma delta}
+                   {T : UniType} {t t' : gamma u⊢ T}
+                   (h : \Pi {A : UniType} -> s = s' {A})
+                   (h2 : t = t')
+      : subst s t = subst s' t' \elim t, h2
+      | var l, idp => unfold (rewrite (h {T}) idp)
+      | lam t, idp => pmap lam (cong-sub (\lam {A} => path (\lam i (l : gamma ∕ * ∋ A) => \case \elim l \with {
+        | Z p => var (Z p)
+        | S l => rename S ((h @ i) l)
+      })) idp)
+      | ⋅ t t1, idp => pmap2 (⋅)
+          (cong-sub h idp)
+          (cong-sub h idp)
+  }

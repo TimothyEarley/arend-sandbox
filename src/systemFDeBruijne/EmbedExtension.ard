@@ -120,29 +120,39 @@
   | ExtendedType.ListOf A, ⊩.cons head tail => forAll
       (lam (lam
           (v0 ⋅ (embedExtended head (SkipEmbed (SkipEmbed (liftEmbedded h)))) ⋅
-          (((embedExtended tail (SkipEmbed (SkipEmbed (liftEmbedded h)))) ⋅⋅ (T0, pmap2 (-->) idp (pmap2 (-->) (pmap2 (-->) (inv embedType.substEmbed) idp) idp)))
-              ⋅ v1 ⋅ v0))
-             ))
-  | T, ⊩.caseList l elimNil elimCons => {?}
+              (((embedExtended tail (SkipEmbed (SkipEmbed (liftEmbedded h)))) ⋅⋅ (T0, pmap2 (-->) idp (pmap2 (-->) (pmap2 (-->) (inv embedType.substEmbed) idp) idp)))
+                  ⋅ v1 ⋅ v0))
+      ))
+  | T, ⊩.foldList {A} l elimNil elimCons =>
+    \let
+      | h' : IsEmbeddedContext (c GeneralContext.∕ A GeneralContext.∕ T) (tc {c' ∕ embedType A ∕ embedType T}) =>
+        unfold (ConsEmbed idp (ConsEmbed idp h))
+      | elimCons' : c' ⊢ (FType.subst (\lam {K'} => FType.sub.extendOne (embedType T)) (embedType A)) --> embedType T --> embedType T =>
+        rewrite embedType.substEmbed (lam (lam (embedExtended elimCons h')))
+    \in (embedExtended l h) ⋅⋅ (embedType T, idp) ⋅ (embedExtended elimNil h) ⋅ elimCons'
 
-\where {
-  -- Alternatively compute directly as f^nth
-  \func embedNat (n : Nat) {c : Context} : c ⊢ (embedType PNat) 
+
+  -- ForAllTy * (T0 --> (embedType A --> T0 --> T0) --> T0)
+
+  \where {
+    -- Alternatively compute directly as f^nth
+
+    \func embedNat (n : Nat) {c : Context} : c ⊢ (embedType PNat)
     \elim n
       | 0 => forAll (lam (lam v1))
       | suc n => succ_f ⋅ (embedNat n)
 
-  \where {
-    \func succ_f {c : Context} : c ⊢ (embedType PNat) --> (embedType PNat)
-      => lam (forAll (lam (lam (v0 ⋅ (v2 ⋅⋅ (T0, idp) ⋅ v1 ⋅ v0)))))
+      \where {
+        \func succ_f {c : Context} : c ⊢ (embedType PNat) --> (embedType PNat) =>
+          lam (forAll (lam (lam (v0 ⋅ (v2 ⋅⋅ (T0, idp) ⋅ v1 ⋅ v0)))))
+      }
+
+    -- computes a bit slowly
+
+    \func example : evalErased 3 (embedExtended {ENone} {Unit} (fst (pair unit unit)) EmptyEmbed) = (u_lam (u_var (EZ idp))) =>
+      idp
+
+    \func example2 : evalErased 6 (embedExtended {ENone} {Unit}
+        (snd (caseSum (isLeft unit) (pair unit (e_var (EZ idp))) (pair (e_var (EZ idp)) unit))) {∅} EmptyEmbed) = (u_lam (u_var (EZ idp))) =>
+      idp
   }
-
--- computes a bit slowly
-
-  \func example : evalErased 3 (embedExtended {ENone} {Unit} (fst (pair unit unit)) EmptyEmbed) = (u_lam (u_var (EZ idp)))
-    => idp
-
-  \func example2 : evalErased 6 (embedExtended {ENone} {Unit}
-      (snd (caseSum (isLeft unit) (pair unit (e_var (EZ idp))) (pair (e_var (EZ idp)) unit))) {∅} EmptyEmbed) = (u_lam (u_var (EZ idp)))
-    => idp
-}

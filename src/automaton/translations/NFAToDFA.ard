@@ -4,7 +4,7 @@
 \import Paths.Meta
 \import automaton.DFA
 \import automaton.Language
-\import automaton.NFA
+\import automaton.NFA \hiding (Action, End, State, delta, start)
 \import sets.Elements
 \import sets.MySet
 

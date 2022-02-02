@@ -35,7 +35,7 @@
 -- "Next we look at the union of Bishop-finite subobjects, and
 -- here decidable equality is both sufficient and necessary."
 
-\class SizedEnsemble \extends BaseEnsemble{
+\class SizedEnsemble \extends BaseEnsemble {
   | size : Nat
   | sizeProof : Elements S = Fin size
 
@@ -139,6 +139,23 @@
     | size => n
     | sizeProof => (pmap Elements (swapToFirst= aIn)) *> removeFirstSized.removedSizeProof {E} {n} {swapToFirst S aIn}
     \where {
+      \func sizedOneIsSingle {A : \Set} (S : SizedEnsemble A { | size => 1 }) : S.S = single {S.E} (S.getElement 0).1 =>
+        extSet
+            (\lam {x} e => cases (getIndex (x, e) arg addPath) \with {
+              | 0, p => inv $ pmap __.1 $ rewriteF element-index $ pmap S.getElement p
+            })
+            (\lam {x} e => \case \elim x, e \with {
+              | x, idp => (getElement 0).2
+            })
+
+      \lemma inSizedOne {A : \Set} {S : Ensemble A} (h : SizedEnsemble _ S 1) {a : A} (in : a ∈ S)
+        : S = single a
+        => extSet
+            (\lam {x} e => cases (h.getIndex (x, e) arg addPath, h.getIndex (a, in) arg addPath) \with {
+              | 0, p, 0, p' => pmap __.1 $ h.unGetIndex (p' *> (inv p))
+            })
+            (\lam {x} e => rewriteF e in)
+
       \func swapToFirst {A : \Set} {n : Nat} (S : SizedEnsemble A { | size => suc n }) {a : A} (aIn : a ∈ S) : SizedEnsemble A \cowith
         | S => S
         | size => S.size
@@ -190,15 +207,14 @@
   \func removeSized {a : E} (aIn : a ∈ S) : DecSizedEnsemble E (remove S a) =>
     fromSizedEnsemble {\this} (removeSizedExt (\new SizedEnsemble E S size sizeProof) aIn)
 
-  \func addSized' (a : E) : DecSizedEnsemble E (add S a)
-    => \case decElement a \with {
-      | yes e => \new DecSizedEnsemble {
-        | size => size
-        | sizeProof => rewrite (add.alreadyIn e) sizeProof
-        | decideEq => decideEq
-      }
-      | no n => addSized a n
+  \func addSized' (a : E) : DecSizedEnsemble E (add S a) => \case decElement a \with {
+    | yes e => \new DecSizedEnsemble {
+      | size => size
+      | sizeProof => rewrite (add.alreadyIn e) sizeProof
+      | decideEq => decideEq
     }
+    | no n => addSized a n
+  }
 
   \func addSized (a : E) (h : a ∉ S) : DecSizedEnsemble E (add S a) (suc size) \cowith
     | sizeProof => ext (\new QEquiv {
@@ -227,22 +243,21 @@
     | size => DArray.len {NoDup.remDup (toArray' ++ S'.toArray')}
     | sizeProof => unionProof
     | decideEq => decideEq
-  \where {
-    \func unionProof {S' : DecSizedEnsemble E} : Elements (S ∪ S') = Fin (DArray.len {NoDup.remDup (toArray' ++ S'.toArray')})
-      => ext (\new QEquiv {
-        | f e => {?}
-        | ret => {?}
-        | ret_f => {?}
-        | f_sec => {?}
-      })
-  }
+    \where {
+      \func unionProof {S' : DecSizedEnsemble E} : Elements (S ∪ S') = Fin (DArray.len {NoDup.remDup (toArray' ++ S'.toArray')}) =>
+        ext (\new QEquiv {
+          | f e => {?}
+          | ret => {?}
+          | ret_f => {?}
+          | f_sec => {?}
+        })
+    }
 
   \func pow : DecSizedEnsemble (E -> \Prop) \cowith
     | S => __ ⊆ S
     | size => Monoid.pow 2 size
     | sizeProof => {?}
     | decideEq x y => {?}
-
 } \where {
   \func fromSizedEnsemble {A : DecSet} (S : SizedEnsemble { | E => A }) : DecSizedEnsemble \cowith
     | E => A
@@ -251,9 +266,8 @@
     | sizeProof => S.sizeProof
     | decideEq => A.decideEq
 
-
-  \func singleSized {A : DecSet} (a : A) : DecSizedEnsemble A (single a)
-    => fromSizedEnsemble (SizedEnsemble.singleSized a)
+  \func singleSized {A : DecSet} (a : A) : DecSizedEnsemble A (single a) =>
+    fromSizedEnsemble (SizedEnsemble.singleSized a)
 
   \func unit : DecSizedEnsemble SigmaDecSet (single ()) => singleSized {SigmaDecSet} ()
 }

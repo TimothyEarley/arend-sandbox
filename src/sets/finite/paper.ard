@@ -162,57 +162,57 @@
     \func single/=empty {A : \Set} {a : A} (p : KSingle a = k∅) : Empty
       => transport (a ∈ __) p idp
 
-    \func extensionality {A : \Set} {x y : Kuratowski A} : (x = y) = (\Pi (a : A) -> (a ∈ x) = (a ∈ y)) =>
-      ext (transQEquiv lemma1 lemma2)
-      \where {
-        \func lemma1 {A : \Set} {x y : Kuratowski A} : QEquiv {x = y} {\Sigma (y k∪ x = x) (x k∪ y = y)} \cowith
-          | f p => rewrite p (union-idem, union-idem)
-          | ret (p, p') => (inv p) *> (path com) *> p'
-          | ret_f p => \case \elim x, \elim p \with {
-            | x, idp => {?}
-          }
-          | f_sec (p, p') => {?}
-
-        \func lemma2 {A : \Set} {x y : Kuratowski A} : QEquiv {\Sigma (y k∪ x = x) (x k∪ y = y)} {\Pi (a : A) -> (a ∈ x) = (a ∈ y)} \cowith
-          | f (p, p') a => lemma2-f p p'
-          | ret => {?}
-          | ret_f => {?}
-          | f_sec => {?}
-          \where {
-            \func lemma2-f {A : \Set} {a : A} {x y : Kuratowski A} (p : y k∪ x = x) (p' : x k∪ y = y) : a ∈ x = a ∈ y \elim x, y
-              | k∅, k∅ => idp
-              | k∅, KSingle a1 => using (single/=empty, (inv nr) *> p) contradiction
-              | k∅, k∪ x y => \let q => (inv nr) *> p \in ext (absurd,
-                                                               transport (a ∈ __) q)
-              | KSingle a1, k∅ => using (single/=empty, (inv nr) *> p') contradiction
-              | KSingle a1, KSingle a2 => ext (\lam m => transport (a ∈ __) p' (byLeft m),
-                                               \lam m => transport (a ∈ __) p  (byLeft m))
-              | KSingle a1, k∪ x y => ext (\lam m => transport (a ∈ __) p' (byLeft m),
-                                           \lam m => transport (a ∈ __) p (byLeft m))
-              | k∪ x x1, k∅ => \let q => (inv nr) *> p' \in ext (transport (a ∈ __) q,
-                                                           absurd)
-              | k∪ x x1, KSingle a1 => ext (\lam m => transport (a ∈ __) p' (byLeft m),
-                                            \lam m => transport (a ∈ __) p (byLeft m))
-              | k∪ x x1, k∪ x2 y => ext (\lam m => transport (a ∈ __) p' (byLeft m),
-                                         \lam m => transport (a ∈ __) p (byLeft m))
-          }
+--    \func extensionality {A : \Set} {x y : Kuratowski A} : (x = y) = (\Pi (a : A) -> (a ∈ x) = (a ∈ y)) =>
+--      ext (transQEquiv lemma1 lemma2)
+--      \where {
+--        \func lemma1 {A : \Set} {x y : Kuratowski A} : QEquiv {x = y} {\Sigma (y k∪ x = x) (x k∪ y = y)} \cowith
+--          | f p => rewrite p (union-idem, union-idem)
+--          | ret (p, p') => (inv p) *> (path com) *> p'
+--          | ret_f p => \case \elim x, \elim p \with {
+--            | x, idp => {?}
+--          }
+--          | f_sec (p, p') => {?}
+--
+--        \func lemma2 {A : \Set} {x y : Kuratowski A} : QEquiv {\Sigma (y k∪ x = x) (x k∪ y = y)} {\Pi (a : A) -> (a ∈ x) = (a ∈ y)} \cowith
+--          | f (p, p') a => lemma2-f p p'
+--          | ret => {?}
+--          | ret_f => {?}
+--          | f_sec => {?}
+--          \where {
+--            \func lemma2-f {A : \Set} {a : A} {x y : Kuratowski A} (p : y k∪ x = x) (p' : x k∪ y = y) : a ∈ x = a ∈ y \elim x, y
+--              | k∅, k∅ => idp
+--              | k∅, KSingle a1 => using (single/=empty, (inv nr) *> p) contradiction
+--              | k∅, k∪ x y => \let q => (inv nr) *> p \in ext (absurd,
+--                                                               transport (a ∈ __) q)
+--              | KSingle a1, k∅ => using (single/=empty, (inv nr) *> p') contradiction
+--              | KSingle a1, KSingle a2 => ext (\lam m => transport (a ∈ __) p' (byLeft m),
+--                                               \lam m => transport (a ∈ __) p  (byLeft m))
+--              | KSingle a1, k∪ x y => ext (\lam m => transport (a ∈ __) p' (byLeft m),
+--                                           \lam m => transport (a ∈ __) p (byLeft m))
+--              | k∪ x x1, k∅ => \let q => (inv nr) *> p' \in ext (transport (a ∈ __) q,
+--                                                           absurd)
+--              | k∪ x x1, KSingle a1 => ext (\lam m => transport (a ∈ __) p' (byLeft m),
+--                                            \lam m => transport (a ∈ __) p (byLeft m))
+--              | k∪ x x1, k∪ x2 y => ext (\lam m => transport (a ∈ __) p' (byLeft m),
+--                                         \lam m => transport (a ∈ __) p (byLeft m))
+--          }
       }
 
     \func Listable' (A : \Set) => \Sigma (S : Ensemble A) (Listable S)
 
-    \func same-as-listable {A : \Set} : Kuratowski A = Listable' A => ext (\new QEquiv {
-      | f => k2l
-      | ret => {?}
-      | ret_f => {?}
-      | f_sec => {?}
-    }) \where {
-      \func k2l {A : \Set} (K : Kuratowski A) : Listable' A \elim K
-        | k∅ => (∅, Listable.empty-listable)
-        | KSingle a => (single a, Listable.single-listable)
-        | k∪ x y => {?}
-        | nl i => {?}
-        | idem i => {?}
-        | assoc i => {?}
-        | com i => {?}
-    }
-  }
+--    \func same-as-listable {A : \Set} : Kuratowski A = Listable' A => ext (\new QEquiv {
+--      | f => k2l
+--      | ret => {?}
+--      | ret_f => {?}
+--      | f_sec => {?}
+--    }) \where {
+--      \func k2l {A : \Set} (K : Kuratowski A) : Listable' A \elim K
+--        | k∅ => (∅, Listable.empty-listable)
+--        | KSingle a => (single a, Listable.single-listable)
+--        | k∪ x y => {?}
+--        | nl i => {?}
+--        | idem i => {?}
+--        | assoc i => {?}
+--        | com i => {?}
+--    }
+--  }

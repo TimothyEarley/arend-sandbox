@@ -112,25 +112,6 @@
       \elim K
         | * => idp
         -- | ==> K1 K2 => idp
-
-
-    \func unAddKind {kc : KindContext}
-      {K K' K'' : Kind}
-      {T : FType kc K} {T' : FType kc K'}
-      (p : (K, addKind T {K''}) = {\Sigma (U : Kind) (FType (ConsKind kc K'') U)} (K', addKind T' {K''}))
-      : (K, T) = {\Sigma (U : Kind) (FType kc U)} (K', T')
-      \elim K, K', T, T', p
-        | *, *, VarTy l, VarTy l1, p => ext (idp, {?})
-        | *, *, --> A B, --> A1 B1, p => {?}
-        | *, *, ForAllTy k T, ForAllTy k1 T', p => {?}
-
-
-        | *, *, VarTy l, --> A B, p => {?}
-        | *, *, VarTy l, ForAllTy k T', p => {?}
-        | *, *, --> A B, VarTy l, p => {?}
-        | *, *, --> A B, ForAllTy k T', p => {?}
-        | *, *, ForAllTy k T, VarTy l, p => {?}
-        | *, *, ForAllTy k T, --> A B, p => {?}
   }
 
 }

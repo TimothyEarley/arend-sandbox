@@ -1,11 +1,15 @@
-\import Data.Array
-\import Data.Or
+\import Data.Bool
+\import Function.Meta
+\import Logic
 \import Logic.Meta
+\import Meta
 \import Order.PartialOrder
+\import Paths
+\import Paths.Meta
+\import Set \hiding (#)
 \import sets.MySet
 \import util.ArrayUtils
-\import util.MappedPreOrder
-\open ArrayUtils (::-)
+\open ArrayUtils (tail)
 
 \record Process
   | E : \Set
@@ -14,18 +18,70 @@
   | Tr-closed-under-prefix : PrefixClosure Tr
 
   \where {
-    \func Trace (E : \Set) : \Set => Or (Array E) (\Sigma (Array E) Terminating)
-      \where {
-        \func toArray {E : \Set} (t : Trace E) : Array (Or E Terminating) \elim t
-          | inl a => map inl a
-          | inr (l, terminating) => (map inl l) ::- inr terminating
-      }
+    \func Trace (E : \Set) : \Set => \Sigma (Array E) Bool -- Bool = Terminating
 
     \func Traces (E : \Set) : \Set => Ensemble (Trace E)
 
-    \instance TraceOrder {E : \Set} : Preorder (Trace E) => mappedPreOrder {ArrayOrder} Trace.toArray
+    -- \instance TraceOrder {E : \Set} : Preorder (Trace E) => mappedPreOrder {ArrayOrder} Trace.toArray
 
-    \func PrefixClosure {E : \Set} (Tr : Traces E) : \Prop => \Pi (t t' : Trace E) (Tr t) (t' <= t) -> Tr t'
+    \instance TraceOrder {E : \Set} : Poset (Trace E)
+      | <= t t' => \Sigma (t.1 ArrayOrder.<= t'.1) (\Pi (So t.2) -> (t = t'))
+      | <=-reflexive => (ArrayOrder.<=-reflexive, \lam _ => idp)
+      | <=-transitive h h' => (ArrayOrder.<=-transitive h.1 h'.1, \lam s => rewrite (h.2 s) (h'.2 (rewriteI (h.2 s) s)))
+      | <=-antisymmetric {x} {y} h h' => ext (ArrayOrder.<=-antisymmetric h.1 h'.1, \case \elim x, \elim y, h, h' \with {
+        | (_, true), (_, true), h, h' => idp
+        | (_, false), (_, false), h, h' => idp
+        | (_, false), (_, true), h, h' => using (pmap __.2 $ h'.2 so) contradiction
+        | (_, true), (_, false), h, h' => using (pmap __.2 $ h.2 so) contradiction
+      })
+      \where {
+        \func example : (1 :: 2 :: nil, false) TraceOrder.<= (1 :: 2 :: 3 :: nil, true) =>
+          (ArrayOrder.cons<=cons idp (ArrayOrder.cons<=cons idp ArrayOrder.nil<=_), \case __)
+
+        -- wrong
+
+        \func exmple2 : Not ( (nil, true) TraceOrder.<= (1 :: nil, true) ) => \lam h => \case pmap __.1 (h.2 so) \with {
+        }
+
+        \func example3 : (1 :: 2 :: nil, true) TraceOrder.<= (1 :: 2 :: nil, true) =>
+          (ArrayOrder.cons<=cons idp (ArrayOrder.cons<=cons idp ArrayOrder.nil<=_), \lam s => idp)
+      }
+
+    \data Partiality {E : \Set} (x y : Trace E)
+      | x<=y (x TraceOrder.<= y)
+      | y<=x (y TraceOrder.<= x)
+      | incomparable (Not (x TraceOrder.<= y)) (Not (y TraceOrder.<= x))
+
+    \func partiality {E : DecSet} (x y : Trace E) : Partiality x y
+      \elim x, y
+        | (nil, false), _ => x<=y (ArrayOrder.nil<=_, \case __)
+        | _, (nil, false) => y<=x (ArrayOrder.nil<=_, \case __)
+
+        | (nil, true), (:: _ _, b) => incomparable
+            (\lam (_, h) => using (pmap __.1 $ h so) contradiction)
+            (\lam (h, _) => \case h)
+
+        | (:: _ _, b), (nil,true) => incomparable
+            (\lam (h, _) => \case h)
+            (\lam (_, h) => using (pmap __.1 $ h so) contradiction)
+
+
+        | (nil, true), (nil,true) => x<=y TraceOrder.<=-reflexive -- actually =
+
+        | (:: a t, b), (:: a' t', b') => \case decideEq a a', partiality (t, b) (t', b') \with {
+          | yes e, x<=y less => x<=y (ArrayOrder.cons<=cons e less.1,
+                                      \lam s => \let s' => less.2 s \in ext (createArray= e (pmap __.1 s'), pmap __.2 s'))
+          | yes e, y<=x less => y<=x (ArrayOrder.cons<=cons (inv e) less.1,
+                                      \lam s => \let s' => less.2 s \in ext (createArray= (inv e) (pmap __.1 s'), pmap __.2 s'))
+          | no n, _ => incomparable
+              (\lam (ArrayOrder.cons<=cons p _, _) => n p)
+              (\lam (ArrayOrder.cons<=cons p _, _) => n (inv p))
+          | _, incomparable n n1 => incomparable
+              (\lam (ArrayOrder.cons<=cons _ h, h') => n (h, \lam s => \let q => h' s \in ext (pmap tail $ pmap __.1 q, pmap __.2 q)))
+              (\lam (ArrayOrder.cons<=cons _ h, h') => n1 (h, \lam s => \let q => h' s \in ext (pmap tail $ pmap __.1 q, pmap __.2 q)))
+        }
+
+    \func PrefixClosure {E : \Set} (Tr : Traces E) : \Prop => \Pi (t t' : Trace E) (Tr t) (t' TraceOrder.<= t) -> Tr t'
   }
 
 \data Terminating

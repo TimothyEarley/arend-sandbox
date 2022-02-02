@@ -1,9 +1,32 @@
+\import Data.Array
+\import Data.Bool
 \import Data.Or
+\import Function
+\import Function.Meta
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Order.LinearOrder
+\import Order.PartialOrder
 \import Paths
+\import Paths.Meta
+\import Set \hiding (#)
+\import identity.OrIdentity
 \import moses.process.Process
+\import moses.process.Trace
+\import sets.Add
+\import sets.Elements
 \import sets.MySet
 \import sets.finite.FiniteS
+\import sets.finite.Sized
+\import sets.remove
 \import sets.union
+\import util.ArrayUtils
+\open Process (TraceOrder, partiality)
+\open SizedEnsemble.removeSized' (inSizedOne, sizedOneIsSingle)
+\open traces (emptyTrace)
+\open ArrayUtils (headOr, tail)
+\open SizedEnsemble (removeFirstSized, sizeZeroIsEmpty)
 
 \data ProcessExpression (E : \Set)
   | STOP
@@ -18,13 +41,11 @@
   | ⊓ P Q => (traces P) ∪ (traces Q)
 
   \where {
-    \func emptyTrace {E : \Set} : Process.Traces E => single (inl nil)
+    \func emptyTrace {E : \Set} : Process.Traces E => single {Process.Trace E} (nil, false)
 
-    \func emptyTerminatingTrace {E : \Set} : Process.Traces E => single {Process.Trace E} (inr (nil, terminating))
+    \func emptyTerminatingTrace {E : \Set} : Process.Traces E => single {Process.Trace E} (nil, true)
 
-    \func addToStartOfTrace {E : \Set} (x : E) (t : Process.Trace E) : Process.Trace E \elim t
-      | inl a => inl (x :: a)
-      | inr (l, terminating) => inr (x :: l, terminating)
+    \func addToStartOfTrace {E : \Set} (x : E) (t : Process.Trace E) : Process.Trace E => (x :: t.1, t.2)
 
     \func tracesAreFinite {E : \Set} (P : ProcessExpression E) : FiniteS (traces P)
     \elim P
@@ -34,9 +55,60 @@
           (FiniteS.smap-finite (tracesAreFinite P))
           FiniteS.single-finite
       | ⊓ P Q => FiniteS.finite-union (tracesAreFinite P) (tracesAreFinite Q)
+
+    \func prefixClosed {E : \Set} (e : ProcessExpression E) : Process.PrefixClosure (traces e) \elim e
+      | STOP => emptyTracePrefixClosed
+      | SKIP => skipPrefixClosed E
+      | --> x e => beforePrefixClosed x e
+      | ⊓ P Q => \lam t t' in less => \case in \with {
+        | byLeft a => byLeft (prefixClosed P t t' a less)
+        | byRight b => byRight (prefixClosed Q t t' b less)
+      }
+
+    \func beforePrefixClosed {E : \Set} (x : E) (ex : ProcessExpression E) : Process.PrefixClosure {E} (traces (x --> ex)) =>
+      \lam t t' e h => \case \elim t, \elim t', \elim e, \elim h \with {
+        | t, (t', false), byRight idp, (<=nil, _) => rewrite (ArrayOrder.<=-nil <=nil) (byRight idp)
+        | t, (t', true), byRight idp, (<=nil, s) => using (pmap __.2 (s so)) contradiction
+        | (t, b), (t', b'), byLeft a, h => beforePrefixClosed-lemma {E} {x} {ex} {t} {t'} {b} {b'} a h.1 h.2
+      }
+
+    \func beforePrefixClosed-lemma {E : \Set} {x : E} {ex : ProcessExpression E}
+                                   {t t' : Array E} {b b' : Bool}
+                                   (h : (t, b) ∈ ((traces ex) smap (addToStartOfTrace x)))
+                                   (less1 : t' ArrayOrder.<= t) (s : So b' -> (t', b') = (t, b))
+      : (t', b') ∈ traces (x --> ex) \elim t, t', b, b', h, less1, s
+      | nil, t', b, b', inP (a, p, e), less1, s => using (pmap __.1 p) contradiction
+      | :: x' t, :: x'' t', b, b', inP (a, p, e), ArrayOrder.cons<=cons x''=x' less1, s =>
+        \let
+          | x'=x : x' = x => pmap (headOr x) $ pmap (__.1) p
+          | t=a : t = a.1 => pmap (tail) $ pmap (__.1) p
+          | b=a : b = a.2 => pmap __.2 p
+          | tb=a : (t, b) = {\Sigma (Array E) Bool} a => ext (t=a, b=a)
+          | rec => prefixClosed ex (t, b) (t', b') (rewrite tb=a e) (less1, \lam s1 => ext (pmap tail $ pmap __.1 (s s1), pmap __.2 (s s1)))
+        \in byLeft (inP ((t', b'), ext (rewrite (x''=x' *> x'=x) idp, idp), rec))
+
+      | :: x' t, nil, b, false, inP (a,p,e), _, s => byRight idp
+
+      | :: x' t, nil, b, true, h, less1, s => using (pmap __.1 (s so)) contradiction
+
+    \func skipPrefixClosed (E : \Set) : Process.PrefixClosure {E} (traces SKIP) =>
+      \lam t t' e h => \case \elim t, \elim t', \elim e, \elim h \with {
+        | t, (t', false), byLeft idp, (<=nil, s) => rewrite (ArrayOrder.<=-nil <=nil) (byLeft idp)
+        | t, (t', true), byLeft idp, (_, s) => using (pmap __.2 (s so)) contradiction
+        | t, (t', false), byRight idp, (<=nil, s) => rewrite (ArrayOrder.<=-nil <=nil) (byLeft idp)
+        | t, (t', true), byRight idp, (<=nil, s) => rewrite (ArrayOrder.<=-nil <=nil) (byRight idp)
+      }
+
+    \func emptyTracePrefixClosed {E : \Set} : Process.PrefixClosure (emptyTrace {E}) =>
+      \lam t t' e h => \case \elim t, \elim t', \elim e, \elim h \with {
+        | t, (t', false), idp, (h, _) => \case \elim t', h \with {
+          | nil, ArrayOrder.nil<=_ => idp
+        }
+        | t, (t', true), idp, (h, s) => using (pmap __.2 (s so)) contradiction
+      }
   }
 
-\func process-equiv \alias \infix 6 ≈ {E : \Set} (P Q : ProcessExpression E) : \Prop => traces P = traces Q
+\func Process-equiv \alias \infix 6 ≈ {E : \Set} (P Q : ProcessExpression E) : \Prop => traces P = traces Q
 
 \lemma example-equiv {E : \Set} (x : E) (P Q : ProcessExpression E) :
   ((x --> P) ⊓ (x --> Q)) ≈ (x --> (P ⊓ Q)) =>
@@ -47,10 +119,129 @@
     | C => traces.emptyTrace
   \in
     traces ((x --> P) ⊓ (x --> Q))          ==< idp >==
-        (traces (x --> P)) ∪ (traces (x --> Q)) ==< idp >==
-        (A ∪ C) ∪ (B ∪ C)                       ==< ∪.union-cross A C B C >==
-        (A ∪ B) ∪ (C ∪ C)                       ==< pmap ((A ∪ B) ∪ __) (∪.cancel C) >==
-        (A ∪ B) ∪ C                             ==< pmap (__ ∪ C) (inv (∪.union-smap (traces P) (traces Q) f)) >==
-        (((traces P) ∪ (traces Q)) smap f) ∪ C  ==< idp >==
-        ((traces (P ⊓ Q)) smap f) ∪ C           ==< idp >==
-        traces (x --> (P ⊓ Q))                  `qed
+    (traces (x --> P)) ∪ (traces (x --> Q)) ==< idp >==
+    (A ∪ C) ∪ (B ∪ C)                       ==< ∪.union-cross A C B C >==
+    (A ∪ B) ∪ (C ∪ C)                       ==< pmap ((A ∪ B) ∪ __) (∪.cancel C) >==
+    (A ∪ B) ∪ C                             ==< pmap (__ ∪ C) (inv (∪.union-smap (traces P) (traces Q) f)) >==
+    (((traces P) ∪ (traces Q)) smap f) ∪ C  ==< idp >==
+    ((traces (P ⊓ Q)) smap f) ∪ C           ==< idp >==
+    traces (x --> (P ⊓ Q))                  `qed
+
+\func process {E : \Set} (t : Process.Trace E) : \Sigma (e : ProcessExpression E) (traces e = (\lam t' => t' TraceOrder.<= t))
+\elim t
+  | (nil, false) => (STOP, ext (\lam t => ext (\lam p => rewrite p TraceOrder.<=-reflexive,
+                                               \case \elim t, __ \with {
+                                                 | (nil, false), (h, _) => idp
+                                                 | (:: a arr,false), ((), _)
+                                                 | (t, true), (h, s) => using (pmap __.2 (s so)) contradiction
+                                               })))
+
+  | (nil, true) => (SKIP, extSet
+      (\lam {x} e => \case \elim x, e \with {
+        | x, byLeft idp => (ArrayOrder.nil<=_, \case __)
+        | x, byRight idp => (ArrayOrder.nil<=_, \lam _ => idp)
+      })
+      (\lam {x} e => \case \elim x, e \with {
+        | (nil, false), (e, e') => byLeft idp
+        | (nil, true), (e, e') => byRight idp
+        | (:: a x, b), ((), e')
+      }))
+
+  | (:: a t, b) => \let rest => process (t, b) \in
+    (a --> rest.1,
+     extSet
+         (\lam {x} e => \case \elim x, \elim e \with {
+           | x, byLeft (inP (_, idp, e)) => \let e' => rewriteF rest.2 e \in (ArrayOrder.cons<=cons idp e'.1,
+                                                                              \lam s => rewrite (e'.2 s) idp)
+           | x, byRight idp => (ArrayOrder.nil<=_, \case __)
+         })
+         (\lam {x} e => \case \elim x, \elim e \with {
+           | (nil, false), (ArrayOrder.nil<=_, s) => byRight idp
+           | (nil, true), (ArrayOrder.nil<=_, s) => using (pmap __.1 $ s so) contradiction
+           | (:: _ t', b'), (ArrayOrder.cons<=cons p le, s) => rewrite (p, rest.2) $
+           (byLeft (inP ((t', b'), idp, (le, \lam s' => ext (pmap (\lam x => tail x.1) (s s'),
+                                                               pmap __.2 (s s'))))))
+         }))
+
+
+-- every finite process can be described by a process expression
+
+-- DecSet forced by maxPrefix
+\func finiteProcessByExpression {E : DecSet} (p : Process E) {n : Nat} (h : SizedEnsemble _ p.Tr n) : \Sigma (e : ProcessExpression p.E) (p.Tr = traces e)
+\elim p, n
+  | (t,ne,pre), 0 => absurd (\case \elim ne \with {
+    | inP a => rewriteF (sizeZeroIsEmpty {h} idp) a.2
+  })
+
+  | (t,ne,pre), 1 => (STOP,
+                        inSizedOne h (pre (h.getElement 0).1 (nil, false) (h.getElement 0).2 (ArrayOrder.nil<=_, \case __)))
+
+  | (t,ne,pre), suc (suc n) =>
+    \let
+      -- find the maximum
+      | (max, maxIn, maxProof) => maxPrefix t h
+      | (maxProcess, maxProcessProof) => process max
+      -- recurse without maximum
+      | removedSize : SizedEnsemble => SizedEnsemble.removeSized' h maxIn
+      | (rec, recProof) => finiteProcessByExpression (\new Process {
+        | E => E
+        | Tr => remove t max
+        | Tr-non-empty => inP $ removedSize.getElement 0
+        | Tr-closed-under-prefix =>
+          \lam u u' (uIn, u!=max) less => \let u'In => pre u u' uIn less
+                                          \in (u'In, \lam p => maxProof u uIn u!=max (rewriteF (inv p) less))
+      }) {suc n} removedSize
+
+      -- merge removed
+      | completeT => remove.addBack {_} {t} {max} maxIn SizedEnsembleDecElements
+    \in (maxProcess ⊓ rec, rewriteI (inv maxProcessProof, recProof) $
+    completeT *> (extSet
+        (\case \elim __ \with {
+          | byLeft xInRec => byRight xInRec
+          | byRight x=max => rewrite x=max $ byLeft TraceOrder.<=-reflexive
+        })
+        (\lam {x} e => \case \elim e \with {
+          | byLeft xLessMax => \let
+            | xInT => pre max x maxIn xLessMax
+                               \in \case decideEq {SizedEnsembleDecElements} (max, maxIn) (x, xInT) \with {
+              | yes x=max => byRight (pmap __.1 x=max)
+              | no x!=max => byLeft (xInT, \lam p => x!=max (ext p))
+            }
+          | byRight xInRec => byLeft xInRec
+        })))
+
+  \where {
+    -- DecSet forced by partiality
+    \func maxPrefix {E : DecSet} {n : Nat} (T : Process.Traces E)
+                    (h : SizedEnsemble _ T (suc n))
+      : \Sigma (max : Process.Trace E) (max ∈ T) (\Pi (t' : Process.Trace E) (t' ∈ T) (max /= t') -> Not (max TraceOrder.<= t'))
+    \elim n
+      | 0 => ((h.getElement 0).1, (h.getElement 0).2,
+              \lam t' t'In max/=t' _ => max/=t' (inv $ rewriteF (inSizedOne h t'In) (h.getElement 0).2))
+
+
+      | suc n =>
+        \let
+          | (max, maxIn, maxProof) => maxPrefix {_} {n} _ (removeFirstSized {_} {_} {h})
+          | (this, thisIn) => h.getElement 0
+          | totalT : T = add (remove T this) this => remove.addBack thisIn SizedEnsembleDecElements
+        \in \case partiality max this \with {
+          | Process.x<=y le => (this, thisIn, \lam t' t'In t'/=this le' => maxProof
+              t'
+              (t'In, t'/=this)
+              (\lam p => t'/=this (TraceOrder.<=-antisymmetric le' (rewriteF p le)))
+              (TraceOrder.<=-transitive le le'))
+
+          | Process.y<=x le => (max, maxIn.1, \lam t' t'In t'/=max le' => \case rewriteF totalT t'In \with {
+            | byLeft a => maxProof t' a t'/=max le'
+            | byRight b => t'/=max (TraceOrder.<=-antisymmetric le' (rewriteF b le))
+          })
+
+          | Process.incomparable n1 n2 =>
+            -- pick existing max
+            (max, maxIn.1, \lam t' t'In t'/=max le => \case rewriteF totalT t'In \with {
+              | byLeft a => maxProof t' a t'/=max le
+              | byRight b => n1 (rewrite b le)
+            })
+        }
+  }

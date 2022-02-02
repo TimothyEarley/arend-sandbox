@@ -20,4 +20,5 @@
     | inr b, inr b1, p => pmap inr p
   }
 
+\func uninl {A B : \Set} {x y : A} (p : inl x = {Or A B} inl y) : x = y => OrIdentity.code-encode p
 \func uninr {A B : \Set} {x y : B} (p : inr x = {Or A B} inr y) : x = y => OrIdentity.code-encode p

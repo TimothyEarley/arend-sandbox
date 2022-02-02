@@ -9,7 +9,7 @@
 \import Order.PartialOrder
 \import Paths
 \import Paths.Meta
-\import Set
+\import Set \hiding (#)
 \import Util
 \import lambda.Reduction
 \import logik.fol.FOL

@@ -1,6 +1,7 @@
 \import Logic
+\import Paths.Meta
 
-\func ||-comm {A B : \Type} : A || B = B || A => propExt ||-swap ||-swap
+\func ||-comm {A B : \Type} : A || B = B || A => path (iso ||-swap ||-swap (\lam _ => ext) (\lam _ => ext))
 
 \func ||-swap {A B : \Type} (h : A || B) : B || A \elim h
   | byLeft a => byRight a

@@ -1,8 +1,8 @@
 \import Data.List
 \import Paths.Meta
 \import automaton.DFA
-\import automaton.NFA
 \import automaton.Language
+\import automaton.NFA \hiding (Action, End, State, delta, start)
 
 \func dFAToNFA (d : DFA) : NFA \cowith
   | Action => d.Action

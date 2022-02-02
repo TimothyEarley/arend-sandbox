@@ -29,18 +29,18 @@
 
   \where {
 
-    \func addProp=sub {kc : KindContext} {propsForTypes : PropContext kc} {K K' : Kind} {T : FType kc K} {T' : FType (ConsKind kc K) K'}
-      : typeToProp (PropContext.addProp propsForTypes (typeToProp propsForTypes T)) T' = typeToProp propsForTypes (FType.sub T' T)
-      \elim K', T'
-        | *, --> A B => pmap2 (__ -> __) addProp=sub addProp=sub
-        | *, VarTy (ZK idp) => idp
-        | *, VarTy (SK l) => idp
-        | *, ForAllTy k T' =>
-    \let foo : \Pi (P : \Prop) -> typeToProp (PropContext.addProp (PropContext.addProp propsForTypes (typeToProp propsForTypes T)) P) T' =
-        typeToProp (PropContext.addProp propsForTypes P) (FType.subst (FType.extends (\lam {K'} => FType.sub.extendOne T)) T') =>
-      \lam P => {?}
-        \in ext (\lam t P => {?},
-                 \lam t P => {?})
+--    \func addProp=sub {kc : KindContext} {propsForTypes : PropContext kc} {K K' : Kind} {T : FType kc K} {T' : FType (ConsKind kc K) K'}
+--      : typeToProp (PropContext.addProp propsForTypes (typeToProp propsForTypes T)) T' = typeToProp propsForTypes (FType.sub T' T)
+--      \elim K', T'
+--        | *, --> A B => pmap2 (__ -> __) addProp=sub addProp=sub
+--        | *, VarTy (ZK idp) => idp
+--        | *, VarTy (SK l) => idp
+--        | *, ForAllTy k T' =>
+--    \let foo : \Pi (P : \Prop) -> typeToProp (PropContext.addProp (PropContext.addProp propsForTypes (typeToProp propsForTypes T)) P) T' =
+--        typeToProp (PropContext.addProp propsForTypes P) (FType.subst (FType.extends (\lam {K'} => FType.sub.extendOne T)) T') =>
+--      \lam P => {?}
+--        \in ext (\lam t P => {?},
+--                 \lam t P => {?})
 
   }
 
@@ -56,48 +56,48 @@
       | (kc, NoneType), S ()
       | (kc,ConsType c f), S l => proofsForVars l
 
-    \func lookupRemoveKind
-      {kc : KindContext} {tc : TypeContext kc} {K K' : Kind} {T : FType kc K}
-      (l : Lookup'  (liftTypes tc {K'}) (FType.addKind T))  : Lookup' tc T
-    \elim tc, l
-      | ConsType c f, Z p => Z (FType.addKind.unAddKind p)
-      | ConsType c f, S l => S (lookupRemoveKind l)
+--    \func lookupRemoveKind
+--      {kc : KindContext} {tc : TypeContext kc} {K K' : Kind} {T : FType kc K}
+--      (l : Lookup'  (liftTypes tc {K'}) (FType.addKind T))  : Lookup' tc T
+--    \elim tc, l
+--      | ConsType c f, Z p => Z (FType.addKind.unAddKind p)
+--      | ConsType c f, S l => S (lookupRemoveKind l)
 
-    \func addProp {kc : KindContext} {tc : TypeContext kc} {propsForTypes : PropContext kc}
-                  (proofsForVars : ProofContext {constructor kc tc} propsForTypes)
-                  {P : \Prop} {K : Kind}
-      : ProofContext {constructor (ConsKind kc K) (liftTypes tc)} (PropContext.addProp propsForTypes {K} P)
-      => \lam {K1} {T} l => {?}
+--    \func addProp {kc : KindContext} {tc : TypeContext kc} {propsForTypes : PropContext kc}
+--                  (proofsForVars : ProofContext {constructor kc tc} propsForTypes)
+--                  {P : \Prop} {K : Kind}
+--      : ProofContext {constructor (ConsKind kc K) (liftTypes tc)} (PropContext.addProp propsForTypes {K} P)
+--      => \lam {K1} {T} l => {?}
 
     \func empty : ProofContext {∅} PropContext.empty => \lam {K} {T} l => \case l
   }
 
 -- TODO we nead WHNF somewhere, maybe
 
-\func fulfillsProp {c : Context}
-                   (propsForTypes : PropContext c.kc)
-                   (proofsForVars : ProofContext propsForTypes)
-                   {K : Kind} {T : FType c.kc K} (t : c ⊢ T) : typeToProp propsForTypes T
-\elim K, T, t
-  | K, T, var l => proofsForVars l
-  | *, --> A B, lam t => \lam proofA => fulfillsProp propsForTypes (ProofContext.addProof proofsForVars proofA) t
-  | *, T, ⋅ t1 t2 => (fulfillsProp propsForTypes proofsForVars t1) (fulfillsProp propsForTypes proofsForVars t2)
-
-  | *, ForAllTy k T, forAll t => \lam P => fulfillsProp (PropContext.addProp propsForTypes P) (ProofContext.addProp proofsForVars) t
-
-  | *, T, ⋅⋅ {_} {T'} f (arg, idp) =>
-    \let
-      | prem : \Pi (P : \Prop) -> typeToProp (PropContext.addProp propsForTypes P) T' => fulfillsProp propsForTypes proofsForVars f
-      | target => typeToProp propsForTypes arg
-      | have : typeToProp (PropContext.addProp propsForTypes target) T' => prem target
-      | goal : typeToProp propsForTypes (FType.sub T' arg) => rewriteI typeToProp.addProp=sub have
-    \in goal
-
-  \where {
-    \func proofSentence {K : Kind} (T : FType NoneKind K) (t : ∅ ⊢ T) : typeToProp PropContext.empty T =>
-      fulfillsProp PropContext.empty ProofContext.empty t
-
-    \func example : \Pi (P : \Prop) -> P -> P => proofSentence
-        (ForAllTy * ((VarTy (ZK idp)) --> (VarTy (ZK idp))))
-        (forAll (lam (var (Z idp))))
-  }
+--\func fulfillsProp {c : Context}
+--                   (propsForTypes : PropContext c.kc)
+--                   (proofsForVars : ProofContext propsForTypes)
+--                   {K : Kind} {T : FType c.kc K} (t : c ⊢ T) : typeToProp propsForTypes T
+--\elim K, T, t
+--  | K, T, var l => proofsForVars l
+--  | *, --> A B, lam t => \lam proofA => fulfillsProp propsForTypes (ProofContext.addProof proofsForVars proofA) t
+--  | *, T, ⋅ t1 t2 => (fulfillsProp propsForTypes proofsForVars t1) (fulfillsProp propsForTypes proofsForVars t2)
+--
+--  | *, ForAllTy k T, forAll t => \lam P => fulfillsProp (PropContext.addProp propsForTypes P) (ProofContext.addProp proofsForVars) t
+--
+--  | *, T, ⋅⋅ {_} {T'} f (arg, idp) =>
+--    \let
+--      | prem : \Pi (P : \Prop) -> typeToProp (PropContext.addProp propsForTypes P) T' => fulfillsProp propsForTypes proofsForVars f
+--      | target => typeToProp propsForTypes arg
+--      | have : typeToProp (PropContext.addProp propsForTypes target) T' => prem target
+--      | goal : typeToProp propsForTypes (FType.sub T' arg) => rewriteI typeToProp.addProp=sub have
+--    \in goal
+--
+--  \where {
+--    \func proofSentence {K : Kind} (T : FType NoneKind K) (t : ∅ ⊢ T) : typeToProp PropContext.empty T =>
+--      fulfillsProp PropContext.empty ProofContext.empty t
+--
+--    \func example : \Pi (P : \Prop) -> P -> P => proofSentence
+--        (ForAllTy * ((VarTy (ZK idp)) --> (VarTy (ZK idp))))
+--        (forAll (lam (var (Z idp))))
+--  }

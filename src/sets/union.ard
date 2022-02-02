@@ -13,6 +13,7 @@
 \import sets.MySet
 \import sets.Complement
 \import sets.Intersect
+\import sets.subset
 \import sets.union
 \import util.TruncOrUtils
 
@@ -89,6 +90,15 @@
           | byLeft (inP xUS) => inP (xUS.1, byLeft xUS.2, xUS.3)
           | byRight xS' => inP (S', byRight idp, xS')
         })
+
+  \func componentwiseSubset {A : \Set} {S S' : Ensemble (Ensemble A)}
+    (h : \Pi (s : Elements S) -> ∃ (s' : Elements S') (s.1 ⊆ s'.1))
+    : ⋃ S ⊆ ⋃ S'
+    => \case \elim __ \with {
+      | inP (Sub, SubIn, xSub) => \case h (Sub, SubIn) \with {
+        | inP ((Sub', Sub'In), subset) => inP (Sub', Sub'In, subset xSub)
+      }
+    }
 }
 
 \func disjointUnion \alias \infix 6 ⊎ {A : \Set} (S S' : Ensemble A) : Ensemble (\Sigma Bool A)

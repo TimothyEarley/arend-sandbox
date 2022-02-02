@@ -68,6 +68,7 @@
        | rIfF semB (rsk p) => rWhF semB p
      })
 
+-- x0 := 0 ; x0 := (x0 + 1) ~ x := 0 ; while (x0 <= 0) { x0 := x0 + 1 }
 \func homework6 :
     (seq (assign zero (aNum 0)) (assign zero (aPlus (aVar zero) (aNum 1)))) ~
     (seq (assign zero (aNum 0)) (while (bLeq (aVar zero) (aNum 0)) (assign zero (aPlus (aVar zero) (aNum 1))))) =>
@@ -104,8 +105,15 @@
     (seq (assign zero (aNum 0)) (assign zero (aPlus (aVar zero) (aNum 1))))
     (seq (assign zero (aNum 0)) (while (bLeq (aVar zero) (aNum 0)) (assign zero (aPlus (aVar zero) (aNum 1))))) =>
   sameResultIsEquiv (\lam s =>
-      \let s' => replace s (zero, 1) | s'' => replace s (zero, 0)
-      \in
-        (s',
-         rSeq s'' (r:= _ (rNum idp) idp) (r:= 1 (rPlus 0 {?} 1 (rNum idp) idp) (inv replace.overrride)),
-         rSeq s'' (r:= _ (rNum idp) idp) (rWhT (rLeqT {?} {?} {?} {?} {?} {?}) {?} {?} {?})))
+      (s replace (zero, 1),
+
+       rSeq (s replace (zero, 0))
+           (r:= 0 (rNum idp) idp)
+           (r:= 1 (rPlus 0 (rVar (inv (replace.get {s}))) 1 (rNum idp) idp) (inv replace.overrride)),
+
+       rSeq (s replace (zero, 0))
+           (r:= 0 (rNum idp) idp)
+           (rWhT (rLeqT 0 (rVar (inv (replace.get {s}))) 0 (rNum idp) (<=-reflexive) idp)
+               (s replace (zero, 1))
+               (r:= 1 (rPlus 0 (rVar (inv (replace.get {s}))) 1 (rNum idp) idp) (inv replace.overrride))
+               (rWhF (rLeqF 1 (rVar (inv $ replace.get {s} {zero})) 0 (rNum idp) (\lam h => contradiction) idp) idp))))

@@ -87,6 +87,8 @@
   \where {
     \lemma extract {A : \Set} {a a' : A} (h : single a = single a') : a = a' => transportInv ((∈) a') h idp
 
+    \lemma single=single {A : \Set} {a a' : A} (p : a = a') : single a = single a' => rewrite p idp
+
     -- x ∈ S, S ∈ {{c}} => c = x
 
     \lemma tele {A : \Set} {x c : A} {S : Ensemble A} (hx : x ∈ S) (h : S ∈ (single (single c))) : c = x =>

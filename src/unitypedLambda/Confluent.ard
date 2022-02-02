@@ -1,4 +1,6 @@
+\import Algebra.Meta
 \import DualNumbers
+\import Function.Meta
 \import Meta
 \import Paths
 \import Paths.Meta
@@ -8,72 +10,72 @@
 \import unitypedLambda.Lambda
 \import unitypedLambda.Reduction
 \import unitypedLambda.Substitute
-\open > (ParSubst, par-rename)
+\open > (ParSubst, par-extends, par-rename)
 
 \data ParReduction \alias \infix 5 > {gamma : UniContext} {T : UniType} (t result : gamma u⊢ T) \elim T, t
   | T, var l \as t => P-Var (result = t)
   | T, lam t => P-Lam {t'' : gamma ∕ * u⊢ *} (t > t'') (result = lam t'')
   | T, ⋅ t s => P-Apps {t' s' : gamma u⊢ *} (t > t') (s > s') (result = t' ⋅ s')
   | *, ⋅ (lam b) s => P-Subs {b' : gamma ∕ * u⊢ *} (b > b') {s' : gamma u⊢ *} (s > s') (result = sub b' s')
-\where {
-  \func refl  {gamma : UniContext} {T : UniType} {t : gamma u⊢ T} : t > t \elim T, t
-    | *, var l => P-Var idp
-    | *, lam t => P-Lam refl idp
-    | *, ⋅ t t1 => P-Apps refl refl idp
+  \where {
+    \func refl  {gamma : UniContext} {T : UniType} {t : gamma u⊢ T} : t > t \elim T, t
+      | *, var l => P-Var idp
+      | *, lam t => P-Lam refl idp
+      | *, ⋅ t t1 => P-Apps refl refl idp
 
-  \func ParSubst {gamma delta : UniContext} (s s' : Subst {UniType} {u⊢} gamma delta) : \Type
-    => \Pi {A : UniType} {l : gamma ∋ A} -> s l > s' l
+    \func ParSubst {gamma delta : UniContext} (s s' : Subst {UniType} {u⊢} gamma delta) : \Type =>
+      \Pi {A : UniType} {l : gamma ∋ A} -> s l > s' l
 
+    \func rename-sub-commute {gamma delta : UniContext} {re : Rename gamma delta} {T : UniType}
+                             {t : gamma ∕ * u⊢ T} {t' : gamma u⊢ *}
+      : rename re (sub t t') = sub (rename (extend re) t) (rename re t') => {?}
 
-  \func rename-sub-commute {gamma delta : UniContext} {re : Rename gamma delta} {T : UniType}
-                           {t : gamma ∕ * u⊢ T} {t' : gamma u⊢ *}
-    : rename re (sub t t') = sub (rename (extend re) t) (rename re t')
-    => {?}
-
-  \func par-rename
-    {gamma delta : UniContext} {re : Rename gamma delta} {T : UniType}
-    {t t' : gamma u⊢ T} (h : t > t')
-    : rename re t > rename re t'
+    \func par-rename
+      {gamma delta : UniContext} {re : Rename gamma delta} {T : UniType}
+      {t t' : gamma u⊢ T} (h : t > t')
+      : rename re t > rename re t'
     \elim T, t, h
       | T, var l, P-Var idp => P-Var idp
       | T, lam t, P-Lam h idp => P-Lam (par-rename h) idp
       | T, ⋅ t t1, P-Apps h1 h2 idp => P-Apps (par-rename h1) (par-rename h2) idp
-      | *, ⋅ (lam t) t1, P-Subs h1 h2 idp => P-Subs (par-rename h1) (par-rename h2) {?}
+      | *, ⋅ (lam t) t1, P-Subs h1 h2 idp => rewrite rename-sub-commute
+          (P-Subs (par-rename {_} {_} {extend re} h1) (par-rename {_} {_} {re} h2) idp)
 
-  \func par-extends
-    {gamma delta : UniContext} {s s' : Subst {UniType} {u⊢} gamma delta}
-    (ps : ParSubst s s') {T : UniType}
-    : ParSubst (extends s {T}) (extends s' {T}) => \lam {A} {l} => \case \elim l \with {
-    | Z p => P-Var idp
-    | S l => par-rename ps
-  }
-
-  \func par-subst {gamma delta : UniContext} {T : UniType} {s s' : Subst {UniType} {u⊢} gamma delta}
-                  {t t' : gamma u⊢ T} (ps : ParSubst s s') (h : t > t') : subst s t > subst s' t'
-    \elim T, t, h
-      | T, var l, P-Var idp => ps
-      | T, lam t, P-Lam h idp => P-Lam (par-subst (par-extends ps) h) idp
-      | T, ⋅ t t1, P-Apps h1 h2 idp => P-Apps (par-subst ps h1) (par-subst ps h2) idp
-      | *, ⋅ (lam t) t1, P-Subs h1 h2 idp => P-Subs (par-subst (\lam {A} {l} => par-extends ps) h1) (par-subst ps h2)
-          {?} -- commutative lemma
-
-  \func parSubst-extendsOne
-    {gamma : UniContext} {s s' : gamma u⊢ *} (h : s > s')
-    : ParSubst (sub.extendsOne s) (sub.extendsOne s') =>
-    \lam {A} {l} => \case \elim A, \elim l \with {
-      | _, Z idp => h
-      | _, S l1 => P-Var idp
+    \func par-extends
+      {gamma delta : UniContext} {s s' : Subst {UniType} {u⊢} gamma delta}
+      (ps : ParSubst s s') {T : UniType}
+      : ParSubst (extends s {T}) (extends s' {T}) => \lam {A} {l} => \case \elim l \with {
+      | Z p => P-Var idp
+      | S l => par-rename ps
     }
 
-  \func par-sub {gamma : UniContext} {T : UniType}
-                {b b' : gamma ∕ * u⊢ T}
-                {s s' : gamma u⊢ *}
-                (h : b > b') (h2 : s > s')
-    : sub b s > sub b' s' => par-subst( parSubst-extendsOne h2) h
+    \func subst-par {gamma delta : UniContext} {T : UniType} {s s' : Subst {UniType} {u⊢} gamma delta}
+                    {t t' : gamma u⊢ T} (ps : ParSubst s s') (h : t > t') : subst s t > subst s' t'
+    \elim T, t, h
+      | T, var l, P-Var idp => ps
+      | T, lam t, P-Lam h idp => P-Lam (subst-par (par-extends ps) h) idp
+      | T, ⋅ t t1, P-Apps h1 h2 idp => P-Apps (subst-par ps h1) (subst-par ps h2) idp
+      | *, ⋅ (lam t) t1, P-Subs h1 h2 idp =>
+        \let G => P-Subs
+            (subst-par {_} {_} {_} {extends s} (\lam {A} {l} => par-extends ps) h1)
+            (subst-par ps h2)
+            idp
+        \in rewriteI subst-commute G
 
+    \func parSubst-extendsOne
+      {gamma : UniContext} {s s' : gamma u⊢ *} (h : s > s')
+      : ParSubst (sub.extendsOne s) (sub.extendsOne s') =>
+      \lam {A} {l} => \case \elim A, \elim l \with {
+        | _, Z idp => h
+        | _, S l1 => P-Var idp
+      }
 
-}
-
+    \func sub-par {gamma : UniContext} {T : UniType}
+                  {b b' : gamma ∕ * u⊢ T}
+                  {s s' : gamma u⊢ *}
+                  (h : b > b') (h2 : s > s')
+      : sub b s > sub b' s' => subst-par( parSubst-extendsOne h2) h
+  }
 
 \func \infix 5 >* {gamma : UniContext} {T : UniType} (t t' : gamma u⊢ T) => Star (>) t t'
 
@@ -106,7 +108,7 @@ t'
   | *, ⋅ (var l) t1, P-Apps h1 h2 idp => P-Apps (triangle h1) (triangle h2) idp
   | *, ⋅ (⋅ t t2) t1, P-Apps h1 h2 idp => P-Apps (triangle h1) (triangle h2) idp
   | *, ⋅ (lam t) t1, P-Apps (P-Lam h1 idp) h2 idp => P-Subs (triangle h1) (triangle h2) idp
-  | *, ⋅ (lam t) t1, P-Subs h1 h2 idp => >.par-sub (triangle h1) (triangle h2)
+  | *, ⋅ (lam t) t1, P-Subs h1 h2 idp => >.sub-par (triangle h1) (triangle h2)
 
 {-
     s
@@ -185,27 +187,26 @@ t1      t2
                            \in (u', t1>*u', t2>u ~> u>*u')
 
 \func ->2> {gamma : UniContext} {T : UniType} {x y : gamma u⊢ T} (h : x ->1_u y) : x > y
-  \elim T, x, h
-    | T, var l, ((),_)
-    | T, lam x, (R-Lam r, idp) => P-Lam (->2> (r, idp)) reduce.reduceLam
-    | T, ⋅ x x1, (R-App1 r,idp) => P-Apps (->2> (r, idp)) >.refl reduce.reduceApp1
-    | T, ⋅ x x1, (R-App2 r,idp) => P-Apps  >.refl (->2> (r, idp)) reduce.reduceApp2
-    | *, ⋅ (lam x) x1, (R-Beta,idp) => P-Subs >.refl >.refl idp
+\elim T, x, h
+  | T, var l, ((),_)
+  | T, lam x, (R-Lam r, idp) => P-Lam (->2> (r, idp)) reduce.reduceLam
+  | T, ⋅ x x1, (R-App1 r,idp) => P-Apps (->2> (r, idp)) >.refl reduce.reduceApp1
+  | T, ⋅ x x1, (R-App2 r,idp) => P-Apps  >.refl (->2> (r, idp)) reduce.reduceApp2
+  | *, ⋅ (lam x) x1, (R-Beta,idp) => P-Subs >.refl >.refl idp
 
-\func ->*2>* {gamma : UniContext} {T : UniType} {t t' : gamma u⊢ T} (h : t ->*_u t') : t >* t'
-  => Star.embedSingle h ->2>
+\func ->*2>* {gamma : UniContext} {T : UniType} {t t' : gamma u⊢ T} (h : t ->*_u t') : t >* t' =>
+  Star.embedSingle h ->2>
 
 \func >2->* {gamma : UniContext} {T : UniType} {x y : gamma u⊢ T} (h : x > y) : x ->*_u y
-  \elim T, x, h
-    | T, var l, P-Var idp => refl idp
-    | T, lam x, P-Lam h idp => ->*_u.underLam (>2->* h)
-    | T, ⋅ x x1, P-Apps h1 h2 idp => ->*_u.underApps (>2->* h1) (>2->* h2)
-    | *, ⋅ (lam x) x1, P-Subs h1 h2 idp => ->*_u.underApps (->*_u.underLam (>2->* h1)) (>2->* h2) ~~> (R-Beta, idp) ~> refl idp
+\elim T, x, h
+  | T, var l, P-Var idp => refl idp
+  | T, lam x, P-Lam h idp => ->*_u.underLam (>2->* h)
+  | T, ⋅ x x1, P-Apps h1 h2 idp => ->*_u.underApps (>2->* h1) (>2->* h2)
+  | *, ⋅ (lam x) x1, P-Subs h1 h2 idp => ->*_u.underApps (->*_u.underLam (>2->* h1)) (>2->* h2) ~~> (R-Beta, idp) ~> refl idp
 
-\func >*-to-->* {gamma : UniContext} {T : UniType} {t t' : gamma u⊢ T} (h : t >* t') : t ->*_u t'
-  => Star.embed h >2->*
+\func >*-to-->* {gamma : UniContext} {T : UniType} {t t' : gamma u⊢ T} (h : t >* t') : t ->*_u t' => Star.embed h >2->*
 
 \func ->*-u-confluent {gamma : UniContext} {T : UniType} {s t1 t2 : gamma u⊢ T}
-                      (h1 : s ->*_u t1) (h2 : s ->*_u t2) : \Sigma (u : gamma u⊢ T) (t1 ->*_u u) (t2 ->*_u u)
-  => \let h => >*-confluent (->*2>* h1) (->*2>* h2)
-    \in (h.1, >*-to-->* h.2, >*-to-->* h.3)
+                      (h1 : s ->*_u t1) (h2 : s ->*_u t2) : \Sigma (u : gamma u⊢ T) (t1 ->*_u u) (t2 ->*_u u) =>
+  \let h => >*-confluent (->*2>* h1) (->*2>* h2)
+  \in (h.1, >*-to-->* h.2, >*-to-->* h.3)
