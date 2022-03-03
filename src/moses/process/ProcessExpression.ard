@@ -106,6 +106,22 @@
         }
         | t, (t', true), idp, (h, s) => using (pmap __.2 (s so)) contradiction
       }
+
+    \lemma tracesNotEmpty {E : \Set} (P : ProcessExpression E) : Not-empty (traces P) \elim P
+      | STOP => inP ((nil, false), idp)
+      | SKIP => inP ((nil, false), byLeft idp)
+      | --> x P => inP ((nil, false), byRight idp)
+      | ⊓ P P1 => \case tracesNotEmpty P \with {
+        | inP a => inP (a.1, byLeft a.2)
+      }
+
+    \lemma stopOrIsId {E : \Set} {P : ProcessExpression E} : traces (STOP ⊓ P) = traces P
+      => extSet
+          (\lam {x} e => \case \elim e, tracesNotEmpty P \with {
+            | byLeft a, inP (t,  tp) => prefixClosed P t x tp (rewriteI a (ArrayOrder.nil<=_, \case __))
+            | byRight b, _ => b
+          })
+          (\lam {x} e => byRight e)
   }
 
 \func Process-equiv \alias \infix 6 ≈ {E : \Set} (P Q : ProcessExpression E) : \Prop => traces P = traces Q
