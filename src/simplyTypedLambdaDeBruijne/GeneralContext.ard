@@ -31,6 +31,10 @@
   | ∕ c head => Z (head = T)
   | ∕ c head => S (c ∋ T)
 
+\meta #0 => Z idp
+\meta #1 => S #0
+\meta #2 => S #1
+\meta #3 => S #2
 
 \func Rename {Type : \Set} (gamma delta : Context Type) => \Pi {A : Type} (gamma ∋ A) -> delta ∋ A
 

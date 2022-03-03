@@ -47,9 +47,9 @@
       | S l1 => s l1
     }
 
-  \func sequence \alias \infix 6 ++ {gamma delta epsilon : UniContext}
+  \func sequence \alias \infixr 6 ++ {gamma delta epsilon : UniContext}
                                     (s : UniSubst gamma delta) (s' : UniSubst delta epsilon) : UniSubst gamma epsilon =>
-    \lam {A} l => subst s' (s l)
+    \lam {A} l => UniSubstOperaions.subst s' (s l)
 }
 
 \open SubstitutionAlgebra

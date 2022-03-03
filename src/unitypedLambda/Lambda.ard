@@ -1,4 +1,5 @@
 \import Data.Bool
+\import Function.Meta
 \import simplyTypedLambdaDeBruijne.GeneralContext
 
 \data UniType
@@ -12,3 +13,6 @@
   | lam (body : c ∕ * u⊢ *)
   | app \alias \infixl 6 ⋅ (f : c u⊢ *) (arg : c u⊢ *)
 
+
+
+\func I {ctx : UniContext} : ctx u⊢ * => lam $ var #0
