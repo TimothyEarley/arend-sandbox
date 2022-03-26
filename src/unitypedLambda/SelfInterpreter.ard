@@ -1,125 +1,167 @@
+\import Algebra.Meta
 \import Function.Meta
+\import Logic
+\import Logic.Meta
 \import Paths
+\import Set
 \import Star
 \import simplyTypedLambdaDeBruijne.GeneralContext
+\import unitypedLambda.Confluent (->*-u-confluent-normal)
+\import unitypedLambda.Examples
 \import unitypedLambda.Lambda
 \import unitypedLambda.Reduction
 \import unitypedLambda.Substitute
 \import unitypedLambda.YCombinator
-\open SubstitutionAlgebra (++, ids, shift)
+\open SubstitutionAlgebra (++, ids, shift, ⋅⋅)
 \open encode (shift2, shift3)
+\open selfInterpreter (recSelf, selfInterpreterFun)
+\open ->*_u (underApps)
 
 -- https://crypto.stanford.edu/~blynn/lambda/#_lambda_calculus_with_lambda_calculus
 
 -- |x| = \abc . a x
 -- |t t'| = \abc . b |t| |t'|
 -- \ v . t = \abc . c (\ v . |t|)
+
 \func encode {ctx : UniContext} (term : ctx u⊢ *) : ctx u⊢ * \elim term
   | var l => lam $ lam $ lam $ (var #2 ⋅ (var (S $ S $ S l)))
   | ⋅ term term1 => lam $ lam $ lam $ (var #1 ⋅ (UniSubstOperaions.subst shift3 (encode term)) ⋅ (UniSubstOperaions.subst shift3 (encode term1)))
   | lam term => lam $ lam $ lam $ ((var #0) ⋅ (UniSubstOperaions.subst shift3 (lam  (encode term))))
 
-\where {
-  \meta shift3 => shift ++ shift ++ shift ++ ids
-  \meta shift2 => shift ++ shift ++ ids
-  \meta shift1 => shift ++ ids
-}
+  \where {
+    \meta shift3 => shift ++ shift ++ shift
+
+    \meta shift2 => shift ++ shift
+
+    \meta shift1 => shift
+  }
 
 
 -- E = Y (\e m . m I (\t t'.(e t)(e t')) (\t v.e (t v)))
-\func selfInterpreter : ∅ u⊢ *
-  => Y ⋅ selfInterpreterFun
-\where {
-  \func selfInterpreterFun {ctx : UniContext} : ctx u⊢ *
-    => lam $ lam $ var #0 ⋅ I ⋅ evalApp ⋅ evalLam
 
-  \func evalApp {ctx : UniContext} : ctx ∕ * ∕ * u⊢ *
-    => lam $ lam $ ((var #3 ⋅ var #1) ⋅ (var #3 ⋅ var #0))
+\func selfInterpreter : ∅ u⊢ * => Y ⋅ selfInterpreterFun
+  \where {
+    \func selfInterpreterFun {ctx : UniContext} : ctx u⊢ * => lam $ lam $ var #0 ⋅ I ⋅ evalApp ⋅ evalLam
 
-  \func evalLam {ctx : UniContext} : ctx ∕ * ∕ * u⊢ *
-    => lam $ lam $ var #3 ⋅ (var #1 ⋅ var #0)
+    \func evalApp {ctx : UniContext} : ctx ∕ * ∕ * u⊢ * => lam $ lam $ ((var #3 ⋅ var #1) ⋅ (var #3 ⋅ var #0))
 
-  \func simpleExample : ∅ u⊢ * => I ⋅ I
+    \func evalLam {ctx : UniContext} : ctx ∕ * ∕ * u⊢ * => lam $ lam $ var #3 ⋅ (var #1 ⋅ var #0)
 
-  \func encodeI : encode {∅} I = (lam $ lam $ lam $ ((var #0) ⋅ (lam $ lam $ lam $ lam $ (var #2 ⋅ var #3))))
-    => idp
+    \func simpleExample : ∅ u⊢ * => I ⋅ I
 
-  \func encodeSimpleExample : encode simpleExample =
-    (lam $ lam $ lam $ (var #1 ⋅ encode I ⋅ encode I))
-    => idp
+    \func encodeI : encode {∅} I = (lam $ lam $ lam $ ((var #0) ⋅ (lam $ lam $ lam $ lam $ (var #2 ⋅ var #3)))) => idp
 
-  -- Y = \f -> (\x -> f(x x))(\x -> f(x x))
+    \func encodeSimpleExample : encode simpleExample =
+    (lam $ lam $ lam $ (var #1 ⋅ encode I ⋅ encode I)) => idp
 
-  \func recSelf {ctx : UniContext} : ctx u⊢ * => (lam $ (selfInterpreterFun ⋅ (var #0 ⋅ var #0))) ⋅ (lam $ (selfInterpreterFun ⋅ (var #0 ⋅ var #0)))
+    -- Y = \f -> (\x -> f(x x))(\x -> f(x x))
 
-  \func testI : recSelf {∅} ⋅ encode I ->*_u I
-    => recSelf {∅} ⋅ encode I ~~< (R-App1 R-Beta, idp) >~>
-       selfInterpreterFun ⋅ recSelf ⋅ encode I ~~< (R-App1 R-Beta, idp) >~>
-       (lam $ var #0 ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ encode I ~~< (R-Beta, idp) >~>
-       encode I ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0)) ~~< (R-App1 (R-App1 R-Beta), idp) >~>
-       (lam $ lam $ ((var #0) ⋅ (lam $ lam $ lam $ lam $ (var #2 ⋅ var #3)))) ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0)) ~~< (R-App1 R-Beta, idp) >~>
-       (lam $ ((var #0) ⋅ (lam $ lam $ lam $ lam $ (var #2 ⋅ var #3)))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0)) ~~< (R-Beta, idp) >~>
-       ((lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0)) ⋅ (lam $ lam $ lam $ lam $ (var #2 ⋅ var #3))) ~~< (R-Beta, idp) >~>
-       (lam $ recSelf ⋅ ((lam $ lam $ lam $ lam $ (var #2 ⋅ var #3)) ⋅ var #0)) ~~< (R-Lam (R-App1 R-Beta), idp) >~>
-       (lam $ selfInterpreterFun ⋅ recSelf ⋅ ((lam $ lam $ lam $ lam $ (var #2 ⋅ var #3)) ⋅ var #0)) ~~< (R-Lam (R-App1 R-Beta), idp) >~>
-       (lam $ (lam $ var #0 ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ ((lam $ lam $ lam $ lam $ (var #2 ⋅ var #3)) ⋅ var #0)) ~~< (R-Lam R-Beta, idp) >~>
-       (lam $ ((lam $ (lam $ lam $ lam $ (var #2 ⋅ var #3))) ⋅ var #0) ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ~~< (R-Lam (R-App1 (R-App1 (R-App1 R-Beta))), idp) >~>
-       (lam $ ((lam $ lam $ lam $ (var #2 ⋅ var #3)) ⋅ I) ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ~~< (R-Lam (R-App1 (R-App1 R-Beta)), idp) >~>
-       (lam $ ((lam $ lam $ (I ⋅ var #2))) ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ~~< (R-Lam (R-App1 R-Beta), idp) >~>
-       (lam $ ((lam $ (I ⋅ var #1))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ~~< (R-Lam R-Beta, idp) >~>
-       (lam $ (I ⋅ var #0)) ~~< (R-Lam R-Beta, idp) >~>
-       I `stop
+    \func recSelf {ctx : UniContext} : ctx u⊢ * =>
+      (lam $ (selfInterpreterFun ⋅ (var #0 ⋅ var #0))) ⋅ (lam $ (selfInterpreterFun ⋅ (var #0 ⋅ var #0)))
 
-  \func test : selfInterpreter ⋅ (encode simpleExample) ->*_u I
-    => Y ⋅ selfInterpreterFun ⋅ (encode simpleExample) ~~< (R-App1 R-Beta, idp) >~>
-       recSelf ⋅ (encode simpleExample) ~~< (R-App1 R-Beta, idp) >~>
-       selfInterpreterFun ⋅ recSelf ⋅ (encode simpleExample) ~~< (R-App1 R-Beta, idp) >~>
-       (lam $ var #0 ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ (encode simpleExample) ~~< (R-Beta, idp) >~>
-       (lam $ lam $ lam $ (var #1 ⋅ encode I ⋅ encode I)) ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0)) ~~< (R-App1 (R-App1 R-Beta), idp) >~>
-       (lam $ lam $ (var #1 ⋅ encode I ⋅ encode I)) ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0)) ~~< (R-App1 R-Beta, idp) >~>
-       (lam $ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ encode I ⋅ encode I) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0)) ~~< (R-Beta, idp) >~>
-       (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ encode I ⋅ encode I ~~< (R-App1 R-Beta, idp) >~>
-       (lam $ ((recSelf ⋅ encode I) ⋅ (recSelf ⋅ var #0))) ⋅ encode I ~~< (R-Beta, idp) >~>
-       (recSelf ⋅ encode I) ⋅ (recSelf ⋅ encode I) ~~< (R-App1 (R-App1 R-Beta), idp) >~>
-       (selfInterpreterFun ⋅ recSelf ⋅ encode I) ⋅ (recSelf ⋅ encode I) ~~< (R-App1 (R-App1 R-Beta), idp) >~>
-       ((lam $ var #0 ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ encode I) ⋅ (recSelf ⋅ encode I) ~~< (R-App1 R-Beta, idp) >~>
-       (encode I ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ (recSelf ⋅ encode I) ~~< (R-App1 (R-App1 (R-App1 R-Beta)), idp) >~>
-       (((lam $ lam $ ((var #0) ⋅ (lam $ lam $ lam $ lam $ (var #2 ⋅ var #3))))) ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ (recSelf ⋅ encode I) ~~< (R-App1 (R-App1 R-Beta), idp) >~>
-       ((lam $ ((var #0) ⋅ (lam $ lam $ lam $ lam $ (var #2 ⋅ var #3)))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ (recSelf ⋅ encode I) ~~< (R-App1 R-Beta, idp) >~>
-       ((lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0)) ⋅ (lam $ lam $ lam $ lam $ (var #2 ⋅ var #3))) ⋅ (recSelf ⋅ encode I) ~~< (R-App1 R-Beta, idp) >~>
-       (lam $ recSelf ⋅ ((lam $ lam $ lam $ lam $ (var #2 ⋅ var #3)) ⋅ var #0)) ⋅ (recSelf ⋅ encode I) ~~< (R-App1 (R-Lam (R-App2 R-Beta)), idp) >~>
-       (lam $ recSelf ⋅ (lam $ lam $ lam $ (var #2 ⋅ var #3))) ⋅ (recSelf ⋅ encode I) ~~< (R-Beta, idp) >~>
-       recSelf ⋅ (lam $ lam $ lam $ (var #2 ⋅ (recSelf ⋅ encode I)))  ~~< (R-App1 R-Beta, idp) >~>
-       selfInterpreterFun ⋅ recSelf ⋅ (lam $ lam $ lam $ (var #2 ⋅ (recSelf ⋅ encode I)))  ~~< (R-App1 R-Beta, idp) >~>
-       (lam $ var #0 ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ (lam $ lam $ lam $ (var #2 ⋅ (recSelf ⋅ encode I)))  ~~< (R-Beta, idp) >~>
-       (lam $ lam $ lam $ (var #2 ⋅ (recSelf ⋅ encode I))) ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))  ~~< (R-App1 (R-App1 R-Beta), idp) >~>
-       (lam $ lam $ (I ⋅ (recSelf ⋅ encode I))) ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))  ~~< (R-App1 R-Beta, idp) >~>
-       (lam $ (I ⋅ (recSelf ⋅ encode I))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))  ~~< (R-Beta, idp) >~>
-       I ⋅ (recSelf ⋅ encode I)  ~~< (R-Beta, idp) >~>
-       recSelf ⋅ encode I  `stop
-       ~~> testI
+    \func testI : recSelf {∅} ⋅ encode I ->*_u I => recSelf {∅} ⋅ encode I ~~< (R-App1 R-Beta, idp) >~>
+    selfInterpreterFun ⋅ recSelf ⋅ encode I ~~< (R-App1 R-Beta, idp) >~>
+    (lam $ var #0 ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ encode I ~~< (R-Beta, idp) >~>
+    encode I ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0)) ~~< (R-App1 (R-App1 R-Beta), idp) >~>
+    (lam $ lam $ ((var #0) ⋅ (lam $ lam $ lam $ lam $ (var #2 ⋅ var #3)))) ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0)) ~~< (R-App1 R-Beta, idp) >~>
+    (lam $ ((var #0) ⋅ (lam $ lam $ lam $ lam $ (var #2 ⋅ var #3)))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0)) ~~< (R-Beta, idp) >~>
+    ((lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0)) ⋅ (lam $ lam $ lam $ lam $ (var #2 ⋅ var #3))) ~~< (R-Beta, idp) >~>
+    (lam $ recSelf ⋅ ((lam $ lam $ lam $ lam $ (var #2 ⋅ var #3)) ⋅ var #0)) ~~< (R-Lam (R-App1 R-Beta), idp) >~>
+    (lam $ selfInterpreterFun ⋅ recSelf ⋅ ((lam $ lam $ lam $ lam $ (var #2 ⋅ var #3)) ⋅ var #0)) ~~< (R-Lam (R-App1 R-Beta), idp) >~>
+    (lam $ (lam $ var #0 ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ ((lam $ lam $ lam $ lam $ (var #2 ⋅ var #3)) ⋅ var #0)) ~~< (R-Lam R-Beta, idp) >~>
+    (lam $ ((lam $ (lam $ lam $ lam $ (var #2 ⋅ var #3))) ⋅ var #0) ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ~~< (R-Lam (R-App1 (R-App1 (R-App1 R-Beta))), idp) >~>
+    (lam $ ((lam $ lam $ lam $ (var #2 ⋅ var #3)) ⋅ I) ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ~~< (R-Lam (R-App1 (R-App1 R-Beta)), idp) >~>
+    (lam $ ((lam $ lam $ (I ⋅ var #2))) ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ~~< (R-Lam (R-App1 R-Beta), idp) >~>
+    (lam $ ((lam $ (I ⋅ var #1))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ~~< (R-Lam R-Beta, idp) >~>
+    (lam $ (I ⋅ var #0)) ~~< (R-Lam R-Beta, idp) >~>
+    I `stop
+
+    \func test : selfInterpreter ⋅ (encode simpleExample) ->*_u I =>
+      Y ⋅ selfInterpreterFun ⋅ (encode simpleExample) ~~< (R-App1 R-Beta, idp) >~>
+      recSelf ⋅ (encode simpleExample) ~~< (R-App1 R-Beta, idp) >~>
+      selfInterpreterFun ⋅ recSelf ⋅ (encode simpleExample) ~~< (R-App1 R-Beta, idp) >~>
+      (lam $ var #0 ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ (encode simpleExample) ~~< (R-Beta, idp) >~>
+      (lam $ lam $ lam $ (var #1 ⋅ encode I ⋅ encode I)) ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0)) ~~< (R-App1 (R-App1 R-Beta), idp) >~>
+      (lam $ lam $ (var #1 ⋅ encode I ⋅ encode I)) ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0)) ~~< (R-App1 R-Beta, idp) >~>
+      (lam $ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ encode I ⋅ encode I) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0)) ~~< (R-Beta, idp) >~>
+      (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ encode I ⋅ encode I ~~< (R-App1 R-Beta, idp) >~>
+      (lam $ ((recSelf ⋅ encode I) ⋅ (recSelf ⋅ var #0))) ⋅ encode I ~~< (R-Beta, idp) >~>
+      (recSelf ⋅ encode I) ⋅ (recSelf ⋅ encode I) ~~< (R-App1 (R-App1 R-Beta), idp) >~>
+      (selfInterpreterFun ⋅ recSelf ⋅ encode I) ⋅ (recSelf ⋅ encode I) ~~< (R-App1 (R-App1 R-Beta), idp) >~>
+      ((lam $ var #0 ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ encode I) ⋅ (recSelf ⋅ encode I) ~~< (R-App1 R-Beta, idp) >~>
+      (encode I ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ (recSelf ⋅ encode I) ~~< (R-App1 (R-App1 (R-App1 R-Beta)), idp) >~>
+      (((lam $ lam $ ((var #0) ⋅ (lam $ lam $ lam $ lam $ (var #2 ⋅ var #3))))) ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ (recSelf ⋅ encode I) ~~< (R-App1 (R-App1 R-Beta), idp) >~>
+      ((lam $ ((var #0) ⋅ (lam $ lam $ lam $ lam $ (var #2 ⋅ var #3)))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ (recSelf ⋅ encode I) ~~< (R-App1 R-Beta, idp) >~>
+      ((lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0)) ⋅ (lam $ lam $ lam $ lam $ (var #2 ⋅ var #3))) ⋅ (recSelf ⋅ encode I) ~~< (R-App1 R-Beta, idp) >~>
+      (lam $ recSelf ⋅ ((lam $ lam $ lam $ lam $ (var #2 ⋅ var #3)) ⋅ var #0)) ⋅ (recSelf ⋅ encode I) ~~< (R-App1 (R-Lam (R-App2 R-Beta)), idp) >~>
+      (lam $ recSelf ⋅ (lam $ lam $ lam $ (var #2 ⋅ var #3))) ⋅ (recSelf ⋅ encode I) ~~< (R-Beta, idp) >~>
+      recSelf ⋅ (lam $ lam $ lam $ (var #2 ⋅ (recSelf ⋅ encode I)))  ~~< (R-App1 R-Beta, idp) >~>
+      selfInterpreterFun ⋅ recSelf ⋅ (lam $ lam $ lam $ (var #2 ⋅ (recSelf ⋅ encode I)))  ~~< (R-App1 R-Beta, idp) >~>
+      (lam $ var #0 ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ (lam $ lam $ lam $ (var #2 ⋅ (recSelf ⋅ encode I)))  ~~< (R-Beta, idp) >~>
+      (lam $ lam $ lam $ (var #2 ⋅ (recSelf ⋅ encode I))) ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))  ~~< (R-App1 (R-App1 R-Beta), idp) >~>
+      (lam $ lam $ (I ⋅ (recSelf ⋅ encode I))) ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))  ~~< (R-App1 R-Beta, idp) >~>
+      (lam $ (I ⋅ (recSelf ⋅ encode I))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))  ~~< (R-Beta, idp) >~>
+      I ⋅ (recSelf ⋅ encode I)  ~~< (R-Beta, idp) >~>
+      recSelf ⋅ encode I  `stop
+        ~~> testI
+
+
+
+    -- lam (subst (extends s) body)
+
+    \func encodeLamHelper {ctx : UniContext} {t : ctx ∕ * u⊢ *}
+                          {a1 a2 a3 : ctx u⊢ *}
+      : (encode (lam t) ⋅ a1 ⋅ a2 ⋅ a3) ->*_u {ctx} {*} (a3 ⋅ (lam  (encode t))) =>
+      (encode (lam t) ⋅ a1 ⋅ a2 ⋅ a3) ~~< (R-App1 (R-App1 R-Beta), pmap (__ ⋅ _ ⋅ _) subHelper1) >~>
+      (lam $ lam $ ((var #0) ⋅ (subst shift2 (lam (encode t))))) ⋅ a2 ⋅ a3 ~~< (R-App1 R-Beta, pmap (__ ⋅ _) subHelper2) >~>
+      (lam $ ((var #0) ⋅ (subst shift (lam (encode t))))) ⋅ a3 ~~< (R-Beta, pmap (_ ⋅ (lam __)) subHelper3) >~>
+      (a3 ⋅ (lam  (encode t))) `stop
+      \where {
+        \func subHelper1 {ctx : UniContext} {x : ctx u⊢ *} {t : ctx ∕ * u⊢ *}
+          : subst (sub.extendsOne x) (lam $ lam $ ((var #0) ⋅ (subst shift3 (lam  (encode t))))) = {ctx u⊢ *}
+        (lam $ lam $ ((var #0) ⋅ (subst shift2 (lam (encode t))))) => equation
+            (subst (sub.extendsOne x) (lam $ lam $ ((var #0) ⋅ (subst shift3 (lam  (encode t))))))
+            (lam (subst (extends (sub.extendsOne x)) (lam $ ((var #0) ⋅ (subst shift3 (lam  (encode t)))))))
+            (lam $ lam (subst (extends $ extends (sub.extendsOne x)) ((var #0) ⋅ (subst shift3 (lam  (encode t))))))
+            (lam $ lam ((var #0) ⋅ subst (extends $ extends (sub.extendsOne x)) (subst shift3 (lam  (encode t)))))
+            {pmap lam ({?})}
+            (lam $ lam $ ((var #0) ⋅ (subst shift2 (lam (encode t)))))
+
+        \func subHelper2 {ctx : UniContext} {x : ctx u⊢ *} {t : ctx ∕ * u⊢ *} :
+          subst (\lam {A} => sub.extendsOne x) (lam (var #0 ⋅ subst shift2 (lam (encode t)))) = {ctx u⊢ *}
+          lam (var #0 ⋅ subst shift (lam (encode t))) => {?}
+
+        \func subHelper3 {ctx : UniContext} {x : ctx u⊢ *} {t : ctx ∕ * u⊢ *} :
+          subst (extends (sub.extendsOne x))
+              (subst (extends shift) (encode t)) = encode t => {?}
+      }
 
     \func proof {ctx : UniContext} (t : ctx u⊢ *) : recSelf ⋅ (encode t) ->*_u t
-      \elim t
-        | var l =>
-          recSelf ⋅ (encode (var l)) ~~< (R-App1 R-Beta, idp) >~>
-          selfInterpreterFun ⋅ recSelf ⋅ (encode (var l)) ~~< (R-App1 R-Beta, idp) >~>
-          (lam $ var #0 ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ (encode (var l)) ~~< (R-Beta, idp) >~>
-          ((encode (var l)) ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ~~< (R-App1 (R-App1 R-Beta), idp) >~>
-          ((lam $ lam $ (I ⋅ (var (S $ S l)))) ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ~~< (R-App1 R-Beta, idp) >~>
-          ((lam $ (I ⋅ (var (S l)))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ~~< (R-Beta, idp) >~>
-          (I ⋅ (var l)) ~~< (R-Beta, idp) >~>
-          var l `stop
-        | lam t =>
-          recSelf ⋅ (encode (lam t)) ~~< (R-App1 R-Beta, idp) >~>
-          selfInterpreterFun ⋅ recSelf ⋅ (encode (lam t)) ~~< ({?}, {?}) >~>
-          lam t `stop
-        | ⋅ t t' =>
-          recSelf ⋅ (encode (t ⋅ t')) ~~< (R-App1 R-Beta, idp) >~>
-          selfInterpreterFun ⋅ recSelf ⋅ (encode (t ⋅ t')) ~~< (R-App1 R-Beta, idp) >~>
-          (lam $ var #0 ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ (encode (t ⋅ t'))  ~~< (R-Beta, idp) >~>
-          (encode (t ⋅ t')) ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))  ~~< (R-App1 (R-App1 R-Beta),
-                                                                                                                                            pmap (\lam z => lam (lam z) ⋅ _ ⋅ _) {?}) >~>
-          (lam $ lam $ (var #1 ⋅ (UniSubstOperaions.subst shift2 (encode t)) ⋅ (UniSubstOperaions.subst shift2 (encode t')))) ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))  ~~< ({?}, {?}) >~>
-          t ⋅ t' `stop
-}
+    \elim t
+      | var l =>
+        recSelf ⋅ (encode (var l)) ~~< (R-App1 R-Beta, idp) >~>
+        selfInterpreterFun ⋅ recSelf ⋅ (encode (var l)) ~~< (R-App1 R-Beta, idp) >~>
+        (lam $ var #0 ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ (encode (var l)) ~~< (R-Beta, idp) >~>
+        ((encode (var l)) ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ~~< (R-App1 (R-App1 R-Beta), idp) >~>
+        ((lam $ lam $ (I ⋅ (var (S $ S l)))) ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ~~< (R-App1 R-Beta, idp) >~>
+        ((lam $ (I ⋅ (var (S l)))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ~~< (R-Beta, idp) >~>
+        (I ⋅ (var l)) ~~< (R-Beta, idp) >~>
+        var l `stop
+      | lam t =>
+        recSelf ⋅ (encode (lam t)) ~~< (R-App1 R-Beta, idp) >~>
+        selfInterpreterFun ⋅ recSelf ⋅ (encode (lam t)) ~~< (R-App1 R-Beta, idp) >~>
+        (lam $ var #0 ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ (encode (lam t)) ~~< (R-Beta, idp) >~>
+        (encode (lam t)) ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0)) `stop
+          ~~> encodeLamHelper ~~>
+              (((lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0)) ⋅ (lam (encode t))) ~~< (R-Beta, idp) >~>
+              (lam (subst (extends (sub.extendsOne (lam (encode t)))) ((recSelf ⋅ (var #1 ⋅ var #0))))) ~~< ({?}, {?}) >~>
+              lam t `stop)
+      | ⋅ t t' =>
+        recSelf ⋅ (encode (t ⋅ t')) ~~< (R-App1 R-Beta, idp) >~>
+        selfInterpreterFun ⋅ recSelf ⋅ (encode (t ⋅ t')) ~~< (R-App1 R-Beta, idp) >~>
+        (lam $ var #0 ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ (encode (t ⋅ t'))  ~~< (R-Beta, idp) >~>
+        (encode (t ⋅ t')) ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))  ~~< (R-App1 (R-App1 R-Beta),
+                                                                                                                                          pmap (\lam z => lam (lam z) ⋅ _ ⋅ _) {?}) >~>
+        (lam $ lam $ (var #1 ⋅ (UniSubstOperaions.subst shift2 (encode t)) ⋅ (UniSubstOperaions.subst shift2 (encode t')))) ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))  ~~< ({?}, {?}) >~>
+        t ⋅ t' `stop
+  }

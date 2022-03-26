@@ -1,6 +1,7 @@
 \import Algebra.Meta
 \import DualNumbers
 \import Function.Meta
+\import Logic
 \import Meta
 \import Paths
 \import Paths.Meta
@@ -210,3 +211,10 @@ t1      t2
                       (h1 : s ->*_u t1) (h2 : s ->*_u t2) : \Sigma (u : gamma u⊢ T) (t1 ->*_u u) (t2 ->*_u u) =>
   \let h => >*-confluent (->*2>* h1) (->*2>* h2)
   \in (h.1, >*-to-->* h.2, >*-to-->* h.3)
+
+\func ->*-u-confluent-normal {ctx : UniContext} {s t1 v : ctx u⊢ *} (h1 : s ->*_u t1) (h2 : s ->*_u v) (norm : Normal v) : t1 ->*_u v
+  => \let (u, t1->*u, v->*u) => ->*-u-confluent h1 h2
+     \in \case v->*u \with {
+      | refl v=u => rewrite v=u t1->*u
+      | ~> r s1 => absurd (norm (_, r))
+    }

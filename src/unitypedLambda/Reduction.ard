@@ -107,3 +107,5 @@
         | inr b => refl idp
       }
   }
+
+\func Normal {ctx : UniContext} (t : ctx u⊢ *) => Not (\Sigma (t' : ctx u⊢ *) (t ->1_u t'))

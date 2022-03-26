@@ -50,6 +50,24 @@
   \func sequence \alias \infixr 6 ++ {gamma delta epsilon : UniContext}
                                     (s : UniSubst gamma delta) (s' : UniSubst delta epsilon) : UniSubst gamma epsilon =>
     \lam {A} l => UniSubstOperaions.subst s' (s l)
+
+  -- properties
+
+  \func extends-id {gamma : UniContext} : extends ids = {UniSubst (gamma ∕ *) (gamma ∕ *)} ids
+    => ext (\lam {A} l => \case \elim l \with {
+      | Z p => idp
+      | S l1 => idp
+    })
+
+  \func ids-id {gamma : UniContext} {A : UniType} {t : gamma u⊢ A} : subst ids t = t \elim t
+    | var l => idp
+    | lam t => \let goal : subst (extends ids) t = t => rewrite extends-id ids-id
+               \in pmap lam goal
+    | ⋅ t t1 => pmap2 (⋅) ids-id ids-id
+
+  \func seq-ids {gamma delta : UniContext} {s : UniSubst gamma delta} :
+    s ++ (ids {delta}) = {UniSubst gamma delta} s
+    => ext (\lam {A} l => unfold (++) ids-id)
 }
 
 \open SubstitutionAlgebra

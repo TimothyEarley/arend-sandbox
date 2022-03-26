@@ -39,3 +39,5 @@
   | ~> r1 p => r1 ~> (p >~> q)
 
 \func \infix 2 ~~< {A : \Type} (a : A) {r : A -> A -> \Type} {a' : A} (p : r a a') : Star r a a' => p ~> refl idp
+
+\func \infix 2 ~~~< {A : \Type} (a : A) {r : A -> A -> \Type} {a' : A} (p : Star r a a') : Star r a a' => p
