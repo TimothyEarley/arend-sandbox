@@ -147,6 +147,21 @@
       }
   }
 
+
+-- Normal, but not value, is stuck
+-- this should not happen in a typed setting
+\func Normal {c : SimpleContext} {T : Type} (t : c ⊢ T) : \Prop => Not (Reduction t)
+  \where {
+    \func value {c : SimpleContext} {T : Type} {t : c ⊢ T} (v : Value t) : Normal t
+    \elim T, t, v
+      | Natural, zero, V-zero => \lam r => \case r
+      | Natural, succ c1, V-Succ v => \lam r => \case r \with {
+        | R-Succ r1 => value v r1
+      }
+      | --> A B, lam t, V-lam => \lam r => \case r
+  }
+\func Stuck {c : SimpleContext} {T : Type} (t : c ⊢ T) => \Sigma (Normal t) (Not (Value t))
+
 \func progress {A : Type} (t : ∅ ⊢ A) : Or (Value t) (\Sigma (t' : ∅ ⊢ A) (t ->1 t'))
   => \case Reduction.decide t \with {
     | inl a => inr (reduce a, idpStep)

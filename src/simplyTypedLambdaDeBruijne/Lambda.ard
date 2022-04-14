@@ -26,10 +26,4 @@
 \func # {c : SimpleContext} (n : Nat) (h : True (suc n <=? Context.length c)) : c ⊢ Context.lookup (toWitness h)
   => var (Context.count (toWitness h))
 
-\meta #0 => # 0 Yes
-\meta #1 => # 1 Yes
-\meta #2 => # 2 Yes
-\meta #3 => # 3 Yes
-
-
-\func example {A : Type} : ∅ ⊢ A --> A => lam #0
+\func example {A : Type} : ∅ ⊢ A --> A => lam (var #0)

@@ -2,6 +2,8 @@
 \import simplyTypedLambdaDeBruijne.GeneralContext
 \import simplyTypedLambdaDeBruijne.Lambda
 
+\func SimpleSubst => Subst {_} {⊢}
+
 \func rename {gamma delta : SimpleContext} (h : Rename gamma delta) {A : Type} (t : gamma ⊢ A) : delta ⊢ A
   \elim A, t
     | T, var l => var (h l)
