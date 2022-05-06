@@ -1,0 +1,55 @@
+\import Data.List
+\import Data.Or
+\import Logic
+\import Logic.Meta
+\import Paths.Meta
+\import automaton.Language
+\import automaton.NFA
+\import automaton.NFAMultiStart \hiding (Action, End, State, delta, start)
+\import sets.MySet
+
+\func nFAMSToNFA (nfams : NFAMultiStart) : NFA \cowith
+  | Action => nfams.Action
+  | State => Or nfams.State (\Sigma)
+  | delta => \case __ \with {
+    | (inl s, a, inl s1) => nfams.delta (s, a, s1)
+    | (inr (), a, inl s1) => ∃ (s : nfams.State) (s ∈ nfams.start) ((s, a, s1) ∈ nfams.delta)
+    | (_, _, inr ()) => Empty
+  }
+  | start => inr ()
+  | End => \case __ \with {
+    | inl a => nfams.End a
+    | inr b => ∃ (s : nfams.State) (s ∈ nfams.start) (nfams.End s)
+  }
+
+  \where {
+
+    \func respectsLanguage {nfams : NFAMultiStart} : NFAMultiStart.language nfams = NFA.language (nFAMSToNFA nfams)
+      => ext (\lam w => ext (helper1 w,
+                             helper2 w))
+      \where {
+        \func helper1 {nfams : NFAMultiStart} (w : Word nfams.Action) (l : NFAMultiStart.language nfams w)
+          : NFA.language (nFAMSToNFA nfams) w \elim w, l
+          | List.nil, inP (s, e, NFAMultiStart.isLast e1) => NFA.isLast (inP (s, e, e1))
+          | :: a1 w, inP (s, e, NFAMultiStart.isStep q' d a) => NFA.isStep (inl q') (inP (s, e, d)) (helper1' q' w a)
+
+        \func helper1' {nfams : NFAMultiStart}
+                       (q : nfams.State) (w : List nfams.Action) (a : NFAMultiStart.accepts nfams q w)
+          : NFA.accepts (nFAMSToNFA nfams) (inl q) w \elim w, a
+          | nil, NFAMultiStart.isLast e => NFA.isLast e
+          | :: _ w, NFAMultiStart.isStep q' d a => NFA.isStep (inl q') d (helper1' q' w a)
+
+        \func helper2 {nfams : NFAMultiStart} (w : Word nfams.Action) (l : NFA.language (nFAMSToNFA nfams) w) :
+          NFAMultiStart.language nfams w \elim w, l
+          | nil, NFA.isLast (inP (s,e,e1)) => inP (s, e, NFAMultiStart.isLast e1)
+          | :: a tail, NFA.isStep (inl q') (inP (s,e,d)) acc => inP (s, e, NFAMultiStart.isStep q' d (helper2' q' tail acc))
+          | :: a tail, NFA.isStep (inr _) () _
+
+        \func helper2' {nfams : NFAMultiStart} (q : nfams.State) (w : Word nfams.Action)
+          (a : NFA.accepts (nFAMSToNFA nfams) (inl q) w)
+          : NFAMultiStart.accepts nfams q w \elim w, a
+          | nil, NFA.isLast e => NFAMultiStart.isLast e
+          | :: a tail, NFA.isStep (inl q') d acc => NFAMultiStart.isStep q' d (helper2' q' tail acc)
+          | :: a tail, NFA.isStep (inr q') () _
+      }
+  }

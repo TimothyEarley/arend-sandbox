@@ -1,26 +1,13 @@
-\import Algebra.Meta
-\import Arith.Nat
 \import Data.Bool
 \import Data.List
-\import Data.Or
-\import DualNumbers
-\import Function
 \import Function.Meta
 \import Logic
 \import Logic.Meta
-\import Meta
 \import Paths
 \import Paths.Meta
 \import automaton.Language
-\import automaton.Regular
-\import identity.OrIdentity
 \import sets.DecidableSet
 \import sets.MySet
-\import sets.union
-\import util.ArrayUtils
-\import util.Or
-\open NFAeps (noneNFAeps, singleNFAeps)
-\open ArrayUtils (::-)
 
 \record NFAeps
   | Action : \Set

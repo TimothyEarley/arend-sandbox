@@ -1,11 +1,9 @@
-\import Function.Meta
 \import Logic
 \import Paths.Meta
 \import automaton.Language
 \import automaton.NFAeps
 \import automaton.Regular
-\import sets.DecidableSet
-\open NFAeps (choice, concatNFAEps, language, makeDecidable, noneNFAeps, singleNFAeps, starEps)
+\open NFAeps (choice, concatNFAEps, language, noneNFAeps, singleNFAeps, starEps)
 
 \func regToNFAeps {A : Alphabet} (re : RegularExpression A) : NFAeps { | Action => A } \elim re
   | none => noneNFAeps

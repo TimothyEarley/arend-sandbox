@@ -1,10 +1,7 @@
-\import Data.Bool
 \import Data.List
 \import Set
 \import automaton.Language
-\import automaton.Regular
 \import sets.DecidableSet
-\import sets.finite.Sized
 
 \class DFA
   | Action : \Set

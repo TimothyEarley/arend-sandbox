@@ -1,16 +1,6 @@
-\import Arith.Nat
 \import Data.List
-\import Data.Or
-\import Logic
-\import Logic.Meta
-\import Paths
-\import Paths.Meta
-\import automaton.DFA
 \import automaton.Language
-\import automaton.Regular
 \import sets.DecidableSet
-\import sets.Elements
-\import sets.MySet
 
 \record NFA
   | Action : \Set

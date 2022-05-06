@@ -1,0 +1,18 @@
+\import Data.List
+\import Logic.Meta
+\import automaton.Language
+\import sets.MySet
+
+\record NFAMultiStart
+  | Action : \Set
+  | State : \Set
+  | delta : (\Sigma State Action State) -> \Prop
+  | start : Ensemble State
+  | End : State -> \Prop
+  \where {
+    \truncated \data accepts (d : NFAMultiStart) (q : d.State) (u : Word d.Action) : \Prop \elim u
+      | nil => isLast (d.End q)
+      | :: a tail => isStep (q' : d.State) (d.delta (q, a, q')) (accepts d q' tail)
+
+    \func language (d : NFAMultiStart) : Language d.Action => \lam u => ∃ (s : d.State) (s ∈ start) (accepts d s u)
+  }
