@@ -13,16 +13,16 @@
 \func aexp_deterministic {S : Signature} {a : AExp} {n n' : Num} {s : State S}
                          (h : (a, s) aEval n) (h' : (a, s) aEval n') : n = n' \elim a, h, h'
   | ⊕ a b, rPlus {n1} {n2} h1 h2 p, rPlus {n1'} {n2'} h'1 h'2 p1 => \case aexp_deterministic h1 h'1, aexp_deterministic h2 h'2 \with {
-    | q, q' => p *> (pmap2 (IntRing.+) q q') *> (inv p1)
+    | q, q' => p *> pmap2 (IntRing.+) q q' *> inv p1
   }
   | ⊖ a b, rMinus {n1} {n2} h1 h2 p, rMinus {n1'} {n2'} h'1 h'2 p1 => \case aexp_deterministic h1 h'1, aexp_deterministic h2 h'2 \with {
-    | q, q' => p *> (pmap2 (__ IntRing.+ (IntRing.negative __)) q q') *> (inv p1)
+    | q, q' => p *> pmap2 (__ IntRing.+ IntRing.negative __) q q' *> inv p1
   }
   | ⊙ a b, rTimes {n1} {n2} h1 h2 p, rTimes {n1'} {n2'} h'1 h'2 p1 => \case aexp_deterministic h1 h'1, aexp_deterministic h2 h'2 \with {
-    | q, q' => p *> (pmap2 (IntRing.*) q q') *> (inv p1)
+    | q, q' => p *> pmap2 (IntRing.*) q q' *> inv p1
   }
-  | var v, rVar p, rVar p1 => (inv p) *> p1
-  | num n'1, rNum p, rNum p1 => p *> (inv p1)
+  | var v, rVar p, rVar p1 => inv p *> p1
+  | num n'1, rNum p, rNum p1 => p *> inv p1
 
 -- TODO easy proofs
 \func bexp_deterministic {S : Signature} {e : BExp} {b b' : Bool} {s : State S}
@@ -36,8 +36,8 @@
   | ff, true, _, rfalse (), _
   | ff, _, true, _, rfalse ()
 
-  | eq a b, false, true, reqf so x y p, reqt so x' y' q => absurd (p ((aexp_deterministic x x') *> q *> (aexp_deterministic y' y)))
-  | eq a b, true, false, reqt so x' y' q, reqf so x y p => absurd (p ((aexp_deterministic x x') *> q *> (aexp_deterministic y' y)))
+  | eq a b, false, true, reqf so x y p, reqt so x' y' q => absurd (p (aexp_deterministic x x' *> q *> aexp_deterministic y' y))
+  | eq a b, true, false, reqt so x' y' q, reqf so x y p => absurd (p (aexp_deterministic x x' *> q *> aexp_deterministic y' y))
   | eq a b, true, _, reqf () _ _ _, _
   | eq a b, false, _, reqt () _ _ _, _
   | eq a b, _, true, _, reqf () _ _ _
@@ -81,8 +81,8 @@
 
 \func com_deterministic {S : Signature} {c : Com} {s s' s'' : State S}
                         (h : (c, s) cEval s') (h' : (c, s) cEval s'') : s' = s'' \elim c, h, h'
-  | skip, rsk p1, rsk p2 => p1 *> (inv p2)
-  | := X a, r:= {n1} a1 p, r:= {n2} a2 p1 => p *> pmap (substVar _ _ __) (aexp_deterministic a1 a2) *> (inv p1)
+  | skip, rsk p1, rsk p2 => p1 *> inv p2
+  | := X a, r:= {n1} a1 p, r:= {n2} a2 p1 => p *> pmap (substVar _ _ __) (aexp_deterministic a1 a2) *> inv p1
   | # x y, r# {s1} h1 h2, r# {s2} h'1 h'2 => \let q => com_deterministic h1 h'1 \in com_deterministic h2 (rewrite q h'2)
   | ite b t e, rift b1 h, rift b2 h' => com_deterministic h h'
   | ite b t e, rift b1 h, riff b2 h' => usingOnly (bexp_deterministic b1 b2) contradiction
@@ -95,7 +95,7 @@
   | append e a, rAp a1 p, rAp a2 p1 => using (pmap (\lam n => substList s e (cEval.appendList (s.lists e) n)) (aexp_deterministic a1 a2)) equation
   | :=L v lv a, rSt {n1} a1 {e1} p p1, rSt {n2} a2 {e2} p2 p3 =>
     \let | q1 : cEval.select (s.lists lv) n1 = cEval.select (s.lists lv) n2 => pmap (cEval.select (s.lists lv) __) (aexp_deterministic a1 a2)
-         | q' : e1 = e2 => unjust ((inv p) *> q1 *> p2)
+         | q' : e1 = e2 => dejust (inv p *> q1 *> p2)
          | q2 : substVar s v e1 = substVar s v e2 => pmap (substVar _ _ __) q'
-    \in p1 *> q2 *> (inv p3)
+    \in p1 *> q2 *> inv p3
 

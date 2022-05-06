@@ -76,7 +76,7 @@
   \func rename {kc kc' : KindContext} {K : Kind} (h : Rename kc kc') (t : FType kc K) : FType kc' K
   \elim K, t
     | K, VarTy l => VarTy (h l)
-    | *, --> A B => (rename h A) --> (rename h B)
+    | *, --> A B => rename h A --> rename h B
     | *, ForAllTy k t => ForAllTy k (rename (extend h) t)
 
 
@@ -91,7 +91,7 @@
   \func subst {kc kc' : KindContext} (s : Subst kc kc') {K : Kind} (T : FType kc K) : FType kc' K
   \elim K, T
     | K, VarTy l => s l
-    | *, --> A B => (subst s A) --> (subst s B)
+    | *, --> A B => subst s A --> subst s B
     | *, ForAllTy k T => ForAllTy k (subst (extends s) T)
 
   \func sub {kc : KindContext} {K K' : Kind} (T : FType (ConsKind kc K) K') (T' : FType kc K) : FType kc K'

@@ -1,33 +1,24 @@
-\import Algebra.Domain.Euclidean
 \import Algebra.Monoid
 \import Arith.Int
 \import Arith.Nat
-\import Category.Limit
 \import Data.Array
 \import Data.List (List)
 \import Data.Maybe
-\import Debug.Meta
 \import Function.Meta
 \import HLevel
-\import LeipnizEquality
 \import Logic
 \import Logic.Meta
 \import Meta
 \import Order.Lattice
-\import Order.LinearOrder
 \import Order.PartialOrder
 \import Paths
 \import Paths.Meta
 \import Relation.Equivalence
-\import Set (BaseSet, Dec, DecSet, no, yes)
+\import Set (Dec, DecSet, no, yes)
 \import Util
 \import identity.DecMaps
 \import identity.FinIdentity
-\import identity.Identity
-\import typeclasses.Functor
-\import typeclasses.Monad
 \open DArray (!!)
-\open LeipnizIsEqual (i)
 \open ArrayUtils (contains)
 
 \module ArrayUtils \where {
@@ -41,7 +32,7 @@
         | :: a arr, 0, h => h
         | :: a arr, suc i, h => ++-left h
 
-      \func ++-right {A : \Type} {as as' : Array A} {x : A} {i : Nat} (h : as' ?? i = just x) : (as ++ as') ?? ((DArray.len {as}) + i) = just x
+      \func ++-right {A : \Type} {as as' : Array A} {x : A} {i : Nat} (h : as' ?? i = just x) : (as ++ as') ?? (DArray.len {as} + i) = just x
       \elim as
         | nil => h
         | :: a arr => ++-right h
@@ -82,7 +73,7 @@
 
   \func maxOf {A : JoinSemilattice} {n : Nat} (l : Array A (suc n)) : \Sigma (m : A) (\Pi (x : A) (Index x l) -> x Order.PartialOrder.<= m)
   \elim n, l
-    | 0, :: a nil => (a, \lam x (0, p) => rewrite p <=-reflexive)
+    | 0, :: a nil => (a, \lam x (0, p) => rewrite p <=-refl)
     | suc n, :: a (:: a' l') \as l =>
       \let (m', h') => maxOf (a' :: l') \in (a ∨ m', \lam x (i : Index x l) => \case \elim x, \elim i \with {
         | _, (0, idp) => join-left
@@ -216,8 +207,8 @@
       }
       | :: a arr => \lam x aIn aIn' => \case \elim aIn, \elim aIn' \with {
         | (0, aIn), (0, aIn') => ext idp
-        | (0, aIn), (suc i', aIn') => absurd (h.1 (i', aIn' *> (inv aIn)))
-        | (suc i, aIn), (0, aIn') => absurd (h.1 (i, aIn *> (inv aIn')))
+        | (0, aIn), (suc i', aIn') => absurd (h.1 (i', aIn' *> inv aIn))
+        | (suc i, aIn), (0, aIn') => absurd (h.1 (i, aIn *> inv aIn'))
         | (suc i, aIn), (suc i', aIn') => \let rec => from' h.2 x (i, aIn) (i', aIn')
                                           \in ext (pmap fsuc (pmap __.1 rec))
       }
@@ -226,7 +217,7 @@
       | nil => nil
       | :: a arr => \case contains arr a \with {
         | yes a1 => remDup arr
-        | no n => a :: (remDup arr)
+        | no n => a :: remDup arr
       }
       \where {
         \func complete {A : DecSet} {a : A} {l : Array A} (h : Index a l) : TruncP (Index a (remDup l)) \elim l, h
@@ -269,35 +260,35 @@
 
 \func ArrayOrder {A : \Set} : Poset (Array A) \cowith
   | <= => <=
-  | <=-reflexive => refl
+  | <=-refl => refl
   | <=-transitive => trans
   | <=-antisymmetric => antiSym
   \where {
-    \data \infix 6 <= {A : \Type} (x : Array A) (y : Array A) \elim x, y
+    \data \infix 6 <= {A : \Set} (x : Array A) (y : Array A) : \Prop \elim x, y
       | nil, _ => nil<=_
       | :: a t, :: a' t' => cons<=cons (a = a') (t <= t')
 
-    \func refl {A : \Type} {x : Array A} : x <= x \elim x
+    \func refl {A : \Set} {x : Array A} : x <= x \elim x
       | nil => <=.nil<=_
       | :: a arr => <=.cons<=cons idp refl
 
-    \func trans {A : \Type} {x y z : Array A} (h : x <= y) (h' : y <= z) : x <= z
+    \func trans {A : \Set} {x y z : Array A} (h : x <= y) (h' : y <= z) : x <= z
     \elim x, y, z, h, h'
       | nil, _, _, _, _ => <=.nil<=_
       | :: a t, :: a1 t1, :: a' t', ArrayOrder.cons<=cons p h, cons<=cons p1 h' =>
         cons<=cons (p *> p1) (trans h h')
 
-    \func antiSym {A : \Type} {x y : Array A} (h : x <= y) (h' : y <= x) : x = y \elim x, y, h, h'
+    \func antiSym {A : \Set} {x y : Array A} (h : x <= y) (h' : y <= x) : x = y \elim x, y, h, h'
       | nil, nil, nil<=_, nil<=_ => idp
       | :: {n} a' t', :: {n'} a t, cons<=cons p h, cons<=cons _ h' => createArray= p (antiSym h h')
 
-    \func <=-prefix {A : \Type} {x y : Array A} (h : x <= y) : \Sigma (z : Array A) (x ++ z = y)
+    \func <=-prefix {A : \Set} {x y : Array A} (h : x <= y) : \Sigma (z : Array A) (x ++ z = y)
     \elim x, y, h
       | nil, y, nil<=_ => (y, idp)
       | :: a t, :: a' t', cons<=cons p h => \let (z, h') => <=-prefix h
                                             \in (z, pmap2 {A} {Array A} (__ :: __) p h')
 
-    \func <=-nil {A : \Type} {x : Array A} (h : x <= nil) : x = nil \elim x, h
+    \func <=-nil {A : \Set} {x : Array A} (h : x <= nil) : x = nil \elim x, h
       | nil, nil<=_ => idp
   }
 

@@ -32,7 +32,7 @@
     \elim h
       | var l => s l
       | lam body => lam (subst (extends s) body)
-      | ⋅ f arg => (subst s f) ⋅ (subst s arg)
+      | ⋅ f arg => subst s f ⋅ subst s arg
   }
 
 \module SubstitutionAlgebra \where {
@@ -66,7 +66,7 @@
     | ⋅ t t1 => pmap2 (⋅) ids-id ids-id
 
   \func seq-ids {gamma delta : UniContext} {s : UniSubst gamma delta} :
-    s ++ (ids {delta}) = {UniSubst gamma delta} s
+    s ++ ids {delta} = {UniSubst gamma delta} s
     => ext (\lam {A} l => unfold (++) ids-id)
 }
 
@@ -81,7 +81,7 @@
     {cong-sub (\lam {A} => subst-Z-cons-ids) idp}
     (subst (subst s t' ⋅⋅ ids) (subst (extends s) t))
     {sub-sub}
-    (subst ((extends s) ++ (subst s t' ⋅⋅ ids)) t)
+    (subst (extends s ++ (subst s t' ⋅⋅ ids)) t)
     {{?}}
     (subst s (sub t t'))
   \where {

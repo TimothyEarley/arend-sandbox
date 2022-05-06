@@ -3,6 +3,7 @@
 \import Data.List
 \import Data.Maybe
 \import Function
+\import Function.Meta ($)
 \import Logic
 \import Logic.Meta
 \import LogicUtil
@@ -83,7 +84,7 @@
 
 \data AExpDerivation \alias \infix 6 aEval {S : Signature} (j : AExpJudgement S) (n : Num) \elim S, j
   | S, (⊕ a b, state) => rPlus  {n1 n2 : Num} ((a, state) aEval {S} n1) ((b, state) aEval {S} n2) (n = n1 + n2)
-  | S, (⊖ a b, state) => rMinus {n1 n2 : Num} ((a, state) aEval {S} n1) ((b, state) aEval {S} n2) (n = n1 + (negative n2))
+  | S, (⊖ a b, state) => rMinus {n1 n2 : Num} ((a, state) aEval {S} n1) ((b, state) aEval {S} n2) (n = n1 + negative n2)
   | S, (⊙ a b, state) => rTimes {n1 n2 : Num} ((a, state) aEval {S} n1) ((b, state) aEval {S} n2) (n = n1 * n2)
   | S, (var v, state) => rVar (variables {state} v = n)
   | S, (num n', state) => rNum (n = n')
@@ -96,13 +97,13 @@
       | (⊖ a b, s) => calc (a, s) + negative (calc (b, s))
       | (⊙ a b, s) => calc (a, s) * calc (b, s)
 
-    \func calc_correct {S : Signature} {j : AExpJudgement S} {n : Num} : (j aEval n) <-> (calc j = n) =>
+    \func calc_correct {S : Signature} {j : AExpJudgement S} {n : Num} : (j aEval n) <--> (calc j = n) =>
       (eval=>calc, calc=>eval)
       \where {
         \func eval=>calc {S : Signature} {j : AExpJudgement S} {n : Num} (h : j aEval n) : calc j = n \elim j, h
-          | (⊕ a b,state), rPlus h1 h2 p => (pmap2 (+) (eval=>calc h1) (eval=>calc h2)) *> (inv p)
-          | (⊖ a b,state), rMinus h1 h2 p => (pmap2 (__ + negative __) (eval=>calc h1) (eval=>calc h2)) *> (inv p)
-          | (⊙ a b,state), rTimes h1 h2 p => (pmap2 (*) (eval=>calc h1) (eval=>calc h2)) *> (inv p)
+          | (⊕ a b,state), rPlus h1 h2 p => pmap2 (+) (eval=>calc h1) (eval=>calc h2) *> inv p
+          | (⊖ a b,state), rMinus h1 h2 p => pmap2 (__ + negative __) (eval=>calc h1) (eval=>calc h2) *> inv p
+          | (⊙ a b,state), rTimes h1 h2 p => pmap2 (*) (eval=>calc h1) (eval=>calc h2) *> inv p
           | (var v,state), rVar p => p
           | (num n',state), rNum p => inv p
 
@@ -145,7 +146,11 @@
   \where {
     \func get {S : Signature} {s : State S} {n : Num} {x : Var} : variables {substVar s x n} x = n =>
       unfold (\case decideEq x x \as d, idp : decideEq x x = d \with {
-        | yes e, q => rewrite q idp
+        | yes e, q => run {
+          unfold (==),
+          rewrite $ decideEq=_reduce idp,
+          idp
+        }
         | no n1, p => contradiction
       })
 
@@ -153,7 +158,11 @@
       substVar (substVar s x n) x n' = substVar s x n' => ext
         (ext (\lam e => unfold (\case decToBool (decideEq x e) \as d, idp : decToBool (decideEq x e) = d \with {
           | true, q => rewrite q idp
-          | false, q => rewrite q idp
+          | false, q => run {
+            unfold (==, variables),
+            rewrite q,
+            idp
+          }
         })))
   }
 
@@ -200,9 +209,8 @@
 
 \func finSubst {nVar nLVar : Nat} {v : Array Num nVar} {l : Array (List Num) nLVar} {x : Fin nVar} {n : Num}
   : substVar {finSig nVar nLVar} (finState v l) x n = finState (set v x n) l =>
-  ext (ext (\lam e => unfold (mcases {2, 3} \with {
-    | yes e1, yes e2 => idp
-    | yes e1, no n1 => absurd (n1 (code-decode e1))
-    | no n1, yes e1 => absurd (n1 (code-encode e1))
-    | no n1, no n2 => idp
-  })))
+  ext (ext (\lam e => run {
+    unfold variables,
+    unfold (==),
+    mcases {2} (cases (decideEq x e) (idp <|> contradiction))
+  }))

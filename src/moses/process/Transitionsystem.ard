@@ -77,10 +77,10 @@
             \lam e => ||-comm,
             \lam t =>
                 \let
-                  | simplifyCoe : (coe (\lam i => \Sigma ((iso swap swap (\lam _ => idp) (\lam _ => idp)) i)
+                  | simplifyCoe : coe (\lam i => \Sigma ((iso swap swap (\lam _ => idp) (\lam _ => idp)) i)
                                                          ((\lam j => Elements (\lam e => (iso (||-swap {ts1.EventsSet e} {ts2.EventsSet e}) ||-swap (\lam _ => ext) (\lam _ => ext)) j)) i)
                                                          ((iso swap swap (\lam _ => idp) (\lam _ => idp)) i))
-                      t right) = (swap t.1, (t.2.1, ||-swap t.2.2), swap t.3) => simp_coe (idp, ext (simp_coe idp), idp)
+                      t right = (swap t.1, (t.2.1, ||-swap t.2.2), swap t.3) => simp_coe (idp, ext (simp_coe idp), idp)
 
                 \in rewrite simplifyCoe ||-comm
       )

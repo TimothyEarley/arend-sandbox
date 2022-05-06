@@ -46,14 +46,14 @@
   \where {
     \func cPair-suc {x y : Nat} : cPair x (suc y) = suc (cPair (suc x) y) \elim x
       | 0 => idp
-      | suc x => rewrite (cPair-suc) idp
+      | suc x => rewrite cPair-suc idp
 
     \func cPair-expand {x y : Nat} : cPair x y = cPair (x + y) 0 + y \elim y
       | 0 => idp
       | suc y => equation
           (cPair x (suc y)) {cPair-suc}
           (suc (cPair (suc x) y)) {pmap suc $ cPair-expand {suc x} {y}}
-          (suc (cPair ((suc x) + y) 0 + y)) {idp}
+          (suc (cPair (suc x + y) 0 + y)) {idp}
           (suc (suc (cPair (x + y) 0 + (x + y) + y)))
 
     \func cPair0 (n : Nat) : Nat
@@ -73,7 +73,7 @@
           | n<k : n < k => \case (∸.=0->x<=y q) \with {
             | <.suc<suc n<k => n<k
           } \in absurd (n<k<sn n<k k<=n) -- n < k < sn
-        | suc x, q => unsuc (inv q *> (∸.+-assoc 1 k<=n))
+        | suc x, q => unsuc (inv q *> ∸.+-assoc 1 k<=n)
       })
 
     \func h2 (n k : Nat) (h : k < suc n) : cPair.unPair2 (cPair0 n + k) = k

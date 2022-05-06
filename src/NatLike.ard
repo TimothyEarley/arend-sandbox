@@ -71,7 +71,7 @@
     \func toNat-fromNat {N : Peano} (x : Nat) : toNat (fromNat {N} x) = x =>
       induction (\lam n => toNat (fromNat {N} n) = n) x
           (N.induction-zero (\lam _ => Nat) 0 (\lam n => suc n))
-          (\lam {n} p => \let goal : toNat (succ (fromNat n)) = suc n => (N.induction-succ (\lam _ => Nat) (fromNat n) 0 (\lam n => suc n)) *> (pmap suc p) \in goal)
+          (\lam {n} p => \let goal : toNat (succ (fromNat n)) = suc n => N.induction-succ (\lam _ => Nat) (fromNat n) 0 (\lam n => suc n) *> pmap suc p \in goal)
 
     \func fromNat-toNat {N : Peano} (x : N) : fromNat (toNat {N} x) = x =>
       induction (\lam n => fromNat (toNat {N} n) = n) x
@@ -118,7 +118,7 @@
       \func inc+ (b : Bin+) : Bin+ \elim b
         | nil => #0 :: nil
         | :: #0 l => #1 :: l
-        | :: #1 l => #0 :: (inc+ l)
+        | :: #1 l => #0 :: inc+ l
 
       \func inc+-not-nil {b : Bin+} (h : inc+ b = nil) {A : \Type} : A \elim b
         | nil => contradiction
@@ -316,13 +316,13 @@
                 (cur, mendlerSucc cur)
           ) (mendlerZero, mendlerZero)).1
       \where {
-        \func test0 : mendlerPred (natToMendler 0) = {MendlerNat} (natToMendler 0) => idp
+        \func test0 : mendlerPred (natToMendler 0) = {MendlerNat} natToMendler 0 => idp
 
-        \func test1 : mendlerPred (natToMendler 1) = {MendlerNat} (natToMendler 0) => idp
+        \func test1 : mendlerPred (natToMendler 1) = {MendlerNat} natToMendler 0 => idp
 
-        \func test2 : mendlerPred (natToMendler 2) = {MendlerNat} (natToMendler 1) => idp
+        \func test2 : mendlerPred (natToMendler 2) = {MendlerNat} natToMendler 1 => idp
 
-        \func test3 : mendlerPred (natToMendler 3) = {MendlerNat} (natToMendler 2) => idp
+        \func test3 : mendlerPred (natToMendler 3) = {MendlerNat} natToMendler 2 => idp
       }
   }
 
@@ -343,10 +343,10 @@
       : DArray {n} (E __) \elim n
       | 0 => Prelude.nil
       | suc n => \let e0 => h 0 (\case __, __) \in
-        e0 Prelude.:: (collectIHs {\lam z => E (suc z)}
+        e0 Prelude.:: collectIHs {\lam z => E (suc z)}
             (\lam k h' => h (suc k) (\case \elim __, __ \with {
               | 0, NatSemiring.zero<suc => e0
               | suc k', NatSemiring.suc<suc k'<k => h' k' k'<k
             }))
-            n)
+            n
   }

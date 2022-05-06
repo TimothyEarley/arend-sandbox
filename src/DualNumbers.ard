@@ -21,7 +21,7 @@
 
     \use \coerce fromNat(n : Nat) => fromRat (ratio n 1)
 
-    \func example : (f 5) = \new Dual 25 10 => idp
+    \func example : f 5 = \new Dual 25 10 => idp
       \where {
         \func f (r : Dual) : Dual => r DualRing.* r
       }
@@ -81,12 +81,12 @@
 
 -- f(x) = x^n ==> f'(x) = n * x^(n-1)
 
-\func power_law {d : Rat} {n : Nat} : ep {d ^ (suc n)} = (ratio (suc n) 1) RatField.* re {d ^ n} \elim n
+\func power_law {d : Rat} {n : Nat} : ep {d ^ suc n} = (ratio (suc n) 1) RatField.* re {d ^ n} \elim n
   | 0 =>
     ep {d ^ 1}                                        ==< idp >==
     ep {d DualRing.* DualRing.ide}                    ==< pmap (ep {__}) (DualRing.ide-right {d}) >==
     ep {d}                                            ==< idp >==
-    (ratio 1 1)                                       ==< inv RatField.ide-left >==
+    ratio 1 1                                       ==< inv RatField.ide-left >==
     (ratio 1 1) RatField.* (ratio 1 1)                ==< idp >==
     (ratio 1 1) RatField.* re {DualRing.ide}          ==< idp  >==
     (ratio 1 1) RatField.* re {(\new Dual d 1) ^ 0}   `qed
@@ -94,25 +94,25 @@
 
   -- \new Dual (x.re * y.re) (x.re * y.ep + x.ep * y.re)
   | suc n => \let y => ratio (suc n) 1 \in
-    (ep {d ^ (suc (suc n))})                                ==< idp >==
-    (ep {d DualRing.* (d ^ (suc n))})                       ==< idp >==
-    (re {d} * ep {d ^ (suc n)} + ep {d} * re {d ^ (suc n)}) ==< pmap ((_ * __) + _) power_law >==
-    (re {d} * (y * re {d ^ n}) + ep {d} * re {d ^ (suc n)}) ==< pmap (__ + _) (inv (RatField.*-assoc {_} {y})) >==
-    ((re {d} * y) * re {d ^ n} + ep {d} * re {d ^ (suc n)}) ==< pmap ((__ * _) + _) (RatField.*-comm {_} {y}) >==
-    ((y * re {d}) * re {d ^ n} + ep {d} * re {d ^ (suc n)}) ==< pmap (__ + _) (RatField.*-assoc {y}) >==
-    (y * (re {d} * re {d ^ n}) + ep {d} * re {d ^ (suc n)}) ==< idp >==
-    (y * (re {d ^ (suc n)}) + ep {d} * re {d ^ (suc n)})    ==< inv (RatField.rdistr {y} {ep {d}}) >==
-    ((y + ep {d}) * re {d ^ (suc n)})                       ==< idp >==
-    (((ratio (suc n) 1) + (ratio 1 1)) * re {d ^ (suc n)})  ==< power_law-lemma >==
-    ((ratio (suc (suc n)) 1) * re {d ^ (suc n)}) `qed
+    ep {d ^ suc (suc n)}                                ==< idp >==
+    ep {d DualRing.* (d ^ suc n)}                       ==< idp >==
+    (re {d} * ep {d ^ suc n} + ep {d} * re {d ^ suc n}) ==< pmap ((_ * __) + _) power_law >==
+    (re {d} * (y * re {d ^ n}) + ep {d} * re {d ^ suc n}) ==< pmap (__ + _) (inv (RatField.*-assoc {_} {y})) >==
+    ((re {d} * y) * re {d ^ n} + ep {d} * re {d ^ suc n}) ==< pmap ((__ * _) + _) (RatField.*-comm {_} {y}) >==
+    ((y * re {d}) * re {d ^ n} + ep {d} * re {d ^ suc n}) ==< pmap (__ + _) (RatField.*-assoc {y}) >==
+    (y * (re {d} * re {d ^ n}) + ep {d} * re {d ^ suc n}) ==< idp >==
+    (y * re {d ^ suc n} + ep {d} * re {d ^ suc n})    ==< inv (RatField.rdistr {y} {ep {d}}) >==
+    ((y + ep {d}) * re {d ^ suc n})                       ==< idp >==
+    ((ratio (suc n) 1 + ratio 1 1) * re {d ^ suc n})  ==< power_law-lemma >==
+    (ratio (suc (suc n)) 1 * re {d ^ suc n}) `qed
 
 \where {
   \func power_law-lemma {n : Nat} {d : Rat}
-    : (((ratio (suc n) 1) + (rat 1 1 (\case __))) * re {d ^ (suc n)})
-    = ((ratio (suc (suc n)) 1)                    * re {d ^ (suc n)})
+    : ((ratio (suc n) 1 + rat 1 1 (\case __)) * re {d ^ suc n})
+    = (ratio (suc (suc n)) 1                    * re {d ^ suc n})
     => pmap
-        (__ * re {d ^ (suc n)})
-        {(ratio (suc n) 1) + (ratio 1 1)}
+        (__ * re {d ^ suc n})
+        {ratio (suc n) 1 + ratio 1 1}
         {ratio (suc (suc n)) 1}
         (ext (unfold (pmap pos (pmap suc (pmap suc (pmap (1 Nat.* __) ide-left)))),
               idp))

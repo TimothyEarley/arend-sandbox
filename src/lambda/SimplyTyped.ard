@@ -1,4 +1,3 @@
-\import Data.Bool
 \import Data.Maybe
 \import Data.Or
 \import Function.Meta ($)
@@ -11,14 +10,12 @@
 \import Paths.Meta
 \import Set
 \import identity.DecMaps
-\import identity.FinIdentity
 \import identity.Identity
 \import identity.NatIdentity
 \import lambda.Lambda
 \import typeclasses.Functor
 \import typeclasses.Monad
-\import util.Maybe (flatMapJust, unjust)
-\open FinIdentity (code-decide)
+\import util.Maybe (dejust, flatMapJust)
 
 \data Type
   | \infixr 6 --> (A B : Type)
@@ -47,10 +44,10 @@
       | --> A B, --> A1 B1, (c1, c2) => pmap2 (-->) (decode c1) (decode c2)
 
     \func un--> {T1 T2 S1 S2 : Type} (p : T1 --> T2 = S1 --> S2) : \Sigma (T1 = S1) (T2 = S2) =>
-      (decode (code-encode p).1, decode (code-encode p).2)
+      (decode (DecType.code-encode p).1, decode (DecType.code-encode p).2)
 
     \func decType (T S : Type) : Dec (Code T S)
-      | --> A B, --> A1 B1 => decMap2 (decType A A1) (decType B B1) <->.refl <->.refl
+      | --> A B, --> A1 B1 => decMap2 (decType A A1) (decType B B1) <->refl <->refl
   }
 
 \data AnnotatedLambdaTerm
@@ -61,7 +58,7 @@
     \func erase (t : AnnotatedLambdaTerm) : LambdaTerm
       | var i => Var i
       | lam v T body => Lam v (erase body)
-      | ⋅⋅ f arg => (erase f) ⋅ (erase arg)
+      | ⋅⋅ f arg => erase f ⋅ erase arg
   }
 
 \func Context => Identifier -> Maybe Type
@@ -156,7 +153,7 @@
     \elim t, h
       | Var v, TVar p => \lam i f => (T, rewrite f p)
       | Lam v body, TAbs p bodyType => \lam i f => \let (T', q) => typed=>onlyGammaFree bodyType i f.2
-                                                   \in (T', (inv (Context.addGetOther {gamma} (invN f.1))) *> q )
+                                                   \in (T', inv (Context.addGetOther {gamma} (invN f.1)) *> q )
       | ⋅ f arg, TApp fType argType => \lam i f1 => \case \elim f1 \with {
         | inl a => typed=>onlyGammaFree fType i a
         | inr b => typed=>onlyGammaFree argType i b
@@ -170,7 +167,7 @@
     \func contextInvariance {gamma gamma' : Context} {t : LambdaTerm} {T : Type}
                             (h : Typerule gamma t T) (f : \Pi (x : Identifier) (FreeIn x t) -> gamma' x = gamma x) : Typerule gamma' t T
     \elim t, h
-      | Var v, TVar p => TVar ((f v idp) *> p)
+      | Var v, TVar p => TVar (f v idp *> p)
       | Lam v body, TAbs p bodyType => TAbs p (contextInvariance bodyType
           (\lam x fIn => unfold Context.add (mcases \with {
             | yes _ => idp
@@ -187,8 +184,8 @@
 \elim t
   | var i => gamma i
   | lam v T body => fmap (\lam T2 => T --> T2) (types (Context.add gamma v T) body)
-  | ⋅⋅ f arg => (types gamma f) >>= (\lam T1 =>
-      (types gamma arg) >>= (\lam T2 =>
+  | ⋅⋅ f arg => types gamma f >>= (\lam T1 =>
+      types gamma arg >>= (\lam T2 =>
           \case T1 \with {
             | --> A B => \case decideEq T2 A \with {
               | yes e => just B
@@ -205,14 +202,14 @@
       | var i => TVar h
       | lam v T1 body => cases (types (Context.add gamma v T1) body arg addPath) \with {
         | nothing, q => \case (rewriteF q h)
-        | just T2, q => \let h' => rewriteF q h \in TAbs (unjust h') (sound q)
+        | just T2, q => \let h' => rewriteF q h \in TAbs (dejust h') (sound q)
       }
       | ⋅⋅ f t =>
         \let
           | (--> A B, typesF, p1) => flatMapJust h
           | (A', typesT, p2) => flatMapJust p1
         \in cases (decideEq A' A arg addPath) \with {
-          | yes A'=A, p => \let B=T => unjust $ rewriteF p p2
+          | yes A'=A, p => \let B=T => dejust $ rewriteF p p2
                         \in sound-app (sound typesF) (sound typesT) A'=A B=T
           | no n, p => \case rewriteF p p2
         }

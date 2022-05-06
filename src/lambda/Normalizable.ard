@@ -5,12 +5,10 @@
 \import LogicUtil
 \import Paths
 \import Star
-\import lambda.Confluent
 \import lambda.Lambda
 \import lambda.Preservation
 \import lambda.Reduction
 \import lambda.SimplyTyped
-\import util.Maybe
 \open Context
 
 \func Normal (t : LambdaTerm) : \Prop => Not (\Sigma (t' : LambdaTerm) (t ->1 t'))
@@ -60,9 +58,9 @@
                                        \in WeakNormalizable.prefix (r, idp) w
   }
 
-\func omega : LambdaTerm => (Lam 0 (Var 0 ⋅ Var 0)) ⋅ (Lam 0 (Var 0 ⋅ Var 0))
+\func omega : LambdaTerm => Lam 0 (Var 0 ⋅ Var 0) ⋅ Lam 0 (Var 0 ⋅ Var 0)
   \where {
-    \func omega-not-normal (n : Normal omega) : Empty => n (omega, (Beta, {?}))
+    \func omega-not-normal (n : Normal omega) : Empty => n (omega, (Beta, idp))
 
     \func omega-not-weak-norm (w : WeakNormalizable omega) : Empty
       | (v, nv, refl idp) => omega-not-normal nv
@@ -94,7 +92,7 @@
     \elim T, r
       | --> A B, r => r.1
 
-    \func RStep {T : Type} {t t' : LambdaTerm} (h : emptyContext ⊢ (t, T)) (st : t ->1 t') : R T t <-> R T t'
+    \func RStep {T : Type} {t t' : LambdaTerm} (h : emptyContext ⊢ (t, T)) (st : t ->1 t') : R T t <--> R T t'
     \elim T
       | --> T1 T2 => (\lam r => \case \elim r \with {
         | (tTyped, sn, rr) => (preservation h st,

@@ -1,33 +1,28 @@
 \import Algebra.Monoid
 \import Arith.Nat
 \import Data.Array
-\import Data.Bool
 \import Equiv
 \import Function
 \import Function.Meta ($)
-\import Identity
 \import Logic
 \import Logic.Meta
 \import LogicUtil
-\import SetTheory.OD
-\import Util
-\import identity.FinIdentity
 \import Meta
 \import Paths
 \import Paths.Meta
 \import Set
-\import identity.DecMaps
+\import Util
+\import identity.FinIdentity
 \import identity.SigmaIdentity
 \import sets.Add
 \import sets.DecidableSet
-\import sets.Disjoint
 \import sets.Elements
 \import sets.MySet
 \import sets.remove
 \import sets.subset
 \import sets.union
 \import util.ArrayUtils
-\open SizedEnsemble (element-index, getElement, getIndex, index-element, removeSizedExt, toArray, toArray', unGetIndex)
+\open SizedEnsemble (getIndex, removeSizedExt, toArray, unGetIndex)
 
 -- Bishop-finite without truncated equality, very strong notion of finite
 
@@ -48,14 +43,14 @@
   \lemma index-element {i : Fin size} : getIndex (getElement i) = i => transport_id_inv id sizeProof i
 
   \func unGetElement {x y : Fin size} (p : getElement x = getElement y) : x = y =>
-    (inv index-element) *> (pmap getIndex p) *> index-element
+    inv index-element *> pmap getIndex p *> index-element
 
   \func unGetIndex {x y : Elements S} (p : getIndex x = getIndex y) : x = y =>
-    (inv element-index) *> (pmap getElement p) *> element-index
+    inv element-index *> pmap getElement p *> element-index
 
   \func toArray : Array (Elements S) size => mkArray getElement
     \where {
-      \func complete (e : Elements S) : Index e (toArray) => (getIndex e, element-index)
+      \func complete (e : Elements S) : Index e toArray => (getIndex e, element-index)
     }
 
   \func toArray' : Array E size => map __.1 toArray
@@ -137,7 +132,7 @@
     | E => S.E
     | S => remove S.S a
     | size => n
-    | sizeProof => (pmap Elements (swapToFirst= aIn)) *> removeFirstSized.removedSizeProof {E} {n} {swapToFirst S aIn}
+    | sizeProof => pmap Elements (swapToFirst= aIn) *> removeFirstSized.removedSizeProof {E} {n} {swapToFirst S aIn}
     \where {
       \func sizedOneIsSingle {A : \Set} (S : SizedEnsemble A { | size => 1 }) : S.S = single {S.E} (S.getElement 0).1 =>
         extSet
@@ -152,7 +147,7 @@
         : S = single a
         => extSet
             (\lam {x} e => cases (h.getIndex (x, e) arg addPath, h.getIndex (a, in) arg addPath) \with {
-              | 0, p, 0, p' => pmap __.1 $ h.unGetIndex (p' *> (inv p))
+              | 0, p, 0, p' => pmap __.1 $ h.unGetIndex (p' *> inv p)
             })
             (\lam {x} e => rewriteF e in)
 
@@ -177,16 +172,27 @@
           }
           | ret_f => {?}
           | f_sec i => \case \elim i \with {
-            | 0 => rewrite (decideEq=_reduce idp) idp
+            | 0 => rewrite (decideEq=_reduce {SizedEnsembleDecElements} {(a, aIn)} idp) idp
             | suc i => {?}
           }
         })
 
       \func swapToFirstIsFirst {A : \Set} {n : Nat} {S : SizedEnsemble A { | size => suc n }} {a : A} {aIn : a ∈ S}
-        : getElement {swapToFirst S aIn} 0 = (a, aIn) => {?} -- TODO this should hold by definiton
+        : getElement {swapToFirst S aIn} 0 = (a, aIn) =>
+        \let
+          | p => sizeProof {swapToFirst S aIn}
+          | p1 : transport id p (a, aIn) = 0 => run {
+              unfold transport,
+              rewrite (decideEq=_reduce {SizedEnsembleDecElements} {(a, aIn)} idp),
+              idp
+          }
+          | p2 : transport id (inv p) (transport id p (a, aIn)) = (a, aIn) => transport_inv_id id p (a, aIn)
+          | goal : transport id (inv (sizeProof {swapToFirst S aIn})) 0 = (a, aIn) =>
+            transport (\lam z => transport id (inv (sizeProof {swapToFirst S aIn})) z = (a, aIn)) p1 p2
+        \in goal
 
       \func swapToFirst= {n : Nat} {S : SizedEnsemble { | size => suc n }} {a : S.E} (aIn : a ∈ S)
-        : (remove S a) = (remove {S.E} (SizedEnsemble.S {swapToFirst S aIn}) (getElement {swapToFirst S aIn} 0).1) =>
+        : remove S a = remove {S.E} (SizedEnsemble.S {swapToFirst S aIn}) (getElement {swapToFirst S aIn} 0).1 =>
         extSet
             (\lam {x} (e, e') => (e,
                                   \lam p => e' ({?} *> p)))
@@ -273,7 +279,7 @@
 }
 
 \instance SizedEnsembleDecElements {S : SizedEnsemble} : DecSet (Elements S.S)
-  | decideEq x y => \case (S.getIndex x) fin≟ (S.getIndex y) \with {
+  | decideEq x y => \case S.getIndex x fin≟ S.getIndex y \with {
     | yes e => yes (unGetIndex e)
     | no n => no (\lam p => n (pmap getIndex p))
   }

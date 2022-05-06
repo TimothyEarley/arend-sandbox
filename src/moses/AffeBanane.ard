@@ -1,33 +1,17 @@
 \import Algebra.Group
 \import Algebra.Monoid
 \import Arith.Int
-\import Arith.Nat
 \import Data.Bool
-\import DeriveDec.Meta
-\import Function
 \import Logic
-\import Logic.Meta
 \import LogicUtil
-\import Order.Lattice
+\import Paths
+\import Paths.Meta
+\import Set (Dec, decToBool, no, yes)
 \import Star
 \import identity.BoolIdentity
 \import identity.DecMaps
 \import identity.FinIdentity
-\import identity.SigmaIdentity
 \import util.Int
-\import util.Maybe
-\import Meta
-\import sets.Elements
-\import sets.MySet
-\import Paths
-\import Paths.Meta
-\import Set (Dec, decToBool, decideEq, no, yes)
-\import sets.Complement
-\import sets.finite.FiniteS
-\import sets.Intersect
-\import sets.pow
-\import sets.subset
-\import sets.union
 \import util.True
 
 \func Point => \Sigma (x y : Fin 5)
@@ -93,10 +77,10 @@
       | (x,y), (x',y'), west => \Sigma (isSafeSuc x' x) (y' = y)
 
     \func validMove? (from to : Point) (d : Direction) : Dec (validMove from to d) \elim from, to, d
-      | (x,y), (x',y'), north => decMap2 (x' fin≟ x) (isSafeSuc? y y') <->.refl <->.refl
-      | (x,y), (x',y'), east => decMap2 (isSafeSuc? x x') (y' fin≟ y) <->.refl <->.refl
-      | (x,y), (x',y'), south => decMap2 (x' fin≟ x) (isSafeSuc? y' y) <->.refl <->.refl
-      | (x,y), (x',y'), west => decMap2 (isSafeSuc? x' x) (y' fin≟ y) <->.refl <->.refl
+      | (x,y), (x',y'), north => decMap2 (x' fin≟ x) (isSafeSuc? y y') <->refl <->refl
+      | (x,y), (x',y'), east => decMap2 (isSafeSuc? x x') (y' fin≟ y) <->refl <->refl
+      | (x,y), (x',y'), south => decMap2 (x' fin≟ x) (isSafeSuc? y' y) <->refl <->refl
+      | (x,y), (x',y'), west => decMap2 (isSafeSuc? x' x) (y' fin≟ y) <->refl <->refl
 
     -- i' = fsuc i
 
@@ -180,16 +164,16 @@
 
     \func transition? (from : State) (action : Action) (to : State) : Dec (Transition from action to) \elim from, action, to
       | (monkey, box, banana), move d, (monkey', box', banana') =>
-        decMap3 (box point≟ box') (banana bool≟ banana') (validMove? monkey monkey' d) <->.refl <->.refl <->.refl
+        decMap3 (box point≟ box') (banana bool≟ banana') (validMove? monkey monkey' d) <->refl <->refl <->refl
       | (monkey, box, banana), push, (monkey', box', banana') =>
-        decMap4 (monkey' point≟ box) (banana bool≟ banana') (box' point≟ pushBox monkey box) (nextToEachother? monkey box) <->.refl <->.refl <->.refl <->.refl
+        decMap4 (monkey' point≟ box) (banana bool≟ banana') (box' point≟ pushBox monkey box) (nextToEachother? monkey box) <->refl <->refl <->refl <->refl
       | (monkey, box, banana), climbOn, (monkey', box', banana') =>
-        decMap4 (monkey' point≟ box) (banana' bool≟ banana) (box' point≟ box) (nextToEachother? monkey box) <->.refl <->.refl <->.refl <->.refl
+        decMap4 (monkey' point≟ box) (banana' bool≟ banana) (box' point≟ box) (nextToEachother? monkey box) <->refl <->refl <->refl <->refl
       | (monkey, box, banana), climbOff d, (monkey', box', banana') =>
-        decMap4 (monkey point≟ box) (box' point≟ box) (banana' bool≟ banana) (validMove? monkey monkey' d) <->.refl <->.refl <->.refl <->.refl
+        decMap4 (monkey point≟ box) (box' point≟ box) (banana' bool≟ banana) (validMove? monkey monkey' d) <->refl <->refl <->refl <->refl
       | (monkey, box, banana), grab, (monkey', box', banana') =>
         decMap6 (banana bool≟ false) (banana' bool≟ true) (box' point≟ box) (monkey' point≟ monkey) (monkey point≟ box) (box point≟ (2, 2))
-            <->.refl <->.refl <->.refl <->.refl <->.refl <->.refl
+            <->refl <->refl <->refl <->refl <->refl <->refl
 
     \func test : True (transition?
                       (\new State (3, 4) (2, 1) false)

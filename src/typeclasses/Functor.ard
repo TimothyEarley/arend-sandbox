@@ -16,14 +16,14 @@
 
   -- laws
   | functor-identity : \Pi {A : \Type} -> fmap (id {A}) = id
-  | functor-composition : \Pi {A B C : \Type} (f : B -> C) (g : A -> B) -> fmap (f o g) = (fmap f) o (fmap g)
+  | functor-composition : \Pi {A B C : \Type} (f : B -> C) (g : A -> B) -> fmap (f o g) = fmap f o fmap g
 
 \class SetFunctor (F : \Set -> \Set)
   | sfmap : \Pi {A B : \Set} (f : A -> B) (F A) -> F B
 
   -- laws
   | sfunctor-identity : \Pi {A : \Set} -> sfmap (id {A}) = id
-  | sfunctor-composition : \Pi {A B C : \Set} (f : B -> C) (g : A -> B) -> sfmap (f o g) = (sfmap f) o (sfmap g)
+  | sfunctor-composition : \Pi {A B C : \Set} (f : B -> C) (g : A -> B) -> sfmap (f o g) = sfmap f o sfmap g
 
 \func IndentityFunctor : Functor Identity \cowith
   | fmap f => f
@@ -39,7 +39,7 @@
 
 \class Natural \alias \infix 6 :-> (F G : Functor)
   | eta {A : \Type} (F A) : G A
-  | eta-law {A B : \Type} {f : A -> B} : (G.fmap f) o eta = eta o (F.fmap f)
+  | eta-law {A B : \Type} {f : A -> B} : G.fmap f o eta = eta o F.fmap f
 
   \where {
     -- example

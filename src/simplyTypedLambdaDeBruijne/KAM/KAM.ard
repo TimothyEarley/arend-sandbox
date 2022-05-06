@@ -10,7 +10,7 @@
 \import simplyTypedLambdaDeBruijne.GeneralContext
 \import simplyTypedLambdaDeBruijne.Lambda
 \import typeclasses.Monad
-\import util.Maybe (unjust)
+\import util.Maybe (dejust)
 
 -- Krivine Abstract Machine
 -- reductions to head normal form
@@ -107,25 +107,25 @@
 
   \func run (fuel : Nat) (c : Configuration) : Maybe Configuration \elim fuel
     | 0 => just c
-    | suc fuel => (->1_KAM.auto c) >>= (run fuel)
+    | suc fuel => ->1_KAM.auto c >>= run fuel
 
   \func run_correct (fuel : Nat) {c c' : Configuration} (p : run fuel c = just c') : c ->*_KAM c'
     \elim fuel
       | 0 => refl (unjust p)
       | suc fuel => cases (->1_KAM.auto c arg addPath) \with {
-        | just a, q => \let p' => rewriteF q p \in ->1_KAM.autoCorrect q ~> (run_correct fuel p')
+        | just a, q => \let p' => rewriteF q p \in ->1_KAM.autoCorrect q ~> run_correct fuel p'
         | nothing, q => \let p' => rewriteF q p \in contradiction
       }
 
   \open Examples
 
-  \func example : (initial (lamID ⋅ (succ zero))) ->*_KAM (initial (succ zero))
+  \func example : initial (lamID ⋅ succ zero) ->*_KAM initial (succ zero)
       => (push, idp) ~> (pop, idp) ~> (grab, idp) ~> refl idp
 
-  \func example' : (initial (lamID ⋅ (succ zero))) ->*_KAM (initial (succ zero))
+  \func example' : initial (lamID ⋅ succ zero) ->*_KAM initial (succ zero)
     => ->1_KAM.autoCorrect idp ~> ->1_KAM.autoCorrect idp ~> ->1_KAM.autoCorrect idp ~> refl idp
 
-  \func example'' : (initial (lamID ⋅ (succ zero))) ->*_KAM (initial (succ zero))
+  \func example'' : initial (lamID ⋅ succ zero) ->*_KAM initial (succ zero)
     => run_correct 3 (unfold idp)
   }
 

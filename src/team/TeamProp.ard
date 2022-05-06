@@ -29,7 +29,7 @@
     \func mapArgs {P : \Set} {ops : Operators P} {n : Nat} (args : Array (Term P ops) n) : Array (Team P -> \Prop) n
     \elim n, args
       | 0, nil => nil
-      | suc n, :: head tail => (\lam X => X ⊧ head) :: (mapArgs tail)
+      | suc n, :: head tail => (\lam X => X ⊧ head) :: mapArgs tail
   }
 
 \module StandardOperators \where {

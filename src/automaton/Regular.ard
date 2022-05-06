@@ -16,8 +16,8 @@
     \func language {A : Alphabet} (re : RegularExpression A) : Language A \elim re
       | none => ∅
       | alpha a => single (a :: nil)
-      | + a b => (language a) ∪ (language b)
-      | ⋅ a b => (language a) ∘ (language b)
+      | + a b => language a ∪ language b
+      | ⋅ a b => language a ∘ language b
       | * a => lstar (language a)
   }
 

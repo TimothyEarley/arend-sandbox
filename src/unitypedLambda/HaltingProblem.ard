@@ -14,7 +14,7 @@
 
 \func Halts (t : ∅ u⊢ *) : \Prop => ∃ (t' : ∅ u⊢ *) (t ->*_u t') (Normal t')
 
-\func omega : ∅ u⊢ * => (lam (var #0 ⋅ var #0)) ⋅ (lam (var #0 ⋅ var #0))
+\func omega : ∅ u⊢ * => lam (var #0 ⋅ var #0) ⋅ lam (var #0 ⋅ var #0)
 
 \func omegaDoesNotHalt (h : Halts omega) : Empty \elim h
   | inP (_, refl idp, n) => n (omega, (R-Beta, idp))
@@ -26,7 +26,7 @@
 
 \class Decider \noclassifying (P : ∅ u⊢ * -> \Prop)
   | prog : ∅ u⊢ *
-  | toTrueOrFalse : \Pi (t : ∅ u⊢ *) -> (prog ⋅ t ->*_u uniTrue || prog ⋅ t ->*_u uniFalse)
+  | toTrueOrFalse : \Pi (t : ∅ u⊢ *) -> prog ⋅ t ->*_u uniTrue || prog ⋅ t ->*_u uniFalse
   | decidesTrue : \Pi {t : ∅ u⊢ *} (prog ⋅ t ->*_u uniTrue) -> P t
   | decidesFalse : \Pi {t : ∅ u⊢ *} (prog ⋅ t ->*_u uniFalse) -> Not (P t)
 

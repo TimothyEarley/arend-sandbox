@@ -25,7 +25,7 @@
   | just a, just a1, p => pmap just p
   | nothing, nothing, c => idp
 
-\func unjust {A : \Type} {a b : A} (p : just a = just b) : a = b => encode p
+\func dejust {A : \Type} {a b : A} (p : just a = just b) : a = b => encode p
 
 \func \infix 7 fold {A : \Type} (m : Maybe A) {B : \Type} (f : \Sigma (A -> B) B) : B \elim m
   | just a => f.1 a

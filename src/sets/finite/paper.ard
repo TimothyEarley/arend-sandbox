@@ -1,26 +1,15 @@
 \import Algebra.Meta
 \import Data.Array
-\import Equiv
 \import Function.Meta ($)
-\import HLevel
-\import LeipnizEquality
 \import Logic
-\import Logic.Meta
 \import LogicUtil
-\import Meta
 \import Paths
 \import Paths.Meta
-\import Set
-\import Util
-\import identity.FinIdentity
 \import sets.Elements
 \import sets.MySet
-\import sets.union
 \import util.ArrayUtils
 \import util.TruncOrUtils
 \open DArray (!!)
-\open ArrayUtils (++-length)
-\open NoDup (NoDup', remDup)
 \open FinSet (Listable)
 
 -- http://firsov.ee/finset/finset.pdf
@@ -49,7 +38,7 @@
                                                              (toFin : Elements S -> Fin n)
                                                              (\Pi (x : Elements S) -> fromFin (toFin x) = x)
 
-  \func listable<->finS {A : \Set} (S : Ensemble A) : Listable S <-> FinSurj S => (\lam (l, h) => (DArray.len {l},
+  \func listable<->finS {A : \Set} (S : Ensemble A) : Listable S <--> FinSurj S => (\lam (l, h) => (DArray.len {l},
                                                                                                    \lam f => l !! f,
                                                                                                    \lam e => (h e).1,
                                                                                                    \lam x => (h x).2),
@@ -124,7 +113,7 @@
     | right => x
   }
   | idem {x : A} (i : I) \elim i {
-    | left => (KSingle x) k∪ (KSingle x)
+    | left => KSingle x k∪ KSingle x
     | right => KSingle x
   }
   | assoc {x y z : Kuratowski A} (i : I) \elim i {
@@ -136,7 +125,7 @@
     | right => y k∪ x
   }
   \where {
-    \func nr {A : \Set} {x : Kuratowski A} : (KUnion x KEmpty) = x => (path com) *> (path nl)
+    \func nr {A : \Set} {x : Kuratowski A} : KUnion x KEmpty = x => path com *> path nl
 
     \func union-idem {A : \Set} {x : Kuratowski A} : x k∪ x = x \elim x
       | KEmpty => path nl
@@ -154,10 +143,10 @@
       | k∅ => Empty
       | KSingle b => a = b
       | k∪ x y => (a ∈ x) || (a ∈ y)
-      | nl {x} i => (||-Empty-left {a ∈ x}) @ i
-      | idem {x} i => (||-collapse {a = x}) @ i
+      | nl {x} i => ||-Empty-left {a ∈ x} @ i
+      | idem {x} i => ||-collapse {a = x} @ i
       | assoc {x} {y} {z} i => (inv $ ||-assoc {a ∈ x} {a ∈ y} {a ∈ z}) @ i
-      | com {x} {y} i => (||-comm {a ∈ x} {a ∈ y}) @ i
+      | com {x} {y} i => ||-comm {a ∈ x} {a ∈ y} @ i
 
     \func single/=empty {A : \Set} {a : A} (p : KSingle a = k∅) : Empty
       => transport (a ∈ __) p idp

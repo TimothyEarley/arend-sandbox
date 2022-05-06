@@ -47,16 +47,16 @@
     })
 
 \func SemEqAExp (a1 a2 : AExp) =>
-  \Pi (s : State) (n : Num) -> (SemAExp a1 s n) <-> (SemAExp a2 s n)
+  \Pi (s : State) (n : Num) -> SemAExp a1 s n <--> SemAExp a2 s n
 
 \func SemEqCom (c1 c2 : Com) =>
-  \Pi (s s' : State) -> (SemCom c1 s s') <-> (SemCom c2 s s')
+  \Pi (s s' : State) -> SemCom c1 s s' <--> SemCom c2 s s'
 
 \instance SemEqCom' : Equivalence Com
-  | ~ c1 c2 => \Pi (s s' : State) -> (SemCom c1 s s') <--> (SemCom c2 s s')
-  | ~-reflexive => \lam s s' => <-->.refl
-  | ~-symmetric => \lam _x s s' => <-->.symm (_x s s')
-  | ~-transitive => \lam _x _x1 s s' => <-->.trans (_x s s') (_x1 s s')
+  | ~ c1 c2 => \Pi (s s' : State) -> TruncP (SemCom c1 s s') <-> TruncP (SemCom c2 s s')
+  | ~-reflexive => \lam s s' => <->refl
+  | ~-symmetric => \lam _x s s' => <->symm (_x s s')
+  | ~-transitive => \lam _x _x1 s s' => <->trans (_x s s') (_x1 s s')
 
 \func exampleSemEqCom {b : BExp} {c : Com} : SemEqCom (while b c) (ite b (seq c (while b c)) skip) => \lam s s' =>
     (\lam sem => \case \elim sem \with {
@@ -70,10 +70,10 @@
 
 -- x0 := 0 ; x0 := (x0 + 1) ~ x := 0 ; while (x0 <= 0) { x0 := x0 + 1 }
 \func homework6 :
-    (seq (assign zero (aNum 0)) (assign zero (aPlus (aVar zero) (aNum 1)))) ~
-    (seq (assign zero (aNum 0)) (while (bLeq (aVar zero) (aNum 0)) (assign zero (aPlus (aVar zero) (aNum 1))))) =>
+    seq (assign zero (aNum 0)) (assign zero (aPlus (aVar zero) (aNum 1))) ~
+    seq (assign zero (aNum 0)) (while (bLeq (aVar zero) (aNum 0)) (assign zero (aPlus (aVar zero) (aNum 1)))) =>
   \lam s s' => (\lam h => \case \elim s', h \with {
-    | s', rSeq s'' (r:= n (rNum idp) idp) (r:= _ (rPlus _ (rVar idp) _ (rNum idp) idp) idp) => inP $ rSeq s''
+    | s', inP (rSeq s'' (r:= n (rNum idp) idp) (r:= _ (rPlus _ (rVar idp) _ (rNum idp) idp) idp)) => inP $ rSeq s''
         (r:= n (rNum idp) idp)
         (rWhT
             (rLeqT 0 (rVar (inv $ replace.get {s} {0})) 0 (rNum idp) (pos<=pos zero<=_) idp)
@@ -82,16 +82,16 @@
             (rWhF (rLeqF 1 (rVar (inv $ replace.get {s} {0})) 0 (rNum idp) (__ idp) idp) idp))
   },
                 \lam h => \case \elim s', h \with {
-                  | s', rSeq s'' (r:= n (rNum idp) idp) (rWhT semB s''1 (r:= n1 (rPlus n2 (rVar idp) n3 (rNum idp) idp) idp) (rWhF semB1 idp)) =>
+                  | s', inP (rSeq s'' (r:= n (rNum idp) idp) (rWhT semB s''1 (r:= n1 (rPlus n2 (rVar idp) n3 (rNum idp) idp) idp) (rWhF semB1 idp))) =>
                     inP $ rSeq s''
                         (r:= 0 (rNum idp) idp)
                         (r:= 1 (rPlus 0 (rVar (inv $ replace.get {s''} {0})) 1 (rNum idp) idp) idp)
 
-                  | s', rSeq s'' (r:= n (rNum idp) idp) (rWhT semB s''1 (r:= n1 (rPlus n2 (rVar idp) n3 (rNum idp) idp) idp) (rWhT (rLeqT n4 (rVar idp) n5 (rNum idp) xxx p1) s''2 s1 s2)) =>
+                  | s', inP (rSeq s'' (r:= n (rNum idp) idp) (rWhT semB s''1 (r:= n1 (rPlus n2 (rVar idp) n3 (rNum idp) idp) idp) (rWhT (rLeqT n4 (rVar idp) n5 (rNum idp) xxx p1) s''2 s1 s2))) =>
                     absurd (xxx (rewrite (replace.get {s} {1}) $ idp))
-                  | s', rSeq s'' (r:= n (rNum idp) idp) (rWhT semB s''1 (r:= n1 (rPlus n2 (rVar idp) n3 (rNum idp) p) idp) (rWhT (rLeqF n4 s n5 s3 n6 ()) s''2 s1 s2))
-                  | s', rSeq s'' _ (rWhF (rLeqT n1 s1 n2 s2 _x ()) _)
-                  | s', rSeq s'' (r:= n (rNum idp) idp) (rWhF (rLeqF n3 (rVar idp) n4 (rNum idp) n5 p) idp) => absurd (n5 $ rewrite (replace.get {s} {0}) $ (pos<=pos zero<=_))
+                  | s', inP (rSeq s'' (r:= n (rNum idp) idp) (rWhT semB s''1 (r:= n1 (rPlus n2 (rVar idp) n3 (rNum idp) p) idp) (rWhT (rLeqF n4 s n5 s3 n6 ()) s''2 s1 s2)))
+                  | s', inP (rSeq s'' _ (rWhF (rLeqT n1 s1 n2 s2 _x ()) _))
+                  | s', inP (rSeq s'' (r:= n (rNum idp) idp) (rWhF (rLeqF n3 (rVar idp) n4 (rNum idp) n5 p) idp)) => absurd (n5 $ rewrite (replace.get {s} {0}) $ pos<=pos zero<=_)
                 })
 
 \func sameResultIsEquiv {c1 c2 : Com}
@@ -113,7 +113,7 @@
 
        rSeq (s replace (zero, 0))
            (r:= 0 (rNum idp) idp)
-           (rWhT (rLeqT 0 (rVar (inv (replace.get {s}))) 0 (rNum idp) (<=-reflexive) idp)
+           (rWhT (rLeqT 0 (rVar (inv (replace.get {s}))) 0 (rNum idp) <=-refl idp)
                (s replace (zero, 1))
                (r:= 1 (rPlus 0 (rVar (inv (replace.get {s}))) 1 (rNum idp) idp) (inv replace.overrride))
                (rWhF (rLeqF 1 (rVar (inv $ replace.get {s} {zero})) 0 (rNum idp) (\lam h => contradiction) idp) idp))))

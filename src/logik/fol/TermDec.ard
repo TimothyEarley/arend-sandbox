@@ -1,13 +1,8 @@
-\import Function.Meta ($)
 \import Logic
-\import LogicUtil
 \import Paths
-\import Paths.Meta
 \import Set
-\import identity.DecMaps
 \import identity.FinIdentity
 \import identity.Identity
-\import identity.NatIdentity
 \import logik.fol.FOL
 \import util.ArrayUtils
 \open ArrayUtils (headOr, tail)

@@ -18,11 +18,11 @@
 \func Trace (TS : Transitionsystem) => Array (Or TS.States TS.Events)
 
 \data Traces (TS : Transitionsystem) (t : Trace TS) : \Set
-  | start (s : TS.States) (TS.Start s) (t = (inl s) :: nil)
+  | start (s : TS.States) (TS.Start s) (t = inl s :: nil)
   | seq {s s' : TS.States} {e : TS.Events} (t' : Trace TS)
-        (Traces TS (t' ::- (inl s)))
+        (Traces TS (t' ::- inl s))
         (TS.transitions (s, e, s'))
-        (t = t' ::- (inl s) ::- (inr e) ::- (inl s'))
+        (t = t' ::- inl s ::- inr e ::- inl s')
 
   \where {
     \func traceEndsWithEventStateOrIsOnlyState {TS : Transitionsystem} {tr : Trace TS}

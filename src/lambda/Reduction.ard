@@ -24,15 +24,15 @@
 \func reduce {t : LambdaTerm} (r : Reduction t) : LambdaTerm
 \elim t, r
   | ⋅ (Lam v body) arg, Beta => subs body v arg
-  | ⋅ f arg, App1 r => (reduce r) ⋅ arg
-  | ⋅ f arg, App2 r => f ⋅ (reduce r)
+  | ⋅ f arg, App1 r => reduce r ⋅ arg
+  | ⋅ f arg, App2 r => f ⋅ reduce r
   | Lam v body, InLam r => Lam v (reduce r)
 
   \where {
-    \func app1 {t' t : LambdaTerm} {r : Reduction t} : reduce {t ⋅ t'} (App1 r) = (reduce r) ⋅ t' \elim t
+    \func app1 {t' t : LambdaTerm} {r : Reduction t} : reduce {t ⋅ t'} (App1 r) = reduce r ⋅ t' \elim t
       | Var i => idp | Lam v body => idp | ⋅ f arg => idp
 
-    \func app2 {t' t : LambdaTerm} {r : Reduction t'} : reduce {t ⋅ t'} (App2 r) = t ⋅ (reduce r) \elim t
+    \func app2 {t' t : LambdaTerm} {r : Reduction t'} : reduce {t ⋅ t'} (App2 r) = t ⋅ reduce r \elim t
       | Var i => idp | Lam v body => idp | ⋅ f arg => idp
   }
 
@@ -46,7 +46,7 @@
     | yes e => Lam v body
     | no n => Lam v (subs body at with)
   }
-  | ⋅ f arg => (subs f at with) ⋅ (subs arg at with)
+  | ⋅ f arg => subs f at with ⋅ subs arg at with
 
 \where {
   \func commuteEqual {v : Identifier} {s s' t : LambdaTerm} : subs s v (subs s' v t) = subs (subs s v s') v t
@@ -86,7 +86,7 @@
     | refl idp, ~> {t''} r st => (App2 r.1, reduce.app2 *> pmap (s ⋅ __) r.2) ~> appHelper (refl idp) st
     | ~> r s1, th => (App1 r.1, reduce.app1 *> pmap (__ ⋅ t) r.2) ~> appHelper s1 th
 
-  \func lamHelper {v : Identifier} {t t' : LambdaTerm} (h : t ->* t') : (Lam v t) ->* (Lam v t')
+  \func lamHelper {v : Identifier} {t t' : LambdaTerm} (h : t ->* t') : Lam v t ->* Lam v t'
     \elim h
       | refl idp => refl idp
       | ~> r s => (InLam r.1, pmap (Lam v) r.2) ~> lamHelper s

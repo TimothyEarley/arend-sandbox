@@ -1,20 +1,14 @@
 \import Data.Array
 \import Data.Maybe
 \import Data.Or
-\import Function
 \import Function.Meta ($)
-\import Logic.Meta
-\import Paths
 \import Paths.Meta
-\import Set
 \import logik.fol.FOL
 \import logik.fol.LNN
 \import logik.fol.SequentCalculus
 \import sets.DecidableSet
-\import sets.MySet
 \import sets.subset
-\import util.CantorPair
-\open Formula (sub, subN, subN')
+\open Formula (sub, subN')
 \open SequentCalulus (⊢)
 \open CodeableLanguage (⊻⊼)
 
@@ -29,14 +23,14 @@
 
 \class AllowsRepresentations (C : CodeableLanguage) (T : System)
   | functionRepresentation {r : Nat} (f : Array Nat r -> Nat) :
-    \Sigma (phi : Formula (suc r)) (\Pi (a : Array Nat r) -> T ⊢ subN' phi (natToTerm (f a) :: (map natToTerm a)))
+    \Sigma (phi : Formula (suc r)) (\Pi (a : Array Nat r) -> T ⊢ subN' phi (natToTerm (f a) :: map natToTerm a))
 
 \func Inconsistent {L : Language} (T : System) => \Pi (f : Formula 0) -> T ⊢ f
 
 
 \func fixedPoint (C : CodeableLanguage) (T : System)
                  (R : AllowsRepresentations C T)
-                 (psi : Formula 1) : \Sigma (phi : Formula 0) (T ⊢ phi <->H (sub psi (natToTerm (encode phi))))
+                 (psi : Formula 1) : \Sigma (phi : Formula 0) (T ⊢ phi <->H sub psi (natToTerm (encode phi)))
   => \let
      | F : (Array Nat 2) -> Nat => \case __ \with {
        | :: n (:: m nil) => \case decode n 1 \with {
@@ -48,7 +42,7 @@
      | beta : Formula 1 => forallH ({?} impH {?})
      | phi : Formula 0 => forallH ({?} impH {?})
      | betabeta : phi = sub beta (⊻⊼ beta) => {?}
-     | Fbeta : F ((⊼ beta) :: (⊼ beta) :: nil) = ⊼ phi => {?}
+     | Fbeta : F (⊼ beta :: ⊼ beta :: nil) = ⊼ phi => {?}
      | h' => rewriteF Fbeta $ fRepH (⊼ beta :: ⊼ beta :: nil)
      | h : T ⊢ subN' alpha (⊻⊼ phi :: ⊻⊼ beta :: ⊻⊼ beta :: nil) => {?} -- should just be h'
      \in (phi,
@@ -60,6 +54,6 @@
                      (hasNN : NN ⊆ T)
                      (represents : AllowsRepresentations LNN T)
   : \Sigma  (f : Formula {LNN} 0)
-            (Or (T ⊢ {LNN} f) (T ⊢ {LNN} (notH f)) -> Inconsistent {LNN} T) =>
+            (Or (T ⊢ {LNN} f) (T ⊢ {LNN} notH f) -> Inconsistent {LNN} T) =>
   ({?},
    \lam o f => {?})

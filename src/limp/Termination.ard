@@ -16,7 +16,7 @@
 \import limp.LIMP
 \import typeclasses.Functor
 \import typeclasses.Monad
-\import util.Maybe (unjust)
+\import util.Maybe (dejust)
 \import util.So
 
 -- uniform
@@ -46,9 +46,9 @@
   | suc fuel => \case \elim c \with {
     | skip => just s
     | := e a => just (substVar s e (evalAExp a s))
-    | # a b => (fueledEval a fuel s) >>= (fueledEval b fuel)
+    | # a b => fueledEval a fuel s >>= fueledEval b fuel
     | ite b then else => if (evalBExp b s) (fueledEval then fuel s) (fueledEval else fuel s)
-    | while b c => if (evalBExp b s) ((fueledEval c fuel s) >>= (fueledEval (while b c) fuel)) (just s)
+    | while b c => if (evalBExp b s) (fueledEval c fuel s >>= fueledEval (while b c) fuel) (just s)
     | append v a => just (substList s v (cEval.appendList (s.lists v) (evalAExp a s)))
     | :=L v lv a => fmap (substVar s v) (cEval.select (s.lists lv) (evalAExp a s))
   }
@@ -57,12 +57,12 @@
     \func evalAExp {S : Signature} (a : AExp) (s : State S) : Num \elim a
       | num n => n
       | var e => s.variables e
-      | ⊕ a b => (evalAExp a s) IntRing.+ (evalAExp b s)
-      | ⊖ a b => (evalAExp a s) IntRing.+ IntRing.negative (evalAExp b s)
-      | ⊙ a b => (evalAExp a s) IntRing.* (evalAExp b s)
+      | ⊕ a b => evalAExp a s IntRing.+ evalAExp b s
+      | ⊖ a b => evalAExp a s IntRing.+ IntRing.negative (evalAExp b s)
+      | ⊙ a b => evalAExp a s IntRing.* evalAExp b s
 
       \where {
-        \func sound {S : Signature} {a : AExp} {s : State S} : (a, s) aEval (evalAExp a s) \elim a
+        \func sound {S : Signature} {a : AExp} {s : State S} : (a, s) aEval evalAExp a s \elim a
           | num n => rNum idp
           | var e => rVar idp
           | ⊕ a b => rPlus sound sound idp
@@ -73,22 +73,22 @@
     \func evalBExp {S : Signature} (b : BExp) (s : State S) : Bool \elim b
       | tt => Bool.true
       | ff => Bool.false
-      | eq a b => (evalAExp a s) == (evalAExp b s)
-      | leq a b => (evalAExp a s) <=?? (evalAExp b s)
+      | eq a b => evalAExp a s == evalAExp b s
+      | leq a b => evalAExp a s <=?? evalAExp b s
       | not b => bnot (evalBExp b s)
       | and a b => band (evalBExp a s) (evalBExp b s)
       | or a b => bor (evalBExp a s) (evalBExp b s)
       \where {
         \func \infix 6 <=?? (a b : Num) : Bool => decToBool (a int<=? b)
 
-        \func sound {S : Signature} {b : BExp} {s : State S} : (b, s) bEval (evalBExp b s) \elim b
+        \func sound {S : Signature} {b : BExp} {s : State S} : (b, s) bEval evalBExp b s \elim b
           | tt => rtrue so
           | ff => rfalse so
           | eq a b => \case decideEq (evalAExp a s) (evalAExp b s) \with {
             | yes e => reqt (soYes e) evalAExp.sound evalAExp.sound e
             | no n => reqf (soNo n) evalAExp.sound evalAExp.sound n
           }
-          | leq a b => \case (evalAExp a s) int<=? (evalAExp b s) \with {
+          | leq a b => \case evalAExp a s int<=? evalAExp b s \with {
             | yes e => rleqt (soYes e) evalAExp.sound evalAExp.sound e
             | no n => rleqf (soNo n) evalAExp.sound evalAExp.sound n
           }

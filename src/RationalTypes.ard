@@ -1,0 +1,111 @@
+\import Paths
+
+-- https://legacy.cs.indiana.edu/~sabry/papers/rational.pdf
+
+\data ValueType
+  | Zero
+  | One
+  | \infix 6 + ValueType ValueType
+  | \infix 6 x ValueType ValueType
+
+\data Value (t : ValueType) \elim t
+  | One => unit
+  | + t1 t2 => {
+    | left (Value t1)
+    | right (Value t2)
+  }
+  | x t1 t2 => pair (Value t1) (Value t2)
+\where {
+  \func example : Value (One + (One x One)) => right (pair unit unit)
+}
+
+\func IsoType => \Sigma ValueType ValueType
+
+\data Isos (t : IsoType) \elim t
+  | (+ Zero T, T') => zeroe (T = T')
+  | (T, + Zero T') => zeroi (T = T')
+  | (+ T1 T2, + T2' T1') => swap+ (T1 = T1') (T2 = T2')
+  | (+ T1 (+ T2 T3), + (+ T1' T2') T3') => assocl+ (T1 = T1') (T2 = T2') (T3 = T3')
+  | (+ (+ T1' T2') T3', + T1 (+ T2 T3)) => assocr+ (T1 = T1') (T2 = T2') (T3 = T3')
+  | (x One T, T') => unite (T = T')
+  | (T, x One T') => uniti (T = T')
+  | (x T1 T2, x T2' T1') => swapx (T1 = T1') (T2 = T2')
+  | (x T1 (x T2 T3), x (x T1' T2') T3') => assoclx (T1 = T1') (T2 = T2') (T3 = T3')
+  | (x (x T1' T2') T3', x T1 (x T2 T3)) => assocrx (T1 = T1') (T2 = T2') (T3 = T3')
+  | (x Zero T, Zero) => distrib0
+  | (Zero, x Zero T) => factor0
+  | (x (+ T1 T2) T3, + (x T1' T3') (x T2' T3'')) => distrib (T1 = T1') (T2 = T2') (T3 = T3') (T3' = T3'')
+  | (+ (x T1' T3') (x T2' T3''), x (+ T1 T2) T3) => factor (T1 = T1') (T2 = T2') (T3 = T3') (T3' = T3'')
+
+\data Combinator (t : IsoType) \elim t
+  | T => iso (Isos T)
+  | (T, T') => id (T = T')
+  | (T, T') => sym (Combinator (T', T))
+  | (T, T') => Seq {T'' : ValueType} (Combinator (T, T'')) (Combinator (T'', T'))
+  | (+ T1 T2, + T1' T2') => \infix 6 ++ (Combinator (T1, T1')) (Combinator (T2, T2'))
+  | (x T1 T2, x T1' T2') => \infix 6 xx (Combinator (T1, T1')) (Combinator (T2, T2'))
+
+\func adjointIso {t : IsoType} (i : Isos t) : Isos (t.2, t.1) \elim t, i
+  | ((+ Zero T), T'), zeroe p => zeroi (inv p)
+  | (T, (+ Zero T')), zeroi p => zeroe (inv p)
+  | ((+ T1 T2), (+ T2' T1')), swap+ p1 p2 => swap+ (inv p2) (inv p1)
+  | ((+ T1 (+ T2 T3)), (+ (+ T1' T2') T3')), assocl+ p1 p2 p3 => assocr+ p1 p2 p3
+  | ((+ (+ T1' T2') T3'), (+ T1 (+ T2 T3))), assocr+ p1 p2 p3 => assocl+ p1 p2 p3
+  | ((x One T), T'), unite p => uniti (inv p)
+  | (T, (x One T')), uniti p => unite (inv p)
+  | ((x T1 T2), (x T2' T1')), swapx p1 p2 => swapx (inv p2) (inv p1)
+  | ((x T1 (x T2 T3)), (x (x T1' T2') T3')), assoclx p1 p2 p3 => assocrx p1 p2 p3
+  | ((x (x T1' T2') T3'), (x T1 (x T2 T3))), assocrx p1 p2 p3 => assoclx p1 p2 p3
+  | (x Zero T, Zero), distrib0 => factor0
+  | (Zero, x Zero T), factor0 => distrib0
+  | (x (+ T1 T2) T3, + (x T1' T3') (x T2' T3'')), distrib p1 p2 p3 p4 => factor p1 p2 p3 p4
+  | (+ (x T1' T3') (x T2' T3''), x (+ T1 T2) T3), factor p1 p2 p3 p4 => distrib p1 p2 p3 p4
+
+
+\func adjoint {t : IsoType} (c : Combinator t) : Combinator (t.2, t.1) \elim t, c
+  | T, iso i => iso (adjointIso i)
+  | (T, T'), id p => id (inv p)
+  | (T, T'), sym c => c
+  | (T, T'), Seq c1 c2 => Seq (adjoint c2) (adjoint c1)
+  | ((+ T1 T2), (+ T1' T2')), ++ c1 c2 => adjoint c1 ++ adjoint c2
+  | ((x T1 T2), (x T1' T2')), xx c1 c2 => adjoint c1 xx adjoint c2
+
+
+\func reduction {t : IsoType} (i : Isos t) (v : Value t.1) : Value t.2 \elim t, i, v
+  | (+ Zero T, Zero), zeroe idp, left ()
+  | (+ Zero T, Zero), zeroe idp, right ()
+  | (+ Zero T, One), zeroe idp, left ()
+  | (+ Zero T2, + Zero T'2), zeroe idp, left ()
+  | (+ Zero T2, + Zero T'2), zeroe idp, right (left ())
+  | (+ Zero T2, + Zero T'2), zeroe idp, right (right v) => right v
+
+  | (T, + Zero T'), zeroi idp, v => right v
+  | (+ T1 T2, + _ _), swap+ idp idp, left v => right v
+  | (+ T1 T2, + _ _), swap+ idp idp, right v => left v
+  | ((+ T1 (+ T2 T3)), (+ (+ T1' T2') T3')), assocl+ idp idp idp, left v => left (left v)
+  | ((+ T1 (+ T2 T3)), (+ (+ T1' T2') T3')), assocl+ idp idp idp, right (left v) => left (right v)
+  | ((+ T1 (+ T2 T3)), (+ (+ T1' T2') T3')), assocl+ idp idp idp, right (right v) => right v
+  | ((+ (+ T1' T2') T3'), (+ T1 (+ T2 T3))), assocr+ idp idp idp, left (left v) => left v
+  | ((+ (+ T1' T2') T3'), (+ T1 (+ T2 T3))), assocr+ idp idp idp, left (right v) => right (left v)
+  | ((+ (+ T1' T2') T3'), (+ T1 (+ T2 T3))), assocr+ idp idp idp, right v => right (right v)
+
+  | (x One T2, Zero), unite idp, pair v1 v2 => v2
+  | (x One T2, One), unite idp, pair v1 v2 => v2
+
+  | (T, (x One T')), uniti idp, v => pair unit v
+
+  | ((x T1 T2), (x T2' T1')), swapx idp idp, pair v1 v2 => pair v2 v1
+  | ((x T1 (x T2 T3)), (x (x T1' T2') T3')), assoclx idp idp idp, pair v1 (pair v2 v3) => pair (pair v1 v2) v3
+  | ((x (x T1' T2') T3'), (x T1 (x T2 T3))), assocrx idp idp idp, pair (pair v1 v2) v3 => pair v1 (pair v2 v3)
+  | (x Zero T, Zero), distrib0, pair () _
+  | (Zero, x Zero T), factor0, ()
+  | (x (+ T1 T2) T3, + (x T1' T3') (x T2' T3'')), distrib idp idp idp idp, pair (left v1) v2 => left (pair v1 v2)
+  | (x (+ T1 T2) T3, + (x T1' T3') (x T2' T3'')), distrib idp idp idp idp, pair (right v1) v2 => right (pair v1 v2)
+  | (+ (x T1' T3') (x T2' T3''), x (+ T1 T2) T3), factor idp idp idp idp, left (pair v1 v2) => pair (left v1) v2
+  | (+ (x T1' T3') (x T2' T3''), x (+ T1 T2) T3), factor idp idp idp idp, right (pair v1 v2) => pair (right v1) v2
+
+
+  | _, _, _ => {?}
+
+
+

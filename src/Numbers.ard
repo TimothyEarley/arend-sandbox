@@ -45,7 +45,7 @@
     \func toFraction (q : Q) : Fraction \elim q
       | fraction (0, d) => 0 / (1, contradiction)
       | fraction (pos (suc n \as nom), d) => \let! (a, b) => reduce nom d.1 \in a / (b, rat.reduce2/=0 nom d.1 d.2)
-      | fraction ((neg (suc n \as nom), d)) => \let! (a, b) => reduce nom d.1 \in (neg a) / (b, rat.reduce2/=0 nom d.1 d.2)
+      | fraction ((neg (suc n \as nom), d)) => \let! (a, b) => reduce nom d.1 \in neg a / (b, rat.reduce2/=0 nom d.1 d.2)
       | rat-equiv x y s i => {?}
 
     \func isRat : Q = Rat => ext (\new Equiv {
@@ -100,14 +100,14 @@
       | inv => fraction (d.1 / (nom, contradiction))
       | inv-left =>
         fraction (timesFrac (d.1 / (nom, contradiction)) (nom / d)) ==< idp >==
-        fraction (d.1 * nom / ((nom, contradiction) NonZeroIntMonoid.* d)) ==< {?} >==
-        fraction ((nom IntRing.* d.1) / ((nom, contradiction) NonZeroIntMonoid.* d)) ==< reduceLeft* >==
+        fraction (d.1 * nom / (nom, contradiction) NonZeroIntMonoid.* d) ==< {?} >==
+        fraction ((nom IntRing.* d.1) / (nom, contradiction) NonZeroIntMonoid.* d) ==< reduceLeft* >==
         fraction (d.1 / d) ==< lemma-xdivx=1 >==
         fromInt 1 `qed
       | inv-right =>
         fraction (timesFrac (nom / d) (d.1 / (nom, contradiction))) ==< idp >==
-        fraction (nom IntRing.* d.1 / (d NonZeroIntMonoid.* (nom, contradiction))) ==< {?} >==
-        fraction ((d.1 * nom) / (d NonZeroIntMonoid.* (nom, contradiction))) ==< reduceLeft* >==
+        fraction (nom IntRing.* d.1 / d NonZeroIntMonoid.* (nom, contradiction)) ==< {?} >==
+        fraction ((d.1 * nom) / d NonZeroIntMonoid.* (nom, contradiction)) ==< reduceLeft* >==
         fraction (nom / (nom, contradiction)) ==< lemma-xdivx=1 >==
         fromInt 1 `qed
     })
@@ -129,7 +129,7 @@
       | rat-equiv x y s i, fraction f => rat-equiv (addFrac x f) (addFrac y f) {?} i
 
     \func addFrac (x y : Fraction) : Fraction =>
-      (x.numerator * y.denominator.1 + y.numerator * x.denominator.1) / (x.denominator NonZeroIntMonoid.* y.denominator)
+      (x.numerator * y.denominator.1 + y.numerator * x.denominator.1) / x.denominator NonZeroIntMonoid.* y.denominator
 
     \func times (a b : Q) : Q \elim a, b
       | fraction f, fraction f1 => timesFrac f f1
@@ -137,7 +137,7 @@
       | fraction f, rat-equiv x y s i => rat-equiv (timesFrac f x) (timesFrac f y) {?} i
 
     \func timesFrac (x y : Fraction) : Fraction =>
-      (x.numerator * y.numerator) / (x.denominator NonZeroIntMonoid.* y.denominator)
+      (x.numerator * y.numerator) / x.denominator NonZeroIntMonoid.* y.denominator
 
     \func ldistrHelper (x y z : Fraction)
       : timesFrac x (addFrac y z) = {Q} addFrac (timesFrac x y) (timesFrac x z) =>
@@ -151,7 +151,7 @@
 
       fraction  (addFrac (timesFrac x y) (timesFrac x z)) `qed
 
-    \func reduceLeft* {x : Int} {a y : NonZeroNat} : fraction ((a.1 IntRing.* x) / (a NonZeroIntMonoid.* y)) = fraction (x / y) =>
+    \func reduceLeft* {x : Int} {a y : NonZeroNat} : fraction ((a.1 IntRing.* x) / a NonZeroIntMonoid.* y) = fraction (x / y) =>
       path (rat-equiv ((a.1 IntRing.* x) / (a * y)) (x / y) (\let goal : pos (a.1 Nat.* y.1) IntRing.* x = (pos a.1 IntRing.* x) IntRing.* pos y.1 =>
         equation
             (pos (a.1 Nat.* y.1) IntRing.* x) {idp}
@@ -169,7 +169,7 @@
 
     \func neg-left-helper (x : Fraction) : fraction (addFrac (negFrac x) x) = 0 =>
       fraction (addFrac (negFrac x) x) ==< eqHelper >==
-      fraction ((x.denominator.1 IntRing.* ((negative x.numerator) + x.numerator)) / (x.denominator * x.denominator)) ==< pmap fraction (ext (equation, idp)) >==
+      fraction ((x.denominator.1 IntRing.* (negative x.numerator + x.numerator)) / (x.denominator * x.denominator)) ==< pmap fraction (ext (equation, idp)) >==
       fraction ((x.denominator.1 * 0) / (x.denominator * x.denominator)) ==< eqHelper >==
       fraction (0 / (x.denominator * x.denominator)) ==< lemma-0div=0 >==
       fromInt 0 `qed

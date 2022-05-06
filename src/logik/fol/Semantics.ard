@@ -1,28 +1,21 @@
 \import Arith.Nat
 \import Function
 \import Function.Meta
-\import LeipnizEquality
 \import Logic
-\import Logic.Meta
 \import LogicUtil
 \import Meta
 \import Order.PartialOrder
 \import Paths
 \import Paths.Meta
-\import Set \hiding (#)
 \import Util
-\import lambda.Reduction
 \import logik.fol.FOL
-\import logik.fol.TermDec
 \import sets.Elements
-\import util.ArrayUtils
 \open NatSemiring (+-comm)
 \open Formula (Subst, extends, renamesAt, subTermsAt, subst)
 \open DArray (!!)
-\open Term (AnyFreeVar, FreeVar, termDepth)
-\open Semantics (Structure, ⊧, ⊫f)
+\open Term (FreeVar, termDepth)
+\open Semantics (Structure, ⊧)
 \open Semantics.Interpretation (subOne, subOneRename)
-\open LeipnizIsEqual (i)
 
 \module Semantics \where {
   \record Structure (L : Language)
@@ -57,7 +50,7 @@
     | atomic r d => rel {I.1} r (\lam j => evaluate I (d j))
     | impH x y => (I ⊧ x) -> (I ⊧ y)
     | notH f => Not (I ⊧ f)
-    | forallH f => \Pi (x : Universe {I.1}) -> (subOne I x) ⊧ f
+    | forallH f => \Pi (x : Universe {I.1}) -> subOne I x ⊧ f
 
   \func notModels \alias \infix 4 ⊭ {L : Language} {n : Nat} (I : Interpretation n) (f : Formula n) : \Prop =>
     Not (I ⊧ f)
@@ -103,15 +96,15 @@
       \elim f
         | equal x y =>
           \let
-            | xc => termCoincidenceLemma h1 (\lam free => h3 (byLeft free)) <=-reflexive
-            | yc => termCoincidenceLemma h1 (\lam free => h3 (byRight free)) <=-reflexive
+            | xc => termCoincidenceLemma h1 (\lam free => h3 (byLeft free)) <=-refl
+            | yc => termCoincidenceLemma h1 (\lam free => h3 (byRight free)) <=-refl
           \in inv xc *> m *> yc
         | atomic r d =>
           \let
             | d1 => \new Array S1.Universe (relationsArity r) (\lam j => evaluate (S1, a1) (d j))
             | d2 => \new Array S2.Universe (relationsArity r) (\lam j => evaluate (S2, a2) (d j))
             | d2=d1 : d2 = {Array U (relationsArity r)} d1 =>
-              ext (ext (\lam (j : Fin (relationsArity r)) => inv (termCoincidenceLemma h1 (\lam free => h3 (inP (j, free))) <=-reflexive)))
+              ext (ext (\lam (j : Fin (relationsArity r)) => inv (termCoincidenceLemma h1 (\lam free => h3 (inP (j, free))) <=-refl)))
             | r= : S2.rel r d2 = S1.rel r d1 => rewrite (h2 r) (pmap (S2.rel r) d2=d1)
           \in transportInv id r= m
         | impH x f => \lam m1 =>
@@ -164,7 +157,7 @@
               | psi =>  subst (Formula.extends ts) phi
               | h' : subOne I x ⊧ psi => h x
               | h'' : Interpretation.subst (subOne I x) (extends ts) ⊧ phi => substitutionLemma-> h'
-              | goal : subOne ((Interpretation.subst I ts)) x ⊧ phi => coincidenceLemma
+              | goal : subOne (Interpretation.subst I ts) x ⊧ phi => coincidenceLemma
                   phi
                   h''
                   (\lam f => idp)
@@ -182,7 +175,7 @@
         | equal x y, p => inv (termSubstitution x) *> p *> termSubstitution y
         | atomic r d, h => transport
             (rel {I.1} r)
-            (ext (ext (\lam j => (rewriteF (inv (subTermsAt j)) (termSubstitution (d j))))))
+            (ext (ext (\lam j => rewriteF (inv (subTermsAt j)) (termSubstitution (d j)))))
             h
         | impH x phi, h => \lam m => substitutionLemma<- (h (substitutionLemma-> m))
         | notH phi, h => \lam m => h (substitutionLemma-> m)
@@ -207,8 +200,8 @@
     \Sigma (x ⊫f y) (y ⊫f x)
 
   \func example : (NatStructure, nil) ⊧ {MonoidLang} forallH (forallH (equal
-      (apply plus ((var 0) :: (var 1) :: nil))
-      (apply plus ((var 1) :: (var 0) :: nil))
+      (apply plus (var 0 :: var 1 :: nil))
+      (apply plus (var 1 :: var 0 :: nil))
   )) => \lam x y => +-comm
     \where {
       \func MonoidLang : Language \cowith

@@ -41,7 +41,7 @@
             fa >>= (\lam x => (return o f) (g x))              ==< pmap (fa >>= __) q >==
             fa >>= (\lam x => (return o g) x >>= (return o f)) ==< inv assoc          >==
             (fa >>= (return o g)) >>= (return o f)             ==< idp                >==
-            ((fmap f) o (fmap g)) fa                           `qed)
+            (fmap f o fmap g) fa                           `qed)
 
   \func join {A : \Type} (m : F (F A)) : F A => m >>= id
 }
@@ -57,7 +57,7 @@
 \func MonadMonoid (M : Monad) : TypeMonoid \cowith
   | E => \Pi {A : \Type} (a : A) -> M.F A
   | ide => return
-  | * f g {A} a => (f a) >>= g
+  | * f g {A} a => f a >>= g
   | ide-left => exts (\lam {A} a => M.left-id)
   | ide-right => exts (\lam {A} a => M.right-id)
   | *-assoc => exts (\lam {A} a => M.assoc)
@@ -83,7 +83,7 @@
   \where {
     \func flatMap {A B : \Type} (l : List A) (f : A -> List B) : List B \elim l
       | nil => nil
-      | :: a l => (f a) ++ (flatMap l f)
+      | :: a l => f a ++ flatMap l f
 
     \func right-id {A : \Type} {l : List A} : flatMap l (\lam a => a :: nil) = l \elim l
       | nil => idp
@@ -94,7 +94,7 @@
       | nil => idp
       | :: a l => rewrite flatmap_++ (pmap2 (++) idp assoc)
 
-    \func flatmap_++ {A B : \Type} {l l' : List A} {f : A -> List B} : flatMap (l ++ l') f = (flatMap l f) ++ (flatMap l' f)
+    \func flatmap_++ {A B : \Type} {l l' : List A} {f : A -> List B} : flatMap (l ++ l') f = flatMap l f ++ flatMap l' f
     \elim l
       | nil => idp
       | :: a l => rewrite ++-assoc (pmap2 (++) idp flatmap_++)
@@ -143,12 +143,12 @@
   | eta a => return a
   | eta-law => ext (\lam a => left-id)
 
-\func join' {M : Monad} : (Compose M M) :-> M \cowith
+\func join' {M : Monad} : Compose M M :-> M \cowith
   | eta => M.join
   | eta-law {A} {B} {f} => ext (\lam c => unfold (o, join, fmap) $ equation
                                (c >>= id >>= (\lam x => return (f x))) {M.assoc}
                                (c >>= (\lam x => id x >>= (\lam x => return (f x))))
                                (c >>= (\lam x => id (x >>= (\lam x => return (f x))))) {pmap (c >>= __) (ext (\lam x => inv M.left-id))}
-                               (c >>= (\lam x => (return (x >>= (\lam x => return (f x)))) >>= id))
+                               (c >>= (\lam x => return (x >>= (\lam x => return (f x))) >>= id))
                                (c >>= (\lam y => (\lam x => return (x >>= (\lam x => return (f x)))) y >>= id)) {inv M.assoc}
                                (c >>= (\lam x => return (x >>= (\lam x => return (f x)))) >>= id))

@@ -4,14 +4,11 @@
 \import identity.NatIdentity
 \import logik.fol.FOL
 \import logik.fol.Incompleteness
-\import logik.fol.LNN
 \import logik.fol.Semantics
-\import sets.Elements
 \import sets.MySet
 \import util.CantorPair
-\open Semantics (Structure, ⊧)
+\open Semantics (Structure)
 \open NatSemiring (<)
-\open LNN (LNN_Functions, LNN_Relatios)
 
 \func LNN : CodeableLanguage \cowith
   | Relations => LNN'.Relations
@@ -87,16 +84,16 @@
       | suc n => apply Succ (natToTerm n :: nil)
   }
 
-\func NN : System {LNN} => \let axioms : Array (Formula {LNN} 0) =>
+\func NN : System {LNN} => \let axioms : Array (Formula {LNN} 0) 9 =>
   -- ∀x0. ¬ Sx0 = 0
-  forallH (notH (equal (apply LNN.Succ (var 0 :: nil)) (apply LNN.Zero nil))) ::
+  forallH (notH (equal (apply LNN.Succ (var {LNN} 0 :: nil)) (apply LNN.Zero nil))) ::
   -- ∀x1. ∀x0. (Sx1 = Sx0 ⇒ x1 = x0)
-  (forallH (forallH (impH
+  forallH (forallH (impH
       (equal (apply LNN.Succ (var 1 :: nil)) (apply LNN.Succ (var 0 :: nil)))
       (equal (var 1) (var 0))
-  ))) ::
+  )) ::
   -- ∀x0. x0 + 0 = x0
-  forallH (equal (apply LNN.Plus ((var 0) :: (apply LNN.Zero nil) :: nil)) (var 0)) ::
+  forallH (equal (apply LNN.Plus (var 0 :: apply LNN.Zero nil :: nil)) (var 0)) ::
   -- ∀x1. ∀x0. x1 + Sx0 = S(x1 + x0)
   {?} ::
   -- ∀x0. x0 × 0 = 0

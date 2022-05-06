@@ -40,7 +40,7 @@
     | Diamonds, Diamonds => idp
 
   \instance SuitOrd : LinearOrder.Dec Suit
-    | < (s1 s2 : Suit) => (toValue s1) < (toValue s2)
+    | < (s1 s2 : Suit) => toValue s1 < toValue s2
     | <-irreflexive {x} => <-irreflexive
     | <-transitive {x y z : Suit} => <-transitive
     | trichotomy x y => \case LinearOrder.trichotomy (toValue x) (toValue y) \with {
@@ -251,7 +251,7 @@
       | ace, ace => idp
 
   \instance RankOrd : LinearOrder.Dec Rank
-      | < (r1 r2 : Rank) => (toValue r1) < (toValue r2)
+      | < (r1 r2 : Rank) => toValue r1 < toValue r2
       | <-irreflexive {x : Rank} => <-irreflexive
       | <-transitive {x y z : Rank} => <-transitive
       | trichotomy (x y : Rank) => \case NatSemiring.trichotomy (toValue x) (toValue y) \with {

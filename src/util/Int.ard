@@ -12,7 +12,7 @@
 \import Util
 \import util.Nat
 
-\func neg<=pos {n m : Nat} : (neg n) <= (pos m)
+\func neg<=pos {n m : Nat} : neg n <= pos m
   => signum.signum_neg/=1
 
 \func pos</=neg {n m : Nat} (h : pos n <= neg (suc m)) : Empty

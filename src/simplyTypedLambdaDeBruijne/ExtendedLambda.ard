@@ -144,7 +144,7 @@
     \elim A, t
       | T, var l => var (h l)
       | --> A B, lam t => lam (rename (extend h) t)
-      | T, ⋅ f arg => (rename h f) ⋅ (rename h arg)
+      | T, ⋅ f arg => rename h f ⋅ rename h arg
       | PNat, natOf n => natOf n
       | ⋇ A B, pair t1 t2 => pair (rename h t1) (rename h t2)
       | A, fst t => fst (rename h t)
@@ -170,7 +170,7 @@
     \elim A, t
       | T, var l => s l
       | --> A B, lam t => lam (subst (extends s) t)
-      | T, ⋅ f arg => (subst s f) ⋅ (subst s arg)
+      | T, ⋅ f arg => subst s f ⋅ subst s arg
       | PNat, natOf n => natOf n
       | ⋇ A B, pair t1 t2 => pair (subst s t1) (subst s t2)
       | A, fst t => fst (subst s t)
@@ -190,8 +190,8 @@
 \func extendedReduce {gamma : ExtendedContext} {A : ExtendedType}
              {t : gamma ⊩ A} (r : ExtendedReduction t) : gamma ⊩ A
   \elim A, t, r
-    | A, ⋅ f arg, R-App1 r => (extendedReduce r ) ⋅ arg
-    | A, ⋅ f arg, R-App2 r e => f ⋅ (extendedReduce r)
+    | A, ⋅ f arg, R-App1 r => extendedReduce r ⋅ arg
+    | A, ⋅ f arg, R-App2 r e => f ⋅ extendedReduce r
     | A, ⋅ (lam body) arg, R-Beta e => sub body arg
     | ⋇ A B, pair a b, R-Pair1 r => pair (extendedReduce r) b
     | ⋇ A B, pair a b, R-Pair2 r e => pair a (extendedReduce r)
@@ -223,6 +223,6 @@
 \func ExtendedReducesStep \alias \infix 5 ->1_e {gamma : ExtendedContext} {A : ExtendedType} (t t' : gamma ⊩ A) =>
   \Sigma (r : ExtendedReduction t) (extendedReduce r = t')
 
-\func idpStep {gamma : ExtendedContext} {A : ExtendedType} {t : gamma ⊩ A} {r : ExtendedReduction t} : t ->1_e (extendedReduce r) => (r, idp)
+\func idpStep {gamma : ExtendedContext} {A : ExtendedType} {t : gamma ⊩ A} {r : ExtendedReduction t} : t ->1_e extendedReduce r => (r, idp)
 
 \func Reduces \alias \infix 5 ->*_e {gamma : ExtendedContext} {A : ExtendedType} (t t' : gamma ⊩ A) => Star (->1_e) t t'

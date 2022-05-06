@@ -28,9 +28,9 @@
 
   \func twosuczero : two ⋅ natSuc ⋅ zero ->* {∅} succ (succ zero) =>
     two ⋅ natSuc ⋅ zero ~~< (R-App1 (R-Beta V-lam), idp) >~>
-    (lam (natSuc ⋅ (natSuc ⋅ # 0 Yes))) ⋅ zero ~~< (R-Beta V-zero, idp) >~>
+    lam (natSuc ⋅ (natSuc ⋅ # 0 Yes)) ⋅ zero ~~< (R-Beta V-zero, idp) >~>
     natSuc ⋅ (natSuc ⋅ zero) ~~< (R-App2 (R-Beta V-zero) V-lam, idp) >~>
-    natSuc ⋅ (succ zero) ~~< (R-Beta (V-Succ V-zero), idp) >~>
+    natSuc ⋅ succ zero ~~< (R-Beta (V-Succ V-zero), idp) >~>
     succ (succ zero) `stop
 
   \func twosuczero' : two ⋅ natSuc ⋅ zero ->* {∅} succ (succ zero)

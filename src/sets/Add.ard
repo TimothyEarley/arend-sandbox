@@ -6,7 +6,7 @@
 \import sets.MySet
 \import sets.union
 
-\func add {E : \Set} (S : Ensemble E) (e : E) : Ensemble E => S ∪ (single e)
+\func add {E : \Set} (S : Ensemble E) (e : E) : Ensemble E => S ∪ single e
 
   \where {
     \func alreadyIn {E : \Set} {S : Ensemble E} {e : E} (h : e ∈ S) : add S e = S => extSet
@@ -23,7 +23,7 @@
         | byRight b => contradiction
       })
 
-    \func withUnion {E : \Set} {S S' : Ensemble E} {a : E} : S ∪ (add S' a) = add (S ∪ S') a
+    \func withUnion {E : \Set} {S S' : Ensemble E} {a : E} : S ∪ add S' a = add (S ∪ S') a
       => extSet
           (\lam {x} e => \case \elim e \with {
             | byLeft xS => byLeft (byLeft xS)
@@ -51,5 +51,5 @@
   }
 
 
-\func addToAll {E : \Set} (S : (Ensemble (Ensemble E))) (e : E) : (Ensemble (Ensemble E))
+\func addToAll {E : \Set} (S : Ensemble (Ensemble E)) (e : E) : Ensemble (Ensemble E)
   => S smap (\lam x => add x e)

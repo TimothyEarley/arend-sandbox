@@ -1,20 +1,12 @@
-\import Data.Or
 \import Logic
-\import Meta
 \import Paths
 \import Paths.Meta
-\import Set \hiding (#)
-\import Star
-\import registerMachine.Program
 \import sets.MySet
 \import sets.subset
-\import simplyTypedLambdaDeBruijne.GeneralContext \hiding (extends, rename, subst)
+\import simplyTypedLambdaDeBruijne.GeneralContext \hiding (S, extends, rename, subst, ∅)
 \import simplyTypedLambdaDeBruijne.Lambda
 \import simplyTypedLambdaDeBruijne.Reduction
 \import simplyTypedLambdaDeBruijne.Substitute
-\import util.CantorPair
-\open MachineSpec (String)
-\open CantorPairing (h1)
 
 -- TS slides
 -- https://github.com/AndrasKovacs/misc-stuff/blob/master/agda/STLCStrongNorm/StrongNorm.agda
@@ -24,7 +16,7 @@
   | sn (\Pi (t' : gamma ⊢ A) (x : t ->1 t') -> StronglyNormalizing t')
   \where {
     \func fromValue {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} (v : Value t) : StronglyNormalizing t =>
-      sn (\lam t' x => absurd (Reduction.valueNoReduction v (x.1)))
+      sn (\lam t' x => absurd (Reduction.valueNoReduction v x.1))
     \func fromNormal {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} (n : Normal t) : StronglyNormalizing t =>
       sn (\lam t' x => absurd (n x.1))
   }
@@ -52,7 +44,7 @@
 \func lemma3 {gamma : SimpleContext} {T : Type}
              (t : gamma ⊢ T)
              (s : SimpleSubst gamma Context.∅)
-             (hs : \Pi {T' : Type} (l : gamma ∋ T') -> (s l) ∈ R T')
+             (hs : \Pi {T' : Type} (l : gamma ∋ T') -> s l ∈ R T')
              : R T (subst s t) \elim T, t
   | Natural, zero => StronglyNormalizing.fromValue V-zero
   | Natural, succ t => {?}
@@ -70,7 +62,7 @@
   \func substId {gamma : SimpleContext} {T : Type} {t : gamma ⊢ T} : subst (\lam {A} l => var l) t = t \elim T, t
     | Natural, var l => idp
     | --> A T, var l => idp
-    | --> A B, lam h => pmap lam (transport (subst __ h = h) (substId-lemma') substId)
+    | --> A B, lam h => pmap lam (transport (subst __ h = h) substId-lemma' substId)
     | Natural, ⋅ h1 h2 => pmap2 (⋅) substId substId
     | --> A B, ⋅ h1 h2 => pmap2 (⋅) substId substId
     | Natural, zero => idp

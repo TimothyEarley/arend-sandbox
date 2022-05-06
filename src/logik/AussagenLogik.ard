@@ -115,7 +115,7 @@
 \func modelsSet \alias \infix 6 ⊧s {V : \Set} (J : Assignment V) (fs : Formulae V) : \Type => All fs (J ⊧ __)
 \where {
   \func modelsAdd {V : \Set} {J : Assignment V} {fs : Formulae V} {f : Formula V}
-                  (h : J ⊧s fs) (h' : J ⊧ f) : J ⊧s (add fs f)
+                  (h : J ⊧s fs) (h' : J ⊧ f) : J ⊧s add fs f
     => \case \elim __ \with {
       | (f', byLeft el) => h (f', el)
       | (f', byRight el) => rewriteI el h'
@@ -137,7 +137,7 @@
 
 \func satSet {V : \Set} (s : Formulae V) : \Prop => ∃ (J : Assignment V) (J ⊧s s)
 
-\func example {V : \Set} {A B C : Formula V} (e : (setOf (A :: B :: nil)) ⊧e C) : valid ((A andH B) ==> C) =>
+\func example {V : \Set} {A B C : Formula V} (e : setOf (A :: B :: nil) ⊧e C) : valid ((A andH B) ==> C) =>
   \lam J => \case J ⊧? A, J ⊧? B \with {
     | yes ja, yes jb =>
       \let jc => e J (\lam (a, inP (i, h)) => \case \elim i, h \with {
@@ -149,7 +149,7 @@
     | no na, _ => ⊧.r=>2 (A andH B) (⊧.rnotAnd1 na B) C
   }
 
-\func example' {V : \Set} {A B C : Formula V} (v : valid ((A andH B) ==> C)) : (setOf (A :: B :: nil)) ⊧e C =>
+\func example' {V : \Set} {A B C : Formula V} (v : valid ((A andH B) ==> C)) : setOf (A :: B :: nil) ⊧e C =>
   \lam J m => \let
     | vv => v J
     | ja : J ⊧ A => m (A, inP (0, idp))
@@ -160,7 +160,7 @@
 \func entailsToUnsat {V : DecSet} {S : Formulae V} {a : Formula V} (e : S ⊧e a) : unsatSet (add S (notH a)) =>
   \lam J m => \let
     | js : J ⊧s S => \lam s => m (s.1, byLeft s.2)
-    | jna : J ⊧ (notH a) => m (notH a, byRight idp)
+    | jna : J ⊧ notH a => m (notH a, byRight idp)
     | ja => e J js
               \in (⊧.rNot jna) ja
 

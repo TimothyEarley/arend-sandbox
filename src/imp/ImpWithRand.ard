@@ -23,14 +23,14 @@
   | ⊙ a1 a2 => rTimes (n1 n2 : Num) (SemAExp a1 s n1) (SemAExp a2 s n2) (n = n1 * n2)
 
 \func SemEquiv \alias \infix 6 ∼ (a a' : AExp+Rand) : \Type =>
-  \Pi (s : State) (n : Num) -> (SemAExp a s n) <-> (SemAExp a' s n)
+  \Pi (s : State) (n : Num) -> SemAExp a s n <--> SemAExp a' s n
 
   \where {
     \func rand~rand : rand ∼ rand => \lam s n =>
         (\lam _ => rRand,
          \lam _ => rRand)
 
-    \func rand!~5 : Not (rand ∼ (num 5)) =>
+    \func rand!~5 : Not (rand ∼ num 5) =>
       \lam h => \let counter : SemAExp (num 5) State.zero 0  => (h State.zero 0).1 rRand
                 \in \case counter \with {
           | rNum p => contradiction

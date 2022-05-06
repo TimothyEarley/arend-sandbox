@@ -16,7 +16,7 @@
 
   \func apply {ctx : UniContext} {x y : ctx u⊢ *} : uniTrue ⋅ x ⋅ y ->*_u x
     => \let foo : subst (sub.extendsOne y) (rename (\lam {T} => S) x) = x => {?}
-       \in (R-App1 R-Beta, idp) ~> (R-Beta, idp) ~> (refl foo)
+       \in (R-App1 R-Beta, idp) ~> (R-Beta, idp) ~> refl foo
 }
 \func uniFalse {ctx : UniContext} : ctx u⊢ * => lam $ lam $ var #0
 \where {

@@ -52,7 +52,7 @@ Parallel and nested reduction
 \func ->*To>* {t t' : LambdaTerm} (h : t ->* t') : t >* t'
   \elim h
     | refl idp => refl idp
-    | ~> r s => (->1To> r) ~> ->*To>* s
+    | ~> r s => ->1To> r ~> ->*To>* s
 
 \func >To->* {t t' : LambdaTerm} (h : t > t') : t ->* t'
 \elim t, t', h
@@ -68,13 +68,13 @@ Parallel and nested reduction
 
 \func >*To->* {t t' : LambdaTerm} (h : t >* t') : t ->* t' \elim h
   | refl idp => refl idp
-  | ~> r s => (>To->* r) ~~> (>*To->* s)
+  | ~> r s => >To->* r ~~> >*To->* s
 
 \func betaReduce \alias + (t : LambdaTerm) : LambdaTerm
   | Var i => Var i
   | Lam v body => Lam v (+ body)
   | ⋅ (Lam v body) arg => subs (+ body) v (+ arg)
-  | ⋅ f arg => (+ f) ⋅ (+ arg)
+  | ⋅ f arg => + f ⋅ + arg
 
 {-
     t

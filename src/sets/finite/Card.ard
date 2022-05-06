@@ -35,7 +35,7 @@
     -- here we run into the decidability issues / truncated stuff
     \func toSized {A : DecSet} {S : Ensemble A} {n : Nat} (h : Card S n) : TruncP (DecSizedEnsemble { | E => A | S => S | size => n})
     \elim n, h
-      | 0, empty-card idp => inP $ DecSizedEnsemble.fromSizedEnsemble (SizedEnsemble.emptySized)
+      | 0, empty-card idp => inP $ DecSizedEnsemble.fromSizedEnsemble SizedEnsemble.emptySized
       | suc n, add-card S' {a} nIn h idp => \case toSized h \with {
         | inP (DS' : DecSizedEnsemble) => inP (DS'.addSized a nIn)
       }
@@ -61,7 +61,7 @@
               (rewrite p add.withUnion)
 
     \func smapCard {A B : \Set} {S : Ensemble A} {f : A -> B}
-                   (inj : \Pi (a : A) (a ∈ S) -> f a ∉ ((remove S a) smap f))
+                   (inj : \Pi (a : A) (a ∈ S) -> f a ∉ (remove S a smap f))
                    {n : Nat} (h : Card S n)
       : Card (S smap f) n
     \elim n, h

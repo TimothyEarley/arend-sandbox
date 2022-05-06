@@ -1,14 +1,7 @@
-\import Data.Bool
 \import Logic.Meta
-\import Meta
 \import Paths
-\import Paths.Meta
 \import Set
 \import Star
-\import identity.DecMaps
-\import unitypedLambda.Lambda
-\import util.Maybe
-\open SKI.Term (term≟)
 
 \module SKI \where {
 
@@ -51,11 +44,11 @@
   \func reduce {s : Term} (r : Reduction s) : Term \elim s, r
     | ⋅ (⋅ (⋅ S x) y) z, R-S => (x ⋅ z) ⋅ (y ⋅ z)
     | ⋅ (⋅ K x) y, R-K => x
-    | ⋅ x y, R-Left r => (reduce r) ⋅ y
-    | ⋅ x y, R-Right r => x ⋅ (reduce r)
+    | ⋅ x y, R-Left r => reduce r ⋅ y
+    | ⋅ x y, R-Right r => x ⋅ reduce r
 \where {
   \func reduceLeft {s t : Term}
-                   {r : Reduction s} : reduce {s ⋅ t} (R-Left r) = (reduce r) ⋅ t \elim s
+                   {r : Reduction s} : reduce {s ⋅ t} (R-Left r) = reduce r ⋅ t \elim s
     | S => idp
     | K => idp
     | ⋅ S s2 => idp
@@ -65,7 +58,7 @@
     | ⋅ (⋅ (⋅ s1 s4) s3) s2 => idp
 
   \func reduceRight {s t : Term}
-                   {r : Reduction t} : reduce {s ⋅ t} (R-Right r) = s ⋅ (reduce r) \elim s
+                   {r : Reduction t} : reduce {s ⋅ t} (R-Right r) = s ⋅ reduce r \elim s
     | S => idp
     | K => idp
     | ⋅ S s2 => idp

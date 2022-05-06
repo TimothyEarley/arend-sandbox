@@ -30,7 +30,7 @@
                            (tType : Context.add gamma x S ⊢ (t, T)) (sType : gamma ⊢ (s, S)) : gamma ⊢ (subs t x s, T)
     \elim t, tType
       | Var v, TVar p => mcases \with {
-        | yes e => \let S=T => unjust (rewriteF (Context.addGet {gamma}) (rewriteF e p))
+        | yes e => \let S=T => dejust (rewriteF (Context.addGet {gamma}) (rewriteF e p))
                    \in rewriteI S=T (Typerule.contextInvariance sType (\lam x1 f => idp))
         | no n => \let p' => rewriteF (Context.addGetOther {gamma} n) p \in TVar p'
       }

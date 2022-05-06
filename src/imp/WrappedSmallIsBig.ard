@@ -1,19 +1,11 @@
-\import Algebra.Monoid
-\import Arith.Int
-\import Arith.Nat
 \import Logic
-\import Logic.Meta
 \import LogicUtil
-\import util.Maybe
-\import Paths
 \import imp.BigStep
-\import imp.Deterministic
-\import imp.misc
 \import imp.SmallStep
 \import imp.Syntax
 
 \func wrappedSmallIsBig (a : AExp) (s : State) (n : Num) :
-  (WrapperSemAExp a s n) <-> (SemAExp a s n) => (wrappedToBig, bigToWrapped)
+  WrapperSemAExp a s n <--> SemAExp a s n => (wrappedToBig, bigToWrapped)
 
   \where {
     \func wrappedToBig {a : AExp} {s : State} {n : Num} (h : WrapperSemAExp a s n) : SemAExp a s n \elim a, h
@@ -46,4 +38,10 @@
         flattenBinary {MinusOp} (bigToWrapped semA1) (bigToWrapped semA2)
       | aTimes a1 a2, rTimes n1 semA1 n2 semA2 idp =>
         flattenBinary {TimesOp} (bigToWrapped semA1) (bigToWrapped semA2)
+
+    \func splitBinary {op : BinaryOp} {a1 a2 : AExp} {s : State} {n : Num} (h : WrapperSemAExp (op.op a1 a2) s n)
+      : \Sigma (n1 n2 : Num) (h1 : WrapperSemAExp a1 s n1) (h2 : WrapperSemAExp a2 s n2) (n = op.resultOp n1 n2)
+      \elim h
+        | arSingleStep s1 => {?}
+        | arMultipleSteps a' e s1 h => {?}
   }

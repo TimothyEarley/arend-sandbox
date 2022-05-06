@@ -30,7 +30,7 @@
 \func stepInstruction {spec : MachineSpec} (i : Instruction spec) (c : Configuration spec) : Configuration spec \elim i
   | add register c1 => \new Configuration {
     | line => suc c.line
-    | registers => set c.registers register (c1 :: (c.registers register))
+    | registers => set c.registers register (c1 :: c.registers register)
     | output => c.output
   }
   | sub register c1 => \new Configuration {
@@ -49,7 +49,7 @@
   | print => \new Configuration {
     | line => suc c.line
     | registers => c.registers
-    | output => (c.registers 0) :: c.output
+    | output => c.registers 0 :: c.output
   }
   | halt => c
 

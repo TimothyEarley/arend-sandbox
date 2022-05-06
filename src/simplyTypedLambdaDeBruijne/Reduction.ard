@@ -95,16 +95,16 @@
   | Natural, succ t, R-Succ r => succ (reduce r)
   | --> A B, ⋅ (lam body) arg, R-Beta _ => sub body arg
 
-  | --> A B, ⋅ f arg, R-App1 r => (reduce r) ⋅ arg
-  | --> A B, ⋅ f arg, R-App2 r v => f ⋅ (reduce r)
+  | --> A B, ⋅ f arg, R-App1 r => reduce r ⋅ arg
+  | --> A B, ⋅ f arg, R-App2 r v => f ⋅ reduce r
 
   -- TODO remove duplicates
   | Natural, ⋅ (lam body) arg, R-Beta v => sub body arg
-  | Natural, ⋅ f arg, R-App1 r => (reduce r) ⋅ arg
-  | Natural, ⋅ f arg, R-App2 r v => f ⋅ (reduce r)
+  | Natural, ⋅ f arg, R-App1 r => reduce r ⋅ arg
+  | Natural, ⋅ f arg, R-App2 r v => f ⋅ reduce r
 \where {
   \func app2 {c : SimpleContext} {T T' : Type} {f : c ⊢ T --> T'} {vf : Value f} {arg : c ⊢ T}
-             {r : Reduction arg} : reduce (R-App2 r vf) = f ⋅ (reduce r)
+             {r : Reduction arg} : reduce (R-App2 r vf) = f ⋅ reduce r
     \elim T', f
       | Natural, lam f => idp
       | --> A B, lam f => idp
@@ -113,7 +113,7 @@
 \func ReducesStep \alias \infix 5 ->1 {gamma : SimpleContext} {A : Type} (t t' : gamma ⊢ A) =>
   \Sigma (r : Reduction t) (reduce r = t')
 
-\func idpStep {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} {r : Reduction t} : t ->1 (reduce r) => (r, idp)
+\func idpStep {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} {r : Reduction t} : t ->1 reduce r => (r, idp)
 
 \func Reduces \alias \infix 5 ->* {gamma : SimpleContext} {A : Type} (t t' : gamma ⊢ A) => Star (->1) t t'
 \where {
@@ -124,7 +124,7 @@
     {t t' : gamma ⊢ T} (h : t ->* t') : f t ->* f t'
     \elim h
       | refl p => refl (pmap f p)
-      | ~> r s => (u r) ~> under {_} {_} {f} u s
+      | ~> r s => u r ~> under {_} {_} {f} u s
 
   \func underSucc {gamma : SimpleContext}
     => under {gamma} {Natural} {succ} (\lam r => (R-Succ r.1, pmap succ r.2))

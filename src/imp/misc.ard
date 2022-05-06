@@ -1,27 +1,13 @@
 \import Algebra.Group
 \import Algebra.Monoid
-\import Arith.Nat
 \import Arith.Int
-\import Data.Bool
 \import Data.Or
-\import DeriveDec.Meta
-\import LogicUtil
-\import Paths.Meta
-\import util.Maybe
 \import Paths
-\import sets.Elements
-\import sets.MySet
 \import Set
 \import Set.Hedberg
 \import imp.BigStep
 \import imp.Deterministic
 \import imp.Syntax
-\import sets.Complement
-\import sets.finite.FiniteS
-\import sets.Intersect
-\import sets.pow
-\import sets.subset
-\import sets.union
 
 -- Unique
 
@@ -37,20 +23,20 @@
     \let p : n1 = n3 => detAExp semA1 semA3
          | p' : n2 = n4 => detAExp semA2 semA4
          \in \case \elim n3, \elim n4, p, p', \elim p1, \elim semA3, \elim semA4 \with {
-      | _, _, idp, idp, p1, semA3, semA4 => path (\lam i => rPlus n1 ((uniqueSemAExp semA1 semA3) @ i) n2 ((uniqueSemAExp semA2 semA4) @ i) ((uiaNum idp p1) @ i))
+      | _, _, idp, idp, p1, semA3, semA4 => path (\lam i => rPlus n1 (uniqueSemAExp semA1 semA3 @ i) n2 (uniqueSemAExp semA2 semA4 @ i) (uiaNum idp p1 @ i))
     }
   | aMinus a a1, rMinus n1 semA1 n2 semA2 idp, rMinus n3 semA3 n4 semA4 p1 =>
     \let p : n1 = n3 => detAExp semA1 semA3
          | p' : n2 = n4 => detAExp semA2 semA4
     \in \case \elim n3, \elim n4, p, p', \elim p1, \elim semA3, \elim semA4 \with {
-      | _, _, idp, idp, p1, semA3, semA4 => path (\lam i => rMinus n1 ((uniqueSemAExp semA1 semA3) @ i) n2 ((uniqueSemAExp semA2 semA4) @ i) ((uiaNum idp p1) @ i))
+      | _, _, idp, idp, p1, semA3, semA4 => path (\lam i => rMinus n1 (uniqueSemAExp semA1 semA3 @ i) n2 (uniqueSemAExp semA2 semA4 @ i) (uiaNum idp p1 @ i))
     }
 
   | aTimes a a1, rTimes n1 semA1 n2 semA2 idp, rTimes n3 semA3 n4 semA4 p1 =>
     \let p : n1 = n3 => detAExp semA1 semA3
          | p' : n2 = n4 => detAExp semA2 semA4
     \in \case \elim n3, \elim n4, p, p', \elim p1, \elim semA3, \elim semA4 \with {
-      | _, _, idp, idp, p1, semA3, semA4 => path (\lam i => rTimes n1 ((uniqueSemAExp semA1 semA3) @ i) n2 ((uniqueSemAExp semA2 semA4) @ i) ((uiaNum idp p1) @ i))
+      | _, _, idp, idp, p1, semA3, semA4 => path (\lam i => rTimes n1 (uniqueSemAExp semA1 semA3 @ i) n2 (uniqueSemAExp semA2 semA4 @ i) (uiaNum idp p1 @ i))
     }
 
 

@@ -50,7 +50,7 @@
       | :: a tail => isStep (q' : d.State) (d.delta (q, action a, q')) (accepts d q' tail)
       | w => isEps (q' : d.State) (d.delta (q, epsilon, q')) (accepts d q' w)
 
-    \func language (nfae : NFAeps) : Language (nfae.Action) => accepts nfae nfae.start
+    \func language (nfae : NFAeps) : Language nfae.Action => accepts nfae nfae.start
 
     \data run (d : NFAeps) (from to : d.State) (w : Word d.Action) \elim w
       | nil => noStep (from = to)
@@ -196,7 +196,7 @@
             \func splitRight {A : Alphabet} {a b : NFAeps { | Action => A }} {w : Word A}
                              (q : b.State)
                              (h : accepts (concatNFAEps a b) (rightState q) w)
-              : (accepts b q w) \elim w, h
+              : accepts b q w \elim w, h
               | nil, isLast e => isLast e
               | :: a1 tail, isStep (rightState s) d h => isStep s d (splitRight s h)
               | w, isEps (rightState s) d h => isEps s d (splitRight s h)

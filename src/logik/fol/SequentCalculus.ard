@@ -6,6 +6,7 @@
 \import Relation.Equivalence
 \import Set \hiding (#)
 \import logik.fol.FOL
+\import logik.fol.FormulaDec
 \import logik.fol.Semantics
 \import sets.Add
 \import sets.DecidableSet
@@ -13,13 +14,9 @@
 \import sets.finite.Sized
 \import sets.remove
 \import sets.subset
-\import util.ArrayUtils
-\import logik.fol.FormulaDec
-\import util.CantorPair
 \open Formula (Subst, extends, sub, subN, subTerm, subTermLift, subTermsAt, subst)
 \open Semantics (Interpretation, evaluate, ⊧)
 \open Interpretation (subOneRename)
-\open CantorPairing (h1)
 
 \module SequentCalulus \where {
 
@@ -29,7 +26,7 @@
     | toShow => Ass (toShow ∈ axioms)
     | toShow => PC (psi : Formula n) (add {Formula n} axioms psi ⊢ toShow) (add axioms (notH psi) ⊢ toShow)
     | toShow => Ctr (psi : Formula n)
-                    (add axioms (notH toShow) ⊢ psi) (add axioms (notH toShow) ⊢ (notH psi))
+                    (add axioms (notH toShow) ⊢ psi) (add axioms (notH toShow) ⊢ notH psi)
 
     -- TODO ...
 
@@ -65,7 +62,7 @@
         E-Subst' x y h
             (equal (var 0) (Term.lift x))
             (unfold sub $ rewrite (subTermLift _ (\lam f => idp)) (E-Refl idp))
-            (unfold (sub) $ rewrite (subTermLift _ (\lam f => idp)) idp)
+            (unfold sub $ rewrite (subTermLift _ (\lam f => idp)) idp)
 
       \func E-Trans {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
                     {x y z : Term n}
@@ -73,8 +70,8 @@
         \let h'' :  add axioms (equal y z) ⊢ equal x y => weaken h (byLeft __)
         \in E-Subst' y z h'
             (equal (Term.lift x) (var 0))
-            (unfold (sub) $ rewrite (subTermLift _ (\lam f => idp)) h)
-            (unfold (sub) $ rewrite (subTermLift _ (\lam f => idp)) idp)
+            (unfold sub $ rewrite (subTermLift _ (\lam f => idp)) h)
+            (unfold sub $ rewrite (subTermLift _ (\lam f => idp)) idp)
 
       -- TruncP because thats where we use it
 
@@ -93,7 +90,7 @@
               (sub f (Term.liftN _ t'))
               (E-Subst' t t' t=t' {?} {?} {?})
               dd'
-              ((inv subN.recurseSub) *> tsp)
+              (inv subN.recurseSub *> tsp)
 
       \func CP3 {L : Language} {n : Nat}
                 {axioms : Ensemble (Formula n)} {x y : Formula n}
@@ -115,7 +112,7 @@
       \func CP4 {L : Language} {n : Nat}
                 {axioms : Ensemble (Formula n)} {x y : Formula n}
                 (h : add axioms y ⊢ notH x)
-        : add axioms x ⊢ (notH y) =>
+        : add axioms x ⊢ notH y =>
         Ctr x
             (Ass (byLeft (byRight idp)))
             (MP y
@@ -140,12 +137,12 @@
           (MP f
               (elim-notnot (Ass (byRight idp)))
               (weaken h1 (\case __ \with {
-                | byLeft a => (byLeft (byLeft a)) | byRight b => byRight b
+                | byLeft a => byLeft (byLeft a) | byRight b => byRight b
               })))
           (MP f
               (elim-notnot (Ass (byRight idp)))
               (weaken h2 (\case __ \with {
-                | byLeft a => (byLeft (byLeft a)) | byRight b => byRight b
+                | byLeft a => byLeft (byLeft a) | byRight b => byRight b
               })))
 
       \func elim-or {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
@@ -275,7 +272,7 @@
                        (h : I ⊧ subst s phi)
         : I ⊧ subst s' phi
       \elim phi
-        | equal x y => (evalSubst x (\lam fr => inv (freeSame (byLeft fr)))) *> h *> (evalSubst y (\lam fr => freeSame (byRight fr)))
+        | equal x y => evalSubst x (\lam fr => inv (freeSame (byLeft fr))) *> h *> evalSubst y (\lam fr => freeSame (byRight fr))
         | atomic r d => transport (Semantics.rel {I.1} r)
             (ext (ext (\lam j => rewriteF (inv $ subTermsAt j, inv $ subTermsAt j) (evalSubst (d j) (\lam {k} free => freeSame $ inP (j, free))))))
             h
@@ -287,7 +284,7 @@
             {extends s}
             (\lam {k} free => \case \elim k, free \with {
               | 0, free => idp
-              | suc k, free => \let fs => freeSame free \in unfold (extends) (subOneRename (s k) *> fs *> (inv (subOneRename (s' k))))
+              | suc k, free => \let fs => freeSame free \in unfold extends (subOneRename (s k) *> fs *> inv (subOneRename (s' k)))
             })
             (h x)
 
@@ -298,7 +295,7 @@
         | var f => h idp
         | apply f d => pmap (Semantics.funcs {I.1} f)
             (ext (ext (\lam j =>
-                \let h' => (evalSubst (d j) (\lam {k} free => h $ inP (j, free)))
+                \let h' => evalSubst (d j) (\lam {k} free => h $ inP (j, free))
                 \in rewriteF (inv $ subTermsAt j, inv $ subTermsAt j) h')))
     }
 

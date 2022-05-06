@@ -38,13 +38,13 @@
       | ltrue => ReaderMonad.return true
       | lfalse => ReaderMonad.return false
       | neg t => ReaderMonad.fmap not (embedReader t)
-      | tand t1 t2 => (embedReader t1) ReaderMonad.>>= (\lam b1 => (embedReader t2) >>= (\lam b2 => ReaderMonad.return (b1 and b2)))
-      | tor t1 t2 => (embedReader t1) ReaderMonad.>>= (\lam b1 => (embedReader t2) >>= (\lam b2 => ReaderMonad.return (b1 or b2)))
+      | tand t1 t2 => (embedReader t1) ReaderMonad.>>= (\lam b1 => embedReader t2 >>= (\lam b2 => ReaderMonad.return (b1 and b2)))
+      | tor t1 t2 => (embedReader t1) ReaderMonad.>>= (\lam b1 => embedReader t2 >>= (\lam b2 => ReaderMonad.return (b1 or b2)))
       \where {
         \func $f {Var : \Set} (x : Var) : (Var -> Bool) -> Bool => \lam f => f x
       }
 
-    \lemma and_true {V : \Set} (x : V) : (embedReader (var x)) = (embedReader (tand (var x) ltrue)) => equation
+    \lemma and_true {V : \Set} (x : V) : embedReader (var x) = embedReader (tand (var x) ltrue) => equation
         (embedReader (var x))
         (ReaderMonad.fmap ($f x) ask)
         ((embedReader (var x)) ReaderMonad.>>= ReaderMonad.return)
@@ -52,7 +52,7 @@
           {pmap ((embedReader (var x)) ReaderMonad.>>= __) {ReaderMonad.return} {\lam z => ReaderMonad.return (z and true)}
                (ext (\lam _ _ => rewrite andTrue idp))}
         ((embedReader (var x)) ReaderMonad.>>= (\lam b1 => ReaderMonad.return (b1 and true)))
-        ((embedReader (var x)) ReaderMonad.>>= (\lam b1 => (ReaderMonad.return true) >>= (\lam b2 => ReaderMonad.return (b1 and b2))))
+        ((embedReader (var x)) ReaderMonad.>>= (\lam b1 => ReaderMonad.return true >>= (\lam b2 => ReaderMonad.return (b1 and b2))))
         (embedReader (tand (var x) ltrue))
 
 

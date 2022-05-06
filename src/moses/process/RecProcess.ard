@@ -1,26 +1,21 @@
 \import Arith.Nat
-\import Data.Array
 \import Data.Bool
 \import Function.Meta
 \import Logic
 \import Logic.Meta
 \import Meta
-\import NatLike
 \import Order.PartialOrder
 \import Paths
 \import Paths.Meta
-\import identity.NatIdentity
 \import moses.process.Process
 \import moses.process.ProcessExpression
-\import sets.Add
 \import sets.MySet
 \import sets.subset
 \import sets.union
 \import util.ArrayUtils
 \import util.Nat
-\open moses.process.ProcessExpression.traces (emptyTrace)
 \open ArrayUtils (tail)
-\open Process (Traces)
+\open moses.process.ProcessExpression.traces (emptyTrace)
 
 \data RecProcessExpression (E : \Set)
   | STOP
@@ -34,8 +29,8 @@
 \func traces {E : \Set} (P : RecProcessExpression E) : Process.Traces E \elim P
   | STOP => single {Process.Trace E} (nil, false)
   | SKIP => single {Process.Trace E} (nil, false) ∪ single {Process.Trace E} (nil, true)
-  | --> x P => (traces P) smap {_} {Process.Trace E} (\lam t => (x :: t.1, t.2)) ∪ emptyTrace
-  | ⊓ P Q => (traces P) ∪ (traces Q)
+  | --> x P => traces P smap {_} {Process.Trace E} (\lam t => (x :: t.1, t.2)) ∪ emptyTrace
+  | ⊓ P Q => traces P ∪ traces Q
   -- | mu P => \lam t => ∃ (X : Process.Traces E) (X = traces (P X)) (t ∈ traces (P X))
   -- This is probably wrong, but I can't proof anything without weakening the equality to subset
   | mu P => \lam t => ∃ (X : Process.Traces E) (X ⊆ traces (P X)) (t ∈ traces (P X))
@@ -45,9 +40,9 @@
   \where {
     \data Tick | tick
 
-    \func tickTracesSet : Process.Traces Tick => (\lam t => So (not t.2))
+    \func tickTracesSet : Process.Traces Tick => \lam t => So (not t.2)
 
-    \func tickTracesSetN (n : Nat) : Process.Traces Tick => (\lam t => \Sigma (DArray.len {t.1} <= n) (So (not t.2)))
+    \func tickTracesSetN (n : Nat) : Process.Traces Tick => \lam t => \Sigma (DArray.len {t.1} <= n) (So (not t.2))
 
     \lemma tickTraces : traces clock = tickTracesSet => extSet
         tickTraces-1
@@ -61,7 +56,7 @@
       | t, inP (X, p, byRight idp) => so
 
     \lemma tickTraces-2 {t : Process.Trace Tick} (h : t ∈ tickTracesSet) : t ∈ traces clock =>
-      tickTraces-2-n (DArray.len {t.1}) (<=-reflexive, h)
+      tickTraces-2-n (DArray.len {t.1}) (<=-refl, h)
 
     \lemma tickTraces-2-n (n : Nat) {t : Process.Trace Tick} (h : t ∈ tickTracesSetN n) : t ∈ traces clock
     \elim n, t, h

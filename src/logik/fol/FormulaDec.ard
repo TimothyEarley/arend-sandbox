@@ -1,7 +1,6 @@
 \import Logic
 \import LogicUtil
 \import Paths
-\import Paths.Meta
 \import Set
 \import identity.DecMaps
 \import identity.Identity
@@ -57,9 +56,9 @@
     | forallH x, forallH y, h => pmap forallH (code-decode h)
 
   \func code-decide {L : DecLanguage} {n : Nat} (x y : Formula n) : Dec (Code x y) \elim x, y
-    | equal x y, equal x1 y1 => decMap2 (TermDec.decideEq x x1) (TermDec.decideEq y y1) <->.refl <->.refl
-    | atomic r d, atomic r1 d1 => decMap2 (L.decRelations.decideEq r r1) (terms-decide d d1) <->.refl <->.refl
-    | impH x x1, impH x2 y => decMap2 (code-decide x x2) (code-decide x1 y) <->.refl <->.refl
+    | equal x y, equal x1 y1 => decMap2 (TermDec.decideEq x x1) (TermDec.decideEq y y1) <->refl <->refl
+    | atomic r d, atomic r1 d1 => decMap2 (L.decRelations.decideEq r r1) (terms-decide d d1) <->refl <->refl
+    | impH x x1, impH x2 y => decMap2 (code-decide x x2) (code-decide x1 y) <->refl <->refl
     | forallH x, forallH y => code-decide x y
     | notH x, notH y => code-decide x y
     | impH x x1, notH y => no absurd

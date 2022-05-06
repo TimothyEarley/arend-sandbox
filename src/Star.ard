@@ -9,7 +9,7 @@
                     (transfer : \Pi {x y : A} (r x y) -> r2 (f x) (f y))
     : Star r2 (f a) (f b) \elim h
     | refl idp => refl idp
-    | ~> r1 h => (transfer r1) ~> (embedSingle h transfer)
+    | ~> r1 h => transfer r1 ~> embedSingle h transfer
 
   \func embed {A B : \Type} {r : A -> A -> \Type}
     {a b : A} (h : Star r a b)
@@ -19,7 +19,7 @@
     : Star r2 (f a) (f b)
     \elim h
       | refl idp => refl idp
-      | ~> rac h => (transfer rac) ~~> (embed h transfer)
+      | ~> rac h => transfer rac ~~> embed h transfer
 }
 
 \func singleStep {A : \Type} {r : A -> A -> \Type} {x y : A} (h : r x y) : Star r x y

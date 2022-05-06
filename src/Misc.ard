@@ -7,7 +7,7 @@
 
 \lemma doubleNegationLEM {A : \Type} : Not (Not (Or A (Not A))) => \lam n => n (inr (\lam a => n (inl a)))
 
-\func Or->|| {A B : \Type} : (Or A B) ->> (A || B) \cowith
+\func Or->|| {A B : \Type} : Or A B ->> (A || B) \cowith
   | f x => \case x \with {
     | inl a => byLeft a
     | inr b => byRight b

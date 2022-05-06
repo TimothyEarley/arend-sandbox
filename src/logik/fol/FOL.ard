@@ -1,11 +1,4 @@
-\import Algebra.Domain.Euclidean
 \import Arith.Nat
-\import Data.Array
-\import Data.List (List)
-\import Data.Or
-\import Function
-\import Function.Meta ($)
-\import LeipnizEquality
 \import Logic
 \import Logic.Meta
 \import Meta
@@ -14,20 +7,11 @@
 \import Paths
 \import Paths.Meta
 \import Set
-\import Set.Fin
 \import Util
 \import logik.fol.Semantics
 \import sets.MySet
-\import sets.finite.Sized
-\import sets.subset
-\import util.ArrayUtils
-\import util.CantorPair
-\open Formula (subTerm)
-\open NatSemiring (+-assoc, +-comm)
-\open IntEuclidean (natMod<right)
-\open Semantics (Interpretation, ≡, ⊧, ⊭)
-\open LeipnizIsEqual (j)
-\open Term (lift, liftN, lifts)
+\open Semantics (Interpretation, ⊧, ⊭)
+\open Term (liftN, lifts)
 
 -- http://r6.ca/Goedel/goedel1.html
 
@@ -60,7 +44,7 @@
       \where {
         \func maxTermDepth {L : Language} {n : Nat} (ts : Array (Term n)) : Nat \elim ts
           | nil => 0
-          | :: a arr => (termDepth a) ∨ (maxTermDepth arr)
+          | :: a arr => termDepth a ∨ maxTermDepth arr
 
         \lemma maxTermDepthIsBigger {L : Language} {n : Nat} {ts : Array (Term n)} {j : Fin ts.len} : termDepth (ts j) <= maxTermDepth ts
         \elim ts, j
@@ -74,7 +58,7 @@
 
     \func lifts {L : Language} {n l : Nat} (t : Array (Term n) l) : Array (Term (suc n)) l \elim l, t
       | 0, nil => nil
-      | suc l, :: a arr => (lift a) :: (lifts arr)
+      | suc l, :: a arr => lift a :: lifts arr
 
     \func liftN {L : Language} {n : Nat} (k : Nat) (t : Term n) : Term (n Nat.+ k) \elim k
       | 0 => t
@@ -86,7 +70,7 @@
 
     \func liftsN  {L : Language} {n l : Nat} (k : Nat) (t : Array (Term n) l) : Array (Term (n Nat.+ k)) l \elim l, t
       | 0, nil => nil
-      | suc l, :: a t => (liftN k a) :: (liftsN k t)
+      | suc l, :: a t => liftN k a :: liftsN k t
   }
 
 \data Formula {L : Language} (variables : Nat) : \Set
@@ -113,7 +97,7 @@
     \func subTerms {L : Language} {n m l : Nat} (s : Subst {L} n m) (d : Array (Term {L} n) l) : Array (Term {L} m) l
     \elim l, d
       | 0, nil => nil
-      | suc l, :: a d => (subTerm s a) :: subTerms s d
+      | suc l, :: a d => subTerm s a :: subTerms s d
       \where {
         \func subTermsId {L : Language} {n l : Nat} (d : Array (Term {L} n) l) : subTerms var d = {Array (Term n) l} d \elim l, d
           | 0, nil => idp {Array (Term n) 0}
@@ -137,7 +121,7 @@
                        (h : \Pi (f : Fin n) -> s (suc f) = var f)
       : subTerms s (lifts x) = {Array (Term n) l} x \elim l, x
       | 0, nil => path (\lam i => nil)
-      | suc l, :: a x => path (\lam i => ((subTermLift s h) @ i) :: (subTermsLift h) @ i)
+      | suc l, :: a x => path (\lam i => (subTermLift s h @ i) :: subTermsLift h @ i)
 
     \func rename {L : Language} {x y : Nat} (r : Rename x y) (t : Term {L} x) : Term {L} y
     \elim t
@@ -147,7 +131,7 @@
     \func renames {L : Language} {x y l : Nat} (r : Rename x y) (t : Array (Term {L} x) l) : Array (Term {L} y) l
     \elim l, t
       | 0, nil => nil
-      | suc l, :: a t => (rename r a) :: renames r t
+      | suc l, :: a t => rename r a :: renames r t
 
     \func renamesAt {L : Language} {x y l : Nat} {r : Rename x y} {t : Array (Term x) l} (j : Fin l)
       : renames r t j = rename r (t j)
@@ -176,7 +160,7 @@
           | equal x y => pmap2 equal (subTerm.subTermId x) (subTerm.subTermId y)
           | atomic r d => pmap (atomic r) (subTerms.subTermsId d)
           | impH x f => pmap2 (impH) (substId x) (substId f)
-          | notH f => pmap (notH) (substId f)
+          | notH f => pmap notH (substId f)
           | forallH f => pmap forallH (\let goal : subst (extends var) f = f => rewrite extendsVarIsVar (substId f) \in goal)
 
         \func extendsVarIsVar {L : Language} {n : Nat} : extends var = {Subst (suc n) (suc n)} var =>
@@ -210,20 +194,20 @@
       \func recurseSub  {L : Language} {n m : Nat} {f : Formula (suc (n Nat.+ m))}
                         {t : Term n} {d : Array (Term n) m}
         : subN f (t :: d) = subN (sub f (liftN _ t)) d
-        => unfold (subN) {?}
+        => unfold subN {?}
     }
 
     \func FreeVar {L : Language} {n : Nat} (f : Formula n) (i : Fin n) : \Prop \elim f
-      | equal x y => (Term.FreeVar x i) || (Term.FreeVar y i)
+      | equal x y => Term.FreeVar x i || Term.FreeVar y i
       | atomic r d => Term.AnyFreeVar d i
-      | impH x f => (FreeVar x i) || (FreeVar f i)
+      | impH x f => FreeVar x i || FreeVar f i
       | notH f => FreeVar f i
       | forallH f => FreeVar f (suc i)
 
     \func lift {L : Language} {n : Nat} (f : Formula n) : Formula (suc n) \elim f
       | equal x y => equal (Term.lift x) (Term.lift y)
       | atomic r d => atomic r (Term.lifts d)
-      | impH x f => (lift x) impH (lift f)
+      | impH x f => lift x impH lift f
       | notH f => notH (lift f)
       | forallH f => forallH (lift f) -- TODO this is wrong
   }

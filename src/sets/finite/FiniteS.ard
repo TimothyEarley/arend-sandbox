@@ -28,7 +28,7 @@
 -- the difference to sized is that we might not know the exact number of elements (only upper bound)
 
 \func FiniteS {A : \Set} (S : Ensemble A) : \Prop =>
-  ∃ (n : Nat) (Fin n ->> (Elements S))
+  ∃ (n : Nat) (Fin n ->> Elements S)
 
   \where {
 

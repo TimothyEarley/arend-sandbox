@@ -11,7 +11,7 @@
 
 -- {{a}} ∪ {{a, b}}
 
-\func pair {A : \Set} (a b : A) : Ensemble (Ensemble A) => (single (single a)) ∪ (single (add (single a) b))
+\func pair {A : \Set} (a b : A) : Ensemble (Ensemble A) => single (single a) ∪ single (add (single a) b)
 
   \where {
     -- {{a}} ∪ {{a, a}} = {{a}}
@@ -33,10 +33,10 @@
          | _, p, yes idp =>
            \let
              -- {{b}} = {{a'}, {a', b'}}
-             | q : (single (single b)) = (pair a' b') => inv ((inv p) *> refl-pair)
+             | q : single (single b) = pair a' b' => inv (inv p *> refl-pair)
              | b=a' : b = a' => single.extract (transportInv (\lam _x => single a' ∈ _x) q (byLeft idp))
              -- {a', b'} ∈ {{b}}
-             | q' : (add (single a') b') ∈ single (single b) => transportInv ((add (single a') b') ∈ __) q (byRight idp)
+             | q' : add (single a') b' ∈ single (single b) => transportInv (add (single a') b' ∈ __) q (byRight idp)
              | b=b' : b = b' => single.tele (byRight idp) q'
            \in (b=a', b=b')
 
@@ -45,10 +45,10 @@
              | a'=a : a' = a => uniqueSingle {A} {a} {b} {a'} {a} (rewrite p (byLeft idp)) (byLeft idp) n
 
              -- {a, b} ∈ {{a}, {a', b'}}
-             | fact : (add (single a) b) ∈ pair a' b' => rewriteI p (byRight idp)
+             | fact : add (single a) b ∈ pair a' b' => rewriteI p (byRight idp)
 
              -- {a, b} = {a', b'}
-             | ab=a'b' : (add (single a) b) = (add (single a') b') => \case fact \with {
+             | ab=a'b' : add (single a) b = add (single a') b' => \case fact \with {
                | byLeft x =>
                  -- {a, b} = {a'}
                  \let t1 : a' = b => single.tele (byRight idp) x \in contradiction
@@ -64,17 +64,17 @@
        })
 
     \lemma uniqueSingle {A : \Set} {a b x x' : A}
-                        (h : single x ∈ (pair a b))
-                        (h' : single x' ∈ (pair a b))
+                        (h : single x ∈ pair a b)
+                        (h' : single x' ∈ pair a b)
                         (u : a /= b)
       : x = x' \elim h, h'
-      | byLeft a1, byLeft a2 => single.extract ((inv a1) *> a2)
+      | byLeft a1, byLeft a2 => single.extract (inv a1 *> a2)
       | _, byRight b1 => \let
         | x'=a : x' = a => transport (a ∈ __) b1 (byLeft idp)
         | x'=b : x' = b => transport (b ∈ __) b1 (byRight idp)
-                         \in absurd (u ((inv x'=a) *> x'=b))
+                         \in absurd (u (inv x'=a *> x'=b))
       | byRight b1, _ => \let
         | x=a : x = a => transport (a ∈ __) b1 (byLeft idp)
         | x=b : x = b => transport (b ∈ __) b1 (byRight idp)
-                         \in absurd (u ((inv x=a) *> x=b))
+                         \in absurd (u (inv x=a *> x=b))
   }

@@ -18,9 +18,9 @@
 \func aval (a : AExp) (s : State) : Num \elim a
   | aNum n => n
   | aVar v => s v
-  | aPlus a1 a2 => (aval a1 s) + (aval a2 s)
-  | aMinus a1 a2 => (aval a1 s) - (aval a2 s)
-  | aTimes a1 a2 => (aval a1 s) * (aval a2 s)
+  | aPlus a1 a2 => aval a1 s + aval a2 s
+  | aMinus a1 a2 => aval a1 s - aval a2 s
+  | aTimes a1 a2 => aval a1 s * aval a2 s
 \where {
   \func isCorrect {a : AExp} {s : State} : SemAExp a s (aval a s) \elim a
     | aNum n => rNum idp
@@ -36,11 +36,11 @@
 \func bval (b : BExp) (s : State) : Bool \elim b
   | bTrue => true
   | bFalse => false
-  | bEq a a1 => (aval a s) == (aval a1 s)
-  | bLeq a a1 => decToBool ((aval a s) int<=? (aval a1 s))
+  | bEq a a1 => aval a s == aval a1 s
+  | bLeq a a1 => decToBool (aval a s int<=? aval a1 s)
   | bNot b => not (bval b s)
-  | bAnd b1 b2 => (bval b1 s) and (bval b2 s)
-  | bOr b1 b2 => (bval b1 s) or (bval b2 s)
+  | bAnd b1 b2 => bval b1 s and bval b2 s
+  | bOr b1 b2 => bval b1 s or bval b2 s
 
   \where {
   \func isCorrect {b : BExp} {s : State} : SemBExp b s (bval b s) \elim b
@@ -50,7 +50,7 @@
       | yes e => rEqT (aval a s) aval.isCorrect (aval a1 s) aval.isCorrect e (unfold (==) $ pmap decToBool $ decideEq=_reduce e)
       | no n => rEqF (aval a s) aval.isCorrect (aval a1 s) aval.isCorrect n (unfold (==) $ pmap decToBool $ decideEq/=_reduce n)
     }
-    | bLeq a a1 => cases ((aval a s) int<=? (aval a1 s) arg addPath) \with {
+    | bLeq a a1 => cases (aval a s int<=? (aval a1 s) arg addPath) \with {
       | yes e, h => rLeqT (aval a s) aval.isCorrect (aval a1 s) aval.isCorrect e idp
       | no n, h => rLeqF (aval a s) aval.isCorrect (aval a1 s) aval.isCorrect n idp
     }

@@ -1,22 +1,17 @@
 \import Algebra.Monoid
 \import Arith.Nat
-\import DualNumbers
 \import Function
 \import Logic
 \import Order.Lattice
 \import Paths
 \import Paths.Meta
-\import Set
 \import Util
 \import sets.Add
-\import sets.finite.Card
 \import sets.Disjoint
 \import sets.Elements
-\import sets.finite.FiniteS
-\import sets.MySet
-\import sets.Complement
 \import sets.Intersect
-\import sets.pow
+\import sets.MySet
+\import sets.finite.Card
 \import sets.remove
 \import sets.subset
 \import sets.union
@@ -74,7 +69,7 @@
 
 
           | inj : \Pi (X : A -> \Prop) (X ∈ pow S') ->
-              (add X a) ∉ (addToAll (remove (pow S') X) a)
+              add X a ∉ addToAll (remove (pow S') X) a
           => \lam X XIn (inP (Y, p, (YIn, X/=Y))) =>
                 \let aNotInY : a ∉ Y => \lam aY => a~InS (YIn aY)
                      | aNotInX : a ∉ X => \lam aX => a~InS (XIn aX)
@@ -91,7 +86,7 @@
 
 \func PowLattice {A : \Set} {S : Ensemble A} : Bounded.DistributiveLattice (Elements (pow S)) \cowith
   | <= X Y => X.1 ⊆ Y.1
-  | <=-reflexive => id
+  | <=-refl => id
   | <=-transitive => ⊆.trans
   | <=-antisymmetric x y => ext (⊆.anti-sym x y)
   | meet X Y => (X.1 ∩ Y.1, ⊆.trans ⊆.of-∩-left X.2)

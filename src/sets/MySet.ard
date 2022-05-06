@@ -91,7 +91,7 @@
 
     -- x ∈ S, S ∈ {{c}} => c = x
 
-    \lemma tele {A : \Set} {x c : A} {S : Ensemble A} (hx : x ∈ S) (h : S ∈ (single (single c))) : c = x =>
+    \lemma tele {A : \Set} {x c : A} {S : Ensemble A} (hx : x ∈ S) (h : S ∈ single (single c)) : c = x =>
       transportInv (\lam _x => x ∈ _x) h hx
 
     \lemma notTwoElements {A : \Set} {a x x' : A}
@@ -139,11 +139,11 @@
         })
         (\lam e => absurd e)
 
-    \func add-smap {A B : \Set} {f : A -> B} {S : Ensemble A} {a : A} : ((add S a) smap f) = add (S smap f) (f a) =>
+    \func add-smap {A B : \Set} {f : A -> B} {S : Ensemble A} {a : A} : (add S a smap f) = add (S smap f) (f a) =>
       extSet
           (\lam {x} e => \case e \with {
             | inP (a', p, byLeft a'S) => byLeft (inP (a', p, a'S))
-            | inP (a', p, byRight a'=a) => byRight (pmap f a'=a *> (inv p))
+            | inP (a', p, byRight a'=a) => byRight (pmap f a'=a *> inv p)
           })
           (\lam {x} e => \case e \with {
             | byLeft (inP xFs) => inP (xFs.1, xFs.2, byLeft xFs.3)
@@ -174,7 +174,7 @@
 
 \func SetLattice {A : \Set} : DistributiveLattice (Ensemble A) \cowith
   | <= => ⊆
-  | <=-reflexive e => e
+  | <=-refl e => e
   | <=-transitive {x} {y} {z} h h' => ⊆.trans {A} {x} {y} {z} h h'
   | <=-antisymmetric => ⊆.anti-sym
   | meet => ∩

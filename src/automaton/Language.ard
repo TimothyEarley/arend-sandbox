@@ -19,13 +19,13 @@
 
   \func concat-self+1 {A : Alphabet} (L : Language A) (n : Nat) : Language A \elim n
     | 0 => L
-    | suc n => L ∘ (concat-self+1 L n)
+    | suc n => L ∘ concat-self+1 L n
 
   \func star {A : Alphabet} (L : Language A) : Language A =>
-    (\lam w => ∃ (n : Nat) (concat-self+1 L n w)) ∪ (single nil)
+    (\lam w => ∃ (n : Nat) (concat-self+1 L n w)) ∪ single nil
   \where {
     \func addOne {A : Alphabet} {L : Language A} {w w' : Word A}
-      (h : w ∈ L) (h' : w' ∈ (star L)) : (w ++ w') ∈ (star L)
+      (h : w ∈ L) (h' : w' ∈ star L) : (w ++ w') ∈ star L
       \elim h'
         | byRight idp => byLeft (inP (0, rewrite ++_nil h))
         | byLeft (inP (n, c)) => byLeft (inP (suc n, inP (w, w', idp, h, c)))

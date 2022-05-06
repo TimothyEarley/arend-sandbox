@@ -9,15 +9,15 @@
 \func optimize_0plus {S : Signature} (a : AExp) : AExp \elim a
   | num n => num n
   | var e => var e
-  | ⊖ a b => (optimize_0plus a) ⊖ (optimize_0plus b)
-  | ⊙ a b => (optimize_0plus a) ⊙ (optimize_0plus b)
+  | ⊖ a b => optimize_0plus a ⊖ optimize_0plus b
+  | ⊙ a b => optimize_0plus a ⊙ optimize_0plus b
 
 
   | ⊕ (num 0) b => optimize_0plus b
   | ⊕ (num (neg 0)) b => optimize_0plus b
 
-  | ⊕ (num (neg (suc n))) b => (num (neg (suc n))) ⊕ (optimize_0plus b)
-  | ⊕ a b => (optimize_0plus a) ⊕ (optimize_0plus b)
+  | ⊕ (num (neg (suc n))) b => num (neg (suc n)) ⊕ optimize_0plus b
+  | ⊕ a b => optimize_0plus a ⊕ optimize_0plus b
 
   \where {
     \open IntRing

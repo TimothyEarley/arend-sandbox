@@ -1,15 +1,6 @@
-\import Arith.Nat
-\import Data.Or
 \import Logic
 \import Logic.Meta
 \import LogicUtil
-\import util.Maybe
-\import Order.LinearOrder
-\import Order.StrictOrder
-\import Paths
-\import Paths.Meta
-\import SetTheory.Ord
-\import SetTheory.Ordinal
 
 \class SetTheory (Set : \Type) {
   | Element \alias \infix 7 ∈ : \Pi (x : Set) (y : Set) -> \Prop
@@ -22,18 +13,18 @@
   | extensional : \Pi {x y : Set} (\Pi (z : Set) (z ∈ x) -> z ∈ y) (\Pi (z : Set) (z ∈ y) -> z ∈ x) -> x = y
 
   | pairing : \Pi (x y : Set) -> Set
-  | pairing-proof : \Pi (x y : Set) -> \Pi (z : Set) -> z ∈ (pairing x y) <-> (z = x) || (z = y)
+  | pairing-proof : \Pi (x y : Set) -> \Pi (z : Set) -> z ∈ pairing x y <-> (z = x) || (z = y)
 
   | union : \Pi (x : Set) -> Set
-  | union-proof : \Pi (x : Set) -> \Pi (z : Set) -> z ∈ (union x) <-> (\Sigma (z' : Set) (z' ∈ x) (z ∈ z'))
+  | union-proof : \Pi (x : Set) -> \Pi (z : Set) -> z ∈ union x <--> (\Sigma (z' : Set) (z' ∈ x) (z ∈ z'))
 
   | power : \Pi (x : Set) -> \Sigma (pow : Set) (\Pi (z : Set) -> z ∈ pow <-> (\Pi (z' : Set) (z' ∈ z) -> z' ∈ x)) -- z ⊆ x
 
   | seperation : \Pi (x : Set) (Phi : \Pi (x' : Set) (x' ∈ x) -> \Prop) -> \Sigma (s : Set) (\Pi (z : Set) -> z ∈ s <-> (\Sigma (zx : z ∈ x) (Phi z zx)))
 
   -- TODO F should be FO-definable
-  | replacement : \Pi (x : Set) (F : \Pi (x' : Set) (x' ∈ x) -> Set) -> ∃ (s : Set) (\Pi (z : Set) -> z ∈ s <-> (\Sigma (a : Set) (ax : a ∈ x) (z = F a ax)))
-  | infinity : \Sigma (s : Set) (∅ ∈ s) (\Pi (x : Set) (x ∈ s) -> (union (pairing x (pairing x x))) ∈ s)
+  | replacement : \Pi (x : Set) (F : \Pi (x' : Set) (x' ∈ x) -> Set) -> ∃ (s : Set) (\Pi (z : Set) -> z ∈ s <--> (\Sigma (a : Set) (ax : a ∈ x) (z = F a ax)))
+  | infinity : \Sigma (s : Set) (∅ ∈ s) (\Pi (x : Set) (x ∈ s) -> union (pairing x (pairing x x)) ∈ s)
 
   \func subset \alias \infix 7 ⊆ (x y : Set) : \Prop => \Pi (z : Set) (z ∈ x) -> z ∈ y
 

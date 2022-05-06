@@ -32,7 +32,7 @@
 
 \func iexec {S : Signature} (i : Instruction) (c : Config {S}) : Config {S} \elim i, c
   | LOADI n, (pc, s, stk) => (suc pc, s, n :: stk)
-  | LOAD e, (pc, s, stk) => (suc pc, s, (variables {s} e) :: stk)
+  | LOAD e, (pc, s, stk) => (suc pc, s, variables {s} e :: stk)
   | ADD, (pc, s, :: x (:: y stk)) => (suc pc, s, (y + x) :: stk)
   | SUB, (pc, s, :: x (:: y stk)) => (suc pc, s, (y - x) :: stk)
   | TIMES, (pc, s, :: x (:: y stk)) => (suc pc, s, (y * x) :: stk)
@@ -61,7 +61,7 @@
       | greater _x => false
     }
 
-    \func jump (pc : Nat) (offset : Int) : Nat => \case (suc pc) IntRing.+ offset \with {
+    \func jump (pc : Nat) (offset : Int) : Nat => \case suc pc IntRing.+ offset \with {
       | pos n => n
       | neg n => 0
     }
@@ -69,7 +69,7 @@
 
 \func exec1 {S : Signature} (instructions : Array Instruction)
             (config config' : Config {S}) : \Prop =>
-  ∃ (i : Instruction) (instructions ?? (pc config) = just i) (config' = iexec i config)
+  ∃ (i : Instruction) (instructions ?? pc config = just i) (config' = iexec i config)
 
 \func exec {S : Signature} (instructions : Array Instruction)
   : (Config {S}) -> (Config {S}) -> \Set => Star (exec1 instructions)
@@ -79,6 +79,6 @@
 \func acomp {S : Signature} (a : AExp) : Array Instruction \elim a
   | num n => LOADI n :: nil
   | var x => LOAD x :: nil
-  | ⊕ a b => (acomp a) ++ (acomp b) ++ (ADD :: nil)
-  | ⊖ a b => (acomp a) ++ (acomp b) ++ (SUB :: nil)
-  | ⊙ a b => (acomp a) ++ (acomp b) ++ (TIMES :: nil)
+  | ⊕ a b => acomp a ++ acomp b ++ (ADD :: nil)
+  | ⊖ a b => acomp a ++ acomp b ++ (SUB :: nil)
+  | ⊙ a b => acomp a ++ acomp b ++ (TIMES :: nil)

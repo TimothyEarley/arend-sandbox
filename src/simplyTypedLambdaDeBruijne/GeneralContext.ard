@@ -20,7 +20,7 @@
     | ∕ c t, suc n, p => lookup (suc<=suc.conv p)
     | ∅, n, p => absurd (not<=0 p)
 
-  \func count {Type : \Set} {c : Context Type} {n : Nat} (p : suc n <= length c) : c ∋ (lookup p)
+  \func count {Type : \Set} {c : Context Type} {n : Nat} (p : suc n <= length c) : c ∋ lookup p
   \elim c, n, p
     | ∕ c t, 0, p => Z idp
     | ∕ c t, suc n, p => S (count (suc<=suc.conv p))

@@ -21,7 +21,7 @@
 \where {
 
 
-  \func poly_id : ∅ ⊢ (ForAllTy * (T0 --> T0))
+  \func poly_id : ∅ ⊢ ForAllTy * (T0 --> T0)
     => forAll (lam v0)
 
   \func poly_id_tapp {A : FType NoneKind *} : ∅ ⊢ A --> A

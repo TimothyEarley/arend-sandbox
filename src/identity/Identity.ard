@@ -1,8 +1,6 @@
-\import Data.Bool
 \import Paths
 \import Set
 \import identity.DecMaps
-\import identity.NatIdentity
 
 \class Identity (A : \Set) {
   | Code : A -> A -> \Prop

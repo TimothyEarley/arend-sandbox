@@ -62,7 +62,7 @@
 
 \func labelProgramStep {spec : MachineSpec} (p : LabelProgram spec) (c : Configuration spec) : Configuration spec =>
   stepLabelInstruction p
-      ((fmap (\lam x => x.2) (p ?? c.line)) orElse l_halt)
+      (fmap (\lam x => x.2) (p ?? c.line) orElse l_halt)
       c
 
 \func labelRuns {spec : MachineSpec} (p : LabelProgram spec) (c c' : Configuration spec) : \Type =>
@@ -72,7 +72,7 @@
     exampleProgram
     (Configuration.start {eSpec} nil)
     (\new Configuration eSpec 5 (nil :: nil :: nil) (nil :: nil)) =>
-  (Configuration.start {eSpec} nil) ~~< rewrite start= {?} >~>
+  Configuration.start {eSpec} nil ~~< rewrite start= {?} >~>
   (\new Configuration eSpec 1 ((0 :: nil) :: nil :: nil) nil) ~~< {?} >~>
   (\new Configuration eSpec 5 (nil :: nil :: nil) (nil :: nil)) `stop
 
@@ -80,7 +80,7 @@
     \func eSpec : MachineSpec => \new MachineSpec 1 1
 
     \func start= : Configuration.start {eSpec} nil = \new Configuration eSpec 0 (nil :: nil :: nil) nil => \let
-      | p : nil :: (arrayOf nil) = {Array eSpec.String 2} nil :: nil :: nil => ext (ext (\lam j => cases j \with {
+      | p : nil :: arrayOf nil = {Array eSpec.String 2} nil :: nil :: nil => ext (ext (\lam j => cases j \with {
         | 0 => idp
         | 1 => idp
       }))

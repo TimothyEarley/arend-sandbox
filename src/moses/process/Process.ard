@@ -25,8 +25,8 @@
     -- \instance TraceOrder {E : \Set} : Preorder (Trace E) => mappedPreOrder {ArrayOrder} Trace.toArray
 
     \instance TraceOrder {E : \Set} : Poset (Trace E)
-      | <= t t' => \Sigma (t.1 ArrayOrder.<= t'.1) (\Pi (So t.2) -> (t = t'))
-      | <=-reflexive => (ArrayOrder.<=-reflexive, \lam _ => idp)
+      | <= t t' => \Sigma (t.1 ArrayOrder.<= t'.1) (\Pi (So t.2) -> t = t')
+      | <=-refl => (ArrayOrder.<=-refl, \lam _ => idp)
       | <=-transitive h h' => (ArrayOrder.<=-transitive h.1 h'.1, \lam s => rewrite (h.2 s) (h'.2 (rewriteI (h.2 s) s)))
       | <=-antisymmetric {x} {y} h h' => ext (ArrayOrder.<=-antisymmetric h.1 h'.1, \case \elim x, \elim y, h, h' \with {
         | (_, true), (_, true), h, h' => idp
@@ -66,7 +66,7 @@
             (\lam (_, h) => using (pmap __.1 $ h so) contradiction)
 
 
-        | (nil, true), (nil,true) => x<=y TraceOrder.<=-reflexive -- actually =
+        | (nil, true), (nil,true) => x<=y TraceOrder.<=-refl -- actually =
 
         | (:: a t, b), (:: a' t', b') => \case decideEq a a', partiality (t, b) (t', b') \with {
           | yes e, x<=y less => x<=y (ArrayOrder.cons<=cons e less.1,

@@ -5,7 +5,7 @@
 \import systemFDeBruijne.Type
 
 
-\func progress {kc : KindContext} {K : Kind} {T : FType kc K} (t : (constructor kc NoneType) ⊢ T)
+\func progress {kc : KindContext} {K : Kind} {T : FType kc K} (t : constructor kc NoneType ⊢ T)
   : Or (Value t) (Reduction t)
   \elim K, T, t
     | K, T, var l => \case l

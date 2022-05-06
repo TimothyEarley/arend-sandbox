@@ -38,7 +38,7 @@
       | Ordinal.greater _x => Ordinal.greater (OSuc< idp _x)
     }
 
-  \func d<-osuc {l : Nat} {x : OrdinalD l} : x d< (OSuc x) \elim x
+  \func d<-osuc {l : Nat} {x : OrdinalD l} : x d< OSuc x \elim x
     | Phi => Phi< idp
     | OSuc x => OSuc< idp d<-osuc
 

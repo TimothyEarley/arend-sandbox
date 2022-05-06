@@ -17,10 +17,10 @@
 \open splitIntoSingles (bigUnionUnsplit)
 
 \func flat {P : \Set} : ClosureProperty P => \lam ops t =>
-    \Pi (X : Team P) -> (X ⊧ t) <-> (\Pi (s : Elements X) -> (single s.1) ⊧ t)
+    \Pi (X : Team P) -> (X ⊧ t) <-> (\Pi (s : Elements X) -> single s.1 ⊧ t)
 
 \func flatForFinite {P : \Set} : ClosureProperty P => \lam ops t =>
-    \Pi (X : Team P) {n : Nat} (Card X n) -> (X ⊧ t) <-> (\Pi (s : Elements X) -> (single s.1) ⊧ t)
+    \Pi (X : Team P) {n : Nat} (Card X n) -> (X ⊧ t) <-> (\Pi (s : Elements X) -> single s.1 ⊧ t)
 
 \func flat->downward {P : \Set} {ops : Operators P} {t : Term P ops} (fl : flat ops t) : downwardClosure ops t =>
   \lam X X' m s => \let

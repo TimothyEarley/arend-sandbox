@@ -16,8 +16,16 @@
   | K, ⋅⋅ (forAll body) Arg => F-TBeta
   | K, ⋅⋅ f arg => F-TApp1 (Reduction f)
 
--- oh oh
+-- TODO
 \func reduce  {c : Context} {K : Kind} {T : FType c.kc K} {t : c ⊢ T} (r : Reduction t) : c ⊢ T
+  \elim K, T, t, r
+    | *, VarTy l, ⋅ t t1, F-App1 r => {?}
+    | *, --> A T, ⋅ t t1, F-App1 r => {?}
+    | *, ForAllTy k T, ⋅ t t1, F-App1 r => {?}
+    | *, T, ⋅ t t1, F-App2 r v => {?}
+    | *, T, ⋅ (lam t) t1, F-Beta v => {?}
+    | K, T, ⋅⋅ (forAll t) Arg, F-TBeta => {?}
+    | K, T, ⋅⋅ t arg, F-TApp1 r => {?}
 
 \func ReducesStep \alias \infix 5 ->1 {c : Context} {K : Kind} {T : FType c.kc K} (t t' : c ⊢ T) =>
   \Sigma (r : Reduction t) (reduce r = t')
