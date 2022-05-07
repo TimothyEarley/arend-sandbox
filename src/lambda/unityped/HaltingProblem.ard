@@ -1,0 +1,57 @@
+\import Function.Meta
+\import Logic
+\import Logic.Meta
+\import Paths
+\import Star
+\import lambda.GeneralContext
+\import lambda.unityped.Confluent
+\import lambda.unityped.Examples
+\import lambda.unityped.Lambda
+\import lambda.unityped.Reduction
+\import lambda.unityped.Substitute
+\open SubstitutionAlgebra (shift)
+\open ->*_u (underApps)
+
+\func Halts (t : ∅ u⊢ *) : \Prop => ∃ (t' : ∅ u⊢ *) (t ->*_u t') (Normal t')
+
+\func omega : ∅ u⊢ * => lam (var #0 ⋅ var #0) ⋅ lam (var #0 ⋅ var #0)
+
+\func omegaDoesNotHalt (h : Halts omega) : Empty \elim h
+  | inP (_, refl idp, n) => n (omega, (R-Beta, idp))
+  | inP (t', ~> (R-App1 (R-Lam (R-App1 ())), p) r1, n)
+  | inP (t', ~> (R-App1 (R-Lam (R-App2 ())), p) r1, n)
+  | inP (t', ~> (R-App2 (R-Lam (R-App1 ())), p) r1, n)
+  | inP (t', ~> (R-App2 (R-Lam (R-App2 ())), p) r1, n)
+  | inP (t', ~> (R-Beta, idp) r1, n) => omegaDoesNotHalt (inP (t', r1, n))
+
+\class Decider \noclassifying (P : ∅ u⊢ * -> \Prop)
+  | prog : ∅ u⊢ *
+  | toTrueOrFalse : \Pi (t : ∅ u⊢ *) -> prog ⋅ t ->*_u uniTrue || prog ⋅ t ->*_u uniFalse
+  | decidesTrue : \Pi {t : ∅ u⊢ *} (prog ⋅ t ->*_u uniTrue) -> P t
+  | decidesFalse : \Pi {t : ∅ u⊢ *} (prog ⋅ t ->*_u uniFalse) -> Not (P t)
+
+\func haltingNotDecideable : Not (Decider Halts) => \lam (d : Decider Halts) =>
+    \let
+      | isNotHalting : ∅ u⊢ * => lam $ ((subst shift d.prog ⋅ (var #0 ⋅ var #0)) ⋅ subst shift omega ⋅ uniTrue)
+    \in \case d.toTrueOrFalse (isNotHalting ⋅ isNotHalting) \with {
+      | byLeft a => \case d.decidesTrue a \with {
+        | inP (t', r, n) =>
+          \let
+            | r' : (isNotHalting ⋅ isNotHalting) ->*_u omega =>
+              (isNotHalting ⋅ isNotHalting) ~~< (R-Beta, pmap ((__ ⋅ _) ⋅ _ ⋅ _) {?}) >~>
+                  ((d.prog ⋅ (isNotHalting ⋅ isNotHalting)) ⋅ omega ⋅ uniTrue) ~~~< underApps (underApps a (refl idp)) (refl idp) >~>
+                  (uniTrue ⋅ omega ⋅ uniTrue) ~~~< uniTrue.apply >~>
+                  omega `stop
+            | conf => ->*-u-confluent-normal r' r n
+          \in omegaDoesNotHalt (inP (t', conf, n))
+      }
+      | byRight b =>
+        \let
+          | nh => d.decidesFalse b
+          | r' : (isNotHalting ⋅ isNotHalting) ->*_u uniTrue =>
+            (isNotHalting ⋅ isNotHalting) ~~< (R-Beta, pmap ((__ ⋅ _) ⋅ _ ⋅ _) {?}) >~>
+                ((d.prog ⋅ (isNotHalting ⋅ isNotHalting)) ⋅ omega ⋅ uniTrue) ~~~< underApps (underApps b (refl idp)) (refl idp) >~>
+                (uniFalse ⋅ omega ⋅ uniTrue) ~~~< uniFalse.apply >~>
+                uniTrue `stop
+        \in nh (inP (uniTrue, r', uniTrue.normnal))
+    }

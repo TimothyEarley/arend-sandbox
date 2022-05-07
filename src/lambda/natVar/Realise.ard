@@ -1,0 +1,35 @@
+\import Data.Maybe
+\import Identifier
+\import Meta
+\import Paths.Meta
+\import Set
+\import identity.NatIdentity
+\import lambda.natVar.Lambda
+\import lambda.natVar.SimplyTyped
+\import util.Maybe
+
+\func realiseType (T : Type) : \Set
+\elim T
+  | --> A B => (realiseType A) -> (realiseType B)
+
+\func RealisedContext (c : Context) => \Pi (i : Identifier) {T : Type} (c i = just T) -> realiseType T
+  \where {
+    \func add {c : Context} (env : RealisedContext c) {i : Identifier} {T : Type} (real : realiseType T)
+      : RealisedContext (Context.add c i T) =>
+      unfold Context.add (\lam j {T1} p => cases (j nat≟ i arg addPath) \with {
+        | yes e, q => \let p' => dejust (rewriteF q p) \in rewriteI p' real
+        | no n, q => \let p' => rewriteF q p \in env j p'
+      })
+  }
+
+\func realise {t : LambdaTerm} {gamma : Context} {T : Type}
+              (env : RealisedContext gamma)
+              (ty : Typerule gamma t T)
+  : realiseType T
+\elim t, T, ty
+  | Var v, T, TVar p => env v p
+  | Lam v body, T, TAbs idp bodyType => \lam r => realise (RealisedContext.add {gamma} env r) bodyType
+  | ⋅ f arg, T, TApp fType argType =>
+    \let realF => realise env fType
+         | realArg => realise env argType
+    \in realF realArg

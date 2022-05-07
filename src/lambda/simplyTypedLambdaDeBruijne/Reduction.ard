@@ -1,0 +1,165 @@
+\import Data.Or
+\import Logic
+\import Meta
+\import Paths
+\import Paths.Meta
+\import Set \hiding (#)
+\import Star
+\import lambda.GeneralContext
+\import lambda.simplyTypedLambdaDeBruijne.Lambda
+\import lambda.simplyTypedLambdaDeBruijne.Substitute (SimpleSubstOperaions)
+
+\data Value {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A) : \Prop \elim A, t
+  | Natural, zero => V-zero
+  | Natural, succ c => V-Succ (Value c)
+  | --> A B, lam t => V-lam
+\where {
+  \func isValue {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A) : Dec (Value t)
+    \elim A, t
+      | Natural, zero => yes V-zero
+      | Natural, succ t => \case isValue t \with {
+        | yes e => yes (V-Succ e)
+        | no n => no (\lam v => \case v \with {
+          | V-Succ v1 => n v1
+        })
+      }
+      | T, var l => no (\lam v => \case v)
+      | --> A B, lam t => yes V-lam
+      | B, ⋅ t1 t2 => no (\lam v => \case v)
+}
+
+\data Reduction {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A)
+\elim A, t
+  | A, ⋅ f arg => R-App1 (Reduction f)
+  | A, ⋅ f arg => R-App2 (Reduction arg) (Value f)
+  | A, ⋅ (lam body) arg => R-Beta (Value arg)
+  | Natural, succ t => R-Succ (Reduction t)
+
+  \where {
+    \func valueNoReduction {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} (v : Value t) : Not (Reduction t)
+    \elim A, t, v
+      | --> A B, lam t, V-lam => \lam r => \case r
+      | Natural, zero, V-zero => \lam r => \case r
+      | Natural, succ t, V-Succ v => \lam r => \case r \with {
+        | R-Succ r1 => valueNoReduction v r1
+      }
+
+    \func deterministic {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} (r r' : Reduction t) : r = r'
+    \elim A, t, r, r'
+      | A, ⋅ (lam body) arg, R-Beta v, R-Beta v1 => pmap R-Beta ext
+      | A, ⋅ f arg, R-App1 r, R-App1 r' => pmap R-App1 (deterministic r r')
+      | A, ⋅ f arg, R-App2 r v, R-App2 r' v1 => pmap2 R-App2 (deterministic r r') ext
+      | Natural, succ t, R-Succ r, R-Succ r' => pmap R-Succ (deterministic r r')
+
+      | A, ⋅ f arg, R-App2 r v, R-App1 r' => absurd (valueNoReduction v r')
+      | A, ⋅ (lam body) arg, R-Beta v, R-App2 r' v1 => absurd (valueNoReduction v r')
+      | A, ⋅ f arg, R-App1 r, R-App2 r' v => absurd (valueNoReduction v r)
+      | A, ⋅ (lam body) arg, R-App2 r v, R-Beta v1 => absurd (valueNoReduction v1 r)
+
+      | A, ⋅ (lam body) arg, R-App1 (), _
+      | A, ⋅ (lam body) arg, R-Beta v, R-App1 ()
+
+    \func decide {A : Type} (t : ∅ ⊢ A) : Or (Reduction t) (Value t)
+    \elim A, t
+      | T, var ()
+      | --> A B, lam t => inr V-lam
+      | B, ⋅ t1 t2 => \case decide t1, decide t2 \with {
+        | inl a, _ => inl (R-App1 a)
+        | inr b, inl a => inl (R-App2 a b)
+        | inr b, inr b1 => \case \elim t1, b \with {
+          | lam t, V-lam => inl (R-Beta b1)
+        }
+      }
+      | Natural, zero => inr V-zero
+      | Natural, succ t => \case decide t \with {
+        | inl a => inl (R-Succ a)
+        | inr b => inr (V-Succ b)
+      }
+
+    \func appCanReduce{T T' : Type} {f : ∅ ⊢ T --> T'} {arg : ∅ ⊢ T} : Reduction (f ⋅ arg)
+      => \case decide f, decide arg \with {
+        | inl a, _ => R-App1 a
+        | inr b, inl a => R-App2 a b
+        | inr b, inr b1 => \case \elim f, b \with {
+          | lam t, V-lam => R-Beta b1
+        }
+      }
+  }
+
+\func reduce {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} (r : Reduction t) : gamma ⊢ A
+\elim A, t, r
+  | Natural, succ t, R-Succ r => succ (reduce r)
+  | --> A B, ⋅ (lam body) arg, R-Beta _ => sub body arg
+
+  | --> A B, ⋅ f arg, R-App1 r => reduce r ⋅ arg
+  | --> A B, ⋅ f arg, R-App2 r v => f ⋅ reduce r
+
+  -- TODO remove duplicates
+  | Natural, ⋅ (lam body) arg, R-Beta v => sub body arg
+  | Natural, ⋅ f arg, R-App1 r => reduce r ⋅ arg
+  | Natural, ⋅ f arg, R-App2 r v => f ⋅ reduce r
+\where {
+  \func app2 {c : SimpleContext} {T T' : Type} {f : c ⊢ T --> T'} {vf : Value f} {arg : c ⊢ T}
+             {r : Reduction arg} : reduce (R-App2 r vf) = f ⋅ reduce r
+    \elim T', f
+      | Natural, lam f => idp
+      | --> A B, lam f => idp
+}
+
+\func ReducesStep \alias \infix 5 ->1 {gamma : SimpleContext} {A : Type} (t t' : gamma ⊢ A) =>
+  \Sigma (r : Reduction t) (reduce r = t')
+
+\func idpStep {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} {r : Reduction t} : t ->1 reduce r => (r, idp)
+
+\func Reduces \alias \infix 5 ->* {gamma : SimpleContext} {A : Type} (t t' : gamma ⊢ A) => Star (->1) t t'
+\where {
+  \func under
+    {gamma : SimpleContext} {T : Type}
+    {f : \Pi (gamma ⊢ T) -> gamma ⊢ T}
+    (u : \Pi {t t' : gamma ⊢ T} (t ->1 t') -> f t ->1 f t')
+    {t t' : gamma ⊢ T} (h : t ->* t') : f t ->* f t'
+    \elim h
+      | refl p => refl (pmap f p)
+      | ~> r s => u r ~> under {_} {_} {f} u s
+
+  \func underSucc {gamma : SimpleContext}
+    => under {gamma} {Natural} {succ} (\lam r => (R-Succ r.1, pmap succ r.2))
+}
+
+\func eval (fuel : Nat) {A : Type} (t : ∅ ⊢ A) : ∅ ⊢ A
+\elim fuel
+  | 0 => t
+  | suc fuel => \case Reduction.decide t \with {
+    | inl a => eval fuel (reduce a)
+    | inr b => t
+  }
+  \where {
+    \func correct {fuel : Nat} {A : Type} {t : ∅ ⊢ A} : t ->* eval fuel t
+    \elim fuel
+      | 0 => refl idp
+      | suc fuel => mcases \with {
+        | inl a => idpStep ~> correct
+        | inr b => refl idp
+      }
+  }
+
+
+-- Normal, but not value, is stuck
+-- this should not happen in a typed setting
+\func Normal {c : SimpleContext} {T : Type} (t : c ⊢ T) : \Prop => Not (Reduction t)
+  \where {
+    \func value {c : SimpleContext} {T : Type} {t : c ⊢ T} (v : Value t) : Normal t
+    \elim T, t, v
+      | Natural, zero, V-zero => \lam r => \case r
+      | Natural, succ c1, V-Succ v => \lam r => \case r \with {
+        | R-Succ r1 => value v r1
+      }
+      | --> A B, lam t, V-lam => \lam r => \case r
+  }
+\func Stuck {c : SimpleContext} {T : Type} (t : c ⊢ T) => \Sigma (Normal t) (Not (Value t))
+
+\func progress {A : Type} (t : ∅ ⊢ A) : Or (Value t) (\Sigma (t' : ∅ ⊢ A) (t ->1 t'))
+  => \case Reduction.decide t \with {
+    | inl a => inr (reduce a, idpStep)
+    | inr b => inl b
+  }

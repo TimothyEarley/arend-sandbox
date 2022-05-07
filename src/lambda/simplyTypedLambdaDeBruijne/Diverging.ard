@@ -1,0 +1,49 @@
+\import Logic
+\import Logic.Meta
+\import Star
+\import lambda.GeneralContext
+\import lambda.simplyTypedLambdaDeBruijne.Lambda
+\import lambda.simplyTypedLambdaDeBruijne.Reduction
+
+\func Diverges {T : Type} (t : ∅ ⊢ T) : \Prop
+  => Not (\Sigma (v : ∅ ⊢ T) (t ->* v) (Value v))
+\where {
+
+  \func stillDiverges {T : Type} {t : ∅ ⊢ T} (d : Diverges t)
+                      {r : Reduction t} : Diverges (reduce r)
+    => \lam x => d (x.1, (r, idp) ~> x.2, x.3)
+
+}
+
+-- not really interesting unless we remove inhabitType
+\func divergeAnyType {T : Type} (diverge : ∅ ⊢ T) (d : Diverges diverge) (T' : Type) : \Sigma (t : ∅ ⊢ T') (Diverges t)
+  => (lam inhabitType ⋅ diverge, appDivergeAlsoDiverges d inhabitTypeValue)
+
+\where {
+  \func appDivergeAlsoDiverges {T T' : Type} {diverge : ∅ ⊢ T} (d : Diverges diverge)
+                               {f : ∅ ⊢ T --> T'} (vf : Value f)
+                               (x : \Sigma (v : ∅ ⊢ T') (f ⋅ diverge ->* v) (Value v))
+    : Empty
+    \elim T', f, x
+      | T', f, (v, refl idp, ())
+      | T', lam f, (v, ~> (R-Beta va, idp) s, vh) => d (diverge, refl idp, va)
+      | T', f, (v, ~> ((R-App1 r,p)) s, vh) => Reduction.valueNoReduction vf r
+
+      | Natural, lam f, (v, ~> ((R-App2 r vf', idp)) s, vh) => appDivergeAlsoDiverges {_} {_} {reduce r} (Diverges.stillDiverges d) vf (v, s, vh)
+      | --> A B, lam f, (v, ~> ((R-App2 r vf', idp)) s, vh) => appDivergeAlsoDiverges {_} {_} {reduce r} (Diverges.stillDiverges d) vf (v, s, vh)
+
+      -- stupid computability stuff (see reduce.app2)
+      | T, var l, _ => contradiction
+      | T, ⋅ f1 f2, _ => contradiction
+
+  -- TODO how to do the above proof without this
+  \func inhabitType {c : SimpleContext} {T : Type} : c ⊢ T
+    \elim T
+      | Natural => zero
+      | --> A B => lam inhabitType
+
+  \func inhabitTypeValue {c : SimpleContext} {T : Type} : Value (inhabitType {c} {T})
+    \elim T
+      | Natural => V-zero
+      | --> A B => V-lam
+}

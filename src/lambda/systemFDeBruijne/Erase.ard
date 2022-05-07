@@ -1,0 +1,41 @@
+\import Paths
+\import identity.NatIdentity
+\import lambda.GeneralContext
+\import lambda.systemFDeBruijne.SystemF
+\import lambda.systemFDeBruijne.Type
+\import lambda.unityped.Lambda \using (* \as u*, app \as u_app, lam \as u_lam, var \as u_var)
+\import lambda.unityped.Reduction
+
+\func isErasedContext {kc : KindContext} (c : TypeContext kc) (c' : UniContext) : \Prop
+  => TypeContext.length c = Context.length c'
+
+\func erasedLookup {kc : KindContext} {tc : TypeContext kc} {K : Kind} {T : FType kc K} (l : EnvLookup' tc T)
+                   {c' : UniContext} (h : isErasedContext tc c') : c' ∋ u*
+  \elim tc, l, c', h
+    | ConsType c head, EnvZ p, ∕ c1 u*, h => Z idp
+    | ConsType c head, EnvS l, ∕ c1 u*, h => S (erasedLookup l (unsuc h))
+
+\func eraseLift {kc : KindContext} {tc : TypeContext kc} {c' : UniContext} {K : Kind}
+                (h : isErasedContext tc c') : isErasedContext (liftTypes tc {K}) c'
+    => lengthHelper *> h
+\where {
+  \func lengthHelper {kc : KindContext} {tc : TypeContext kc} {K : Kind} : TypeContext.length (liftTypes tc {K}) = TypeContext.length tc
+    \elim tc
+      | NoneType => idp
+      | ConsType c f => pmap suc lengthHelper
+}
+
+
+\func eraseF {c : EnvContext} {K : Kind} {T : FType c.kc K} (t : c ⊢ T)
+             {c' : UniContext} (h : isErasedContext c.tc c') : c' u⊢ u*
+  \elim K, T, t
+    | *, --> A B, lam t => u_lam (eraseF t (pmap suc h))
+    | *, ForAllTy k T, forAll t => eraseF t (eraseLift h)
+    | K, T, var l => u_var (erasedLookup l h)
+    | *, T, ⋅ t1 t2 => u_app (eraseF t1 h) (eraseF t2 h)
+    | K, T, ⋅⋅ t _x => eraseF t h
+
+
+-- TODO test if KAM is faster (but note call by value vs call by name)
+\func evalErased (fuel : Nat) {T : FType NoneKind *} (t : env∅ ⊢ T) : ∅ u⊢ u*
+  => eval fuel (eraseF t idp)

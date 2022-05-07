@@ -1,0 +1,26 @@
+\import Function.Meta
+\import Star
+\import lambda.GeneralContext
+\import lambda.unityped.Lambda
+\import lambda.unityped.Reduction
+\import lambda.unityped.Substitute
+
+\func uniId {ctx : UniContext} : ctx u⊢ * => lam (var #0)
+
+\func uniTrue {ctx : UniContext} : ctx u⊢ * => lam $ lam $ var #1
+\where {
+  \func normnal {ctx : UniContext} : Normal (uniTrue {ctx})
+    => \case __ \with {
+      | (t', (R-Lam (R-Lam ()), p))
+    }
+
+  \func apply {ctx : UniContext} {x y : ctx u⊢ *} : uniTrue ⋅ x ⋅ y ->*_u x
+    => \let foo : subst (sub.extendsOne y) (rename (\lam {T} => S) x) = x => {?}
+       \in (R-App1 R-Beta, idp) ~> (R-Beta, idp) ~> refl foo
+}
+\func uniFalse {ctx : UniContext} : ctx u⊢ * => lam $ lam $ var #0
+\where {
+  \func apply {ctx : UniContext} {x y : ctx u⊢ *} : uniFalse ⋅ x ⋅ y ->*_u y => {?}
+}
+
+\func uniSequence {ctx : UniContext} : ctx u⊢ * => lam $ lam $ var #0 -- aka uniFalse

@@ -1,0 +1,111 @@
+\data TypeContext (kc : KindContext) : \Set
+  | NoneType
+  | ConsType (c : TypeContext kc) {K : Kind} (FType kc K)
+\where {
+  \func length {kc : KindContext} (c : TypeContext kc) : Nat \elim c
+    | NoneType => 0
+    | ConsType c f => suc (length c)
+}
+
+
+\data KindContext : \Set
+  | NoneKind
+  | ConsKind (c : KindContext) Kind
+
+\record EnvContext
+  | kc : KindContext
+  | tc : TypeContext kc
+
+\func EnvNone \alias env∅ : EnvContext \cowith
+  | kc => NoneKind
+  | tc => NoneType
+
+\func addType \alias \infixl 6 env∕ (c : EnvContext) {K : Kind} (T : FType c.kc K) : EnvContext \cowith
+  | kc => c.kc
+  | tc => ConsType c.tc T
+\func liftTypes {kc : KindContext} (c : TypeContext kc) {K : Kind} : TypeContext (ConsKind kc K)
+  \elim c
+    | NoneType => NoneType
+    | ConsType c f => ConsType (liftTypes c) (FType.addKind f)
+
+\func addKind \alias \infixl 6 ∕∕ (c : EnvContext) (K : Kind) : EnvContext \cowith
+  | kc => ConsKind c.kc K
+  | tc => liftTypes c.tc
+
+
+-- check if a type has the type K
+\data LookupType \alias \infix 5 ∋∋ (c : KindContext) (K : Kind) : \Set
+\elim c
+  | ConsKind c head => ZK (head = K)
+  | ConsKind c head => SK (c ∋∋ K)
+
+-- check if a var has type T
+\data EnvLookup' {kc : KindContext} (c : TypeContext kc) {K : Kind} (T : FType kc K) : \Set
+\elim c
+  | ConsType c {K'} head => EnvZ ((K', head) = {\Sigma (U : Kind) (FType kc U)} (K, T))
+  | ConsType c head => EnvS (EnvLookup' c T)
+
+\func EnvLookup \alias \infix 5 env∋ (c : EnvContext) {K : Kind} (T : FType c.kc K) => EnvLookup' tc T
+
+\data Kind : \Set
+  | *
+  -- does this make it systemF_omega?
+  -- | \infixl 6 ==> Kind Kind
+
+\data FType (c : KindContext) (K : Kind) : \Set
+\elim K
+  | K => VarTy (c ∋∋ K)
+  | * => \infixr 6 --> (A B : FType c *)
+  | * => ForAllTy (k : Kind) {K : Kind} (FType (ConsKind c k) K)
+
+\where {
+  \func Rename (kc kc' : KindContext) => \Pi {K : Kind} (kc ∋∋ K) -> kc' ∋∋ K
+
+  \func extend {kc kc' : KindContext} {K' : Kind} (h : Rename kc kc') : Rename (ConsKind kc K') (ConsKind kc' K')
+    => \lam {K} l => \case \elim l \with {
+      | ZK p => ZK p
+      | SK l => SK (h l)
+    }
+
+  \func rename {kc kc' : KindContext} {K : Kind} (h : Rename kc kc') (t : FType kc K) : FType kc' K
+  \elim K, t
+    | K, VarTy l => VarTy (h l)
+    | *, --> A B => rename h A --> rename h B
+    | *, ForAllTy k t => ForAllTy k (rename (extend h) t)
+
+
+  \func Subst (kc kc' : KindContext) => \Pi {K : Kind} (kc ∋∋ K) -> FType kc' K
+
+  \func extends {kc kc' : KindContext} (h : Subst kc kc') {K : Kind} : Subst (ConsKind kc K) (ConsKind kc' K)
+    => \lam {K1} l => \case \elim l \with {
+      | ZK p => VarTy (ZK p)
+      | SK l => rename SK (h l)
+    }
+
+  \func subst {kc kc' : KindContext} (s : Subst kc kc') {K : Kind} (T : FType kc K) : FType kc' K
+  \elim K, T
+    | K, VarTy l => s l
+    | *, --> A B => subst s A --> subst s B
+    | *, ForAllTy k T => ForAllTy k (subst (extends s) T)
+
+  \func sub {kc : KindContext} {K K' : Kind} (T : FType (ConsKind kc K) K') (T' : FType kc K) : FType kc K'
+    => subst (extendOne T') T
+    \where {
+      \func extendOne {kc : KindContext} {K : Kind} (T' : FType kc K) {K' : Kind} (h : ConsKind kc K ∋∋ K') : FType kc K'
+      \elim h
+        | ZK idp => T'
+        | SK h => VarTy h
+    }
+
+  \func addKind {kc : KindContext} {K : Kind} (T : FType kc K) {K' : Kind} : FType (ConsKind kc K') K
+    => rename SK T
+  \where {
+    \func addKindArrow
+      {c : KindContext}
+      {A B : FType c *} {K : Kind}  : addKind (A --> B) {K} = addKind A {K} --> addKind B {K}
+      \elim K
+        | * => idp
+        -- | ==> K1 K2 => idp
+  }
+
+}

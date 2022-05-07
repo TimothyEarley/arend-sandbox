@@ -1,0 +1,22 @@
+\import lambda.GeneralContext
+
+{-
+- Intrinsicly types lambda calculus
+- -}
+
+\data Type
+  | Natural
+  | \infixr 6 --> (A B : Type)
+
+\func SimpleContext => Context Type
+\func SimpleLookup => (∋) {Type}
+
+\data Term \alias \infix 5 ⊢ (c : SimpleContext) (T : Type)
+  \elim T
+  | Natural => zero
+  | Natural => succ (c ⊢ Natural)
+  | T => var (c ∋ T)
+  | --> A B => lam (c ∕ A ⊢ B)
+  | B => app \alias \infixl 6 ⋅ {A : Type} (c ⊢ A --> B) (c ⊢ A)
+
+\func example {A : Type} : ∅ ⊢ A --> A => lam (var #0)
