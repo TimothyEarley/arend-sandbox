@@ -1,35 +1,109 @@
+\import Function
+\import Function.Meta
+\import Meta
+\import Paths
+\import Paths.Meta
 \import lambda.GeneralContext
 \import lambda.simplyTypedLambdaDeBruijne.Lambda
 
 \func SimpleSubst => Subst {_} {⊢}
 
+\func idSubst {gamma : SimpleContext} : SimpleSubst gamma gamma => \lam {A} => var
+  \where {
+    \func useExtends {gamma : SimpleContext} {A : Type}
+      : extends (idSubst {gamma}) {A} = idSubst {gamma ∕ A} => ext useExtendsExt
+
+      \where {
+        \func useExtendsExt {gamma : SimpleContext} {A : Type}
+                            {T : Type} (l : gamma ∕ A ∋ T) : extends idSubst l = idSubst l
+        \elim l
+          | Z p => idp
+          | S l => rename.renameVar S
+      }
+
+    \func useSubst {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A}
+      : subst idSubst t = t
+    \elim A, t
+      | Natural, zero => idp
+      | Natural, succ t => pmap succ useSubst
+      | Natural, var l => idp
+      | EmptyT, var l => idp
+      | --> A A1, var l => idp
+      | --> A A1, lam t =>
+        \let p : subst (extends idSubst) t = subst idSubst t => pmap (subst __ t) useExtends
+        \in pmap lam (p *> useSubst)
+
+      | Natural, ⋅ t1 t2 => pmap2 (⋅) useSubst useSubst
+      | EmptyT, ⋅ t1 t2 => pmap2 (⋅) useSubst useSubst
+      | --> A A1, ⋅ t1 t2 => pmap2 (⋅) useSubst useSubst
+  }
+
 \func rename {gamma delta : SimpleContext} (h : Rename gamma delta) {A : Type} (t : gamma ⊢ A) : delta ⊢ A
-  \elim A, t
-    | T, var l => var (h l)
-    | --> A B, lam t => lam (rename (extend h) t)
-    | B, ⋅ t1 t2 => rename h t1 ⋅ rename h t2
-    | Natural, zero => zero
-    | Natural, succ t => succ (rename h t)
-\where {
-  \func renameVar {gamma delta : SimpleContext} (h : Rename gamma delta) {A : Type} {l : gamma ∋ A} : rename h (var l) = var (h l)
+\elim A, t
+  | T, var l => var (h l)
+  | --> A B, lam t => lam (rename (extend h) t)
+  | B, ⋅ t1 t2 => rename h t1 ⋅ rename h t2
+  | Natural, zero => zero
+  | Natural, succ t => succ (rename h t)
+  \where {
+    \func renameVar {gamma delta : SimpleContext} (h : Rename gamma delta) {A : Type} {l : gamma ∋ A} : rename h (var l) = var (h l)
     \elim A
       | Natural => idp
       | --> A B => idp
-}
+      | EmptyT => idp
 
-\func extends {gamma delta : SimpleContext} (h : Subst {_} {⊢} gamma delta) {B : Type} : Subst {_} {⊢} (gamma ∕ B) (delta ∕ B)
-  => \lam {A} l => \case \elim l \with {
+    \func renameApp {gamma delta : SimpleContext} {h : Rename gamma delta} {A B : Type}
+                    {f : gamma ⊢ A --> B} {arg : gamma ⊢ A}
+      : rename h (f ⋅ arg) = rename h f ⋅ rename h arg \elim B
+      | Natural => idp
+      | EmptyT => idp
+      | --> A1 B => idp
+
+    \func uncompose {gamma delta epsilon : SimpleContext}
+                    {r1 : Rename gamma delta} {r2 : Rename delta epsilon}
+                    {A : Type} {t : gamma ⊢ A}
+      : rename (Rename.compose r1 r2) t = rename r2 (rename r1 t)
+    \elim A, t
+      | Natural, zero => idp
+      | Natural, succ t => pmap succ uncompose
+      | Natural, var l => idp
+      | EmptyT, var l => idp
+      | --> A A1, var l => idp
+      | --> A A1, lam t =>
+        \let q => uncompose {gamma ∕ A} {delta ∕ A} {epsilon ∕ A} {extend r1} {extend r2} {A1} {t}
+             | q' : rename (extend (Rename.compose r1 r2)) t = rename (extend r2) (rename (extend r1) t) => rewrite Rename.extendCompose q
+        \in pmap lam q'
+      | A, ⋅ t1 t2 => rewrite (renameApp, renameApp, renameApp) (pmap2 (⋅) uncompose uncompose)
+
+    \func renameId' {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} {r : Rename gamma gamma}
+      (h : \Pi {B : Type} (l : gamma ∋ B) -> r l = l)
+      : rename r t = t \elim A, t
+      | Natural, zero => idp
+      | Natural, succ t => pmap succ (renameId' h)
+      | A, var l => rewrite renameVar (pmap var $ h l)
+      | --> A A1, lam t => pmap lam (renameId' (\lam {B} (l : (gamma ∕ A) ∋ B) => \case \elim l \with {
+        | Z p => idp
+        | S l => pmap S (h l)
+      }))
+      | A, ⋅ t1 t2 => rewrite renameApp (pmap2 (⋅) (renameId' h) (renameId' h))
+
+    \func renameId {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} : rename Rename.id t = t
+      => renameId' (\lam _ => idp)
+  }
+
+\func extends {gamma delta : SimpleContext} (h : Subst {_} {⊢} gamma delta) {B : Type} : Subst {_} {⊢} (gamma ∕ B) (delta ∕ B) =>
+  \lam {A} l => \case \elim l \with {
     | Z p => var (Z p)
     | S l => rename S (h l)
   }
 
 \func subst {gamma delta : SimpleContext} (s : Subst  {_} {⊢} gamma delta) {A : Type} (h : gamma ⊢ A) : delta ⊢ A
-  \elim A, h
-    | T, var l => s l
-    | --> A B, lam h => lam (subst (extends s) h)
-    | B, ⋅ h1 h2 => subst s h1 ⋅ subst s h2
-    | Natural, zero => zero
-    | Natural, succ h => succ (subst s h)
+\elim A, h
+  | T, var l => s l
+  | --> A B, lam h => lam (subst (extends s) h)
+  | B, ⋅ h1 h2 => subst s h1 ⋅ subst s h2
+  | Natural, zero => zero
+  | Natural, succ h => succ (subst s h)
 
 \instance SimpleSubstOperaions : SubstOperations Term
   | rename => rename

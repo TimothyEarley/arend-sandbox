@@ -1,13 +1,16 @@
+\import Data.Or
+\import Function.Meta
 \import Logic
 \import Paths
 \import Paths.Meta
-\import lambda.simplyTypedLambdaDeBruijne.Lambda
-\import sets.MySet
-\import sets.subset
+\import Star
 \import lambda.GeneralContext \hiding (S, extends, rename, subst, ∅)
+\import lambda.simplyTypedLambdaDeBruijne.Lambda
 \import lambda.simplyTypedLambdaDeBruijne.Lambda
 \import lambda.simplyTypedLambdaDeBruijne.Reduction
 \import lambda.simplyTypedLambdaDeBruijne.Substitute
+\import sets.MySet
+\import sets.subset
 
 -- TS slides
 -- https://github.com/AndrasKovacs/misc-stuff/blob/master/agda/STLCStrongNorm/StrongNorm.agda
@@ -18,63 +21,211 @@
   \where {
     \func fromValue {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} (v : Value t) : StronglyNormalizing t =>
       sn (\lam t' x => absurd (Reduction.valueNoReduction v x.1))
+
     \func fromNormal {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} (n : Normal t) : StronglyNormalizing t =>
       sn (\lam t' x => absurd (n x.1))
+
+    \func fromVar {gamma : SimpleContext} {A : Type} {l : gamma ∋ A} : StronglyNormalizing (var l) =>
+      fromNormal (\case __)
+
+    \func fromApp1 {gamma : SimpleContext} {A B : Type} {f : gamma ⊢ A --> B} {arg : gamma ⊢ A}
+                   (h : StronglyNormalizing (f ⋅ arg)) : StronglyNormalizing f \elim h
+      | sn h => sn (\lam f' f->f' => fromApp1 (h (f' ⋅ arg) (R-App1 f->f'.1, reduce.app1 *> pmap (__ ⋅ arg) f->f'.2)))
+
+    \func afterRename {gamma delta : SimpleContext} (r : Rename gamma delta)
+                      {A : Type} {t : gamma ⊢ A} (snt : StronglyNormalizing t)
+      : StronglyNormalizing (rename r t) \elim snt
+      | sn h => sn (\lam t' ->t' =>
+          \let foo => {?}
+          \in {?}
+      )
+
+    \func beforeRename {gamma delta : SimpleContext} (r : Rename gamma delta)
+                       {A : Type} {t : gamma ⊢ A} (snt : StronglyNormalizing (rename r t))
+      : StronglyNormalizing t \elim snt
+      | sn h => sn (\lam t' ->t' => beforeRename r (h (rename r t') (->1.underRename r ->t')))
+
+    \func eval {A : Type} (t : Context.∅ ⊢ A) (sn : StronglyNormalizing t) : \Sigma (t' : Context.∅ ⊢ A) (Value t') (t ->* t')
+      \elim sn
+      | sn n => \case Reduction.decide t \with {
+        | inl red => \let (t', v, s) => eval (reduce red) (n (reduce red) (red, idp)) \in (t', v, (red, idp) ~> s)
+        | inr val => (t, val, refl idp)
+      }
   }
+
+-- agda
+
+\func strongNorm {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A) : StronglyNormalizing t =>
+  qoute (rewriteF idSubst.useSubst (fundamentalTheorem t idSubst (SubP.id {gamma})))
+  \where {
+    \func TermP {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A) : \Prop \elim A
+      | Natural => StronglyNormalizing t
+      | EmptyT => StronglyNormalizing t
+      | --> A B => \Pi {delta : SimpleContext} (r : Rename gamma delta) {a : delta ⊢ A} (TermP a) -> TermP (rename r t ⋅ a)
+      \where {
+        \func underReduction {gamma : SimpleContext} {A : Type} {t t' : gamma ⊢ A} (st : t ->1 t') (h : TermP t) : TermP t'
+        \elim A, h
+          | Natural, sn h => h t' st
+          | EmptyT, sn h => h t' st
+          | --> A A1, h => \lam {delta} r {a} pa =>
+              \let rSt => ->1.underRename r st
+                | p : reduce (R-App1 rSt.1) = rename r t' ⋅ a => rewrite reduce.app1 (pmap (__ ⋅ _) rSt.2)
+              \in underReduction (R-App1 rSt.1, p) (h r pa)
+      }
+
+    \func SubP {gamma delta : SimpleContext} (s : SimpleSubst gamma delta) : \Prop =>
+      \Pi {A : Type} (l : gamma ∋ A) -> TermP (s l)
+      \where {
+        \func id {gamma : SimpleContext} : SubP (idSubst {gamma}) =>
+          \lam {A} l => unqoute (var l) Neutral.varNeutral (\lam t' r => \case r.1)
+      }
+
+    -- this definition is a bit fishy, more like "not lambda"
+
+    \func Neutral {c : SimpleContext} {T : Type} (t : c ⊢ T) : \Prop \elim T, t
+      | --> T T1, lam t => Empty
+      | _, _ => \Sigma
+      \where {
+        \func appNeutral {c : SimpleContext} {A B : Type}
+                         {f : c ⊢ A --> B} {arg : c ⊢ A} : Neutral (f ⋅ arg)
+        \elim B
+          | Natural => ()
+          | EmptyT => ()
+          | --> A A1 => ()
+
+        \func varNeutral {c : SimpleContext} {A : Type} {v : c ∋ A} : Neutral (var v) \elim A
+          | Natural => ()
+          | EmptyT => ()
+          | --> A A1 => ()
+
+        \func afterRename {gamma delta : SimpleContext} {r : Rename gamma delta}
+                          {A : Type} {t : gamma ⊢ A} (n : Neutral t)
+          : Neutral (rename r t) \elim A, t
+          | Natural, zero => ()
+          | Natural, succ t => ()
+          | A, var l => rewrite rename.renameVar varNeutral
+          | --> A A1, lam t => n
+          | A, ⋅ t1 t2 => rewrite rename.renameApp appNeutral
+      }
+
+    \func fundamentalTheorem {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A)
+                             {delta : SimpleContext} (s : SimpleSubst gamma delta) (h : SubP s) : TermP (subst s t)
+    \elim A, t
+      | Natural, zero => StronglyNormalizing.fromValue V-zero
+      | Natural, succ t => {?}
+      | Natural, var l => h l
+      | EmptyT, var l => h l
+      | --> A A1, var l => h l
+      | --> A A1, lam t => \lam {delta'} r {a} ap => unqoute {?} {?} {?}
+      | A, ⋅ t1 t2 => {?}
+
+    \func qoute {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} (h : TermP t) : StronglyNormalizing t
+    \elim A
+      | Natural => h
+      | EmptyT => h
+      | --> A A1 =>
+        \let
+          | var0P => unqoute {gamma ∕ A} {A} (var #0) Neutral.varNeutral (\lam t' r => \case r.1)
+          | rt_app_vSN => qoute (h Rename.weaken var0P)
+          | rtSN => StronglyNormalizing.fromApp1 rt_app_vSN
+        \in {?}
+
+    \func unqoute {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A) (nt : Neutral t)
+                  (h : \Pi (t' : gamma ⊢ A) (t ->1 t') -> TermP t') : TermP t \elim A
+      | Natural => sn h
+      | EmptyT => sn h
+      | --> A A1 => \lam {delta} r {a} ap =>
+          unqoute (rename r t ⋅ a) Neutral.appNeutral (go (rename r t) (Neutral.afterRename nt) (f' t h) a ap (qoute ap))
+      \where {
+        \func f' {delta gamma : SimpleContext} {r : Rename gamma delta} {A B : Type}
+                 (t : gamma ⊢ A --> B) (h : \Pi (t' : gamma ⊢ A --> B) (t ->1 t') -> TermP t')
+          : \Pi (t' : delta ⊢ A --> B) -> rename r t ->1 t' -> TermP t' =>
+          \lam t' step {epsilon} r2 {a} ap => \case ->1.fromRename step \with {
+            | (t'',t->t'', p) =>
+              \let
+                | tp :  TermP (rename (Rename.compose r r2) t'' ⋅ a) => h t'' t->t'' (Rename.compose r r2) ap
+                | tp' : TermP (rename r2 (rename r t'') ⋅ a) => rewriteF rename.uncompose tp
+              \in rewrite (inv p) tp'
+          }
+
+        \func go {gamma : SimpleContext} {A B : Type}
+                 (t : gamma ⊢ A --> B) (nt : Neutral t)
+                 (h : \Pi (t' : gamma ⊢ A --> B) (t ->1 t') -> TermP t')
+                 (a : gamma ⊢ A) (ap : TermP a) (sa : StronglyNormalizing a)
+                 (t' : gamma ⊢ B) (st : (t ⋅ a) ->1 t') : TermP t' \elim B, t, nt, sa, st
+          | A, lam t, (), _, _
+          | A, t, nt, _, (R-App1 st, idp) =>
+            \let tp => rewriteF rename.renameId $ h (reduce st) (st, idp) Rename.id ap
+            \in rewrite reduce.app1 tp
+          | A, t, nt, sn sa, (R-App2 st v, idp) =>
+            \let a' => reduce st
+                 | na' : Neutral (t ⋅ a') => Neutral.appNeutral
+            \in rewrite reduce.app2 $ unqoute (t ⋅ a') na' (go t nt h a' (TermP.underReduction (st, idp) ap) (sa a' (st, idp)))
+      }
+  }
+
+
+-- TS Slides
 
 \func L {gamma : SimpleContext} (T : Type) : Ensemble (gamma ⊢ T) \elim T
   | Natural => StronglyNormalizing
+  | EmptyT => StronglyNormalizing
   | --> A T => \lam f => \Pi {arg : gamma ⊢ A} (arg ∈ L A) -> (f ⋅ arg) ∈ L T
 
   \where {
-
     \func toSN {gamma : SimpleContext} {T : Type} : L {gamma} T ⊆ StronglyNormalizing \elim T
       | Natural => ⊆.refl
+      | EmptyT => ⊆.refl
       | --> A T => {?}
   }
 
 \func R (T : Type) : Ensemble (Context.∅ ⊢ T) \elim T
   | Natural => StronglyNormalizing
+  | EmptyT => StronglyNormalizing
   | --> A T => \lam t => \Sigma (StronglyNormalizing t) (\Pi {arg : Context.∅ ⊢ A} (arg ∈ R A) -> (t ⋅ arg) ∈ R T)
-\where {
-  \func toSN {T : Type} : R T ⊆ StronglyNormalizing \elim T
-    | Natural => ⊆.refl
-    | --> A T => \lam {x} e => e.1
-}
+  \where {
+    \func toSN {T : Type} : R T ⊆ StronglyNormalizing \elim T
+      | Natural => ⊆.refl
+      | EmptyT => ⊆.refl
+      | --> A T => \lam {x} e => e.1
+  }
 
 \func lemma3 {gamma : SimpleContext} {T : Type}
              (t : gamma ⊢ T)
              (s : SimpleSubst gamma Context.∅)
              (hs : \Pi {T' : Type} (l : gamma ∋ T') -> s l ∈ R T')
-             : R T (subst s t) \elim T, t
+  : R T (subst s t) \elim T, t
   | Natural, zero => StronglyNormalizing.fromValue V-zero
   | Natural, succ t => {?}
 
   | Natural, var l => hs l
+  | EmptyT, var l => hs l
   | --> A T, var l => hs l
 
   | --> T T1, lam t => {?}
 
   | T, ⋅ t1 t2 => {?}
 
-\func normalization {T : Type} (t : Context.∅ ⊢ T) : StronglyNormalizing t
-  => \let r : R T t => transport (R T) substId (lemma3 t (\lam {A} l => var l) (\lam {T'} l => \case l)) \in R.toSN r
-\where {
-  \func substId {gamma : SimpleContext} {T : Type} {t : gamma ⊢ T} : subst (\lam {A} l => var l) t = t \elim T, t
-    | Natural, var l => idp
-    | --> A T, var l => idp
-    | --> A B, lam h => pmap lam (transport (subst __ h = h) substId-lemma' substId)
-    | Natural, ⋅ h1 h2 => pmap2 (⋅) substId substId
-    | --> A B, ⋅ h1 h2 => pmap2 (⋅) substId substId
-    | Natural, zero => idp
-    | Natural, succ h => pmap succ substId
+\func normalization {T : Type} (t : Context.∅ ⊢ T) : StronglyNormalizing t =>
+  \let r : R T t => transport (R T) substId (lemma3 t (\lam {A} l => var l) (\lam {T'} l => \case l)) \in R.toSN r
+  \where {
+    \func substId {gamma : SimpleContext} {T : Type} {t : gamma ⊢ T} : subst (\lam {A} l => var l) t = t \elim T, t
+      | Natural, var l => idp
+      | EmptyT, var l => idp
+      | --> A T, var l => idp
+      | --> A B, lam h => pmap lam (transport (subst __ h = h) substId-lemma' substId)
+      | Natural, ⋅ h1 h2 => pmap2 (⋅) substId substId
+      | EmptyT, ⋅ h1 h2 => pmap2 (⋅) substId substId
+      | --> A B, ⋅ h1 h2 => pmap2 (⋅) substId substId
+      | Natural, zero => idp
+      | Natural, succ h => pmap succ substId
 
-  \func substId-lemma {gamma : SimpleContext} {A : Type} {A' : Type} (l : gamma ∕ A ∋ A') : var l = {(gamma ∕ A) ⊢ A'} extends var l \elim A', l
-    | _, Z p => idp
-    | Natural, ∋.S l => idp
-    | --> A1 A2, ∋.S l => idp
+    \func substId-lemma {gamma : SimpleContext} {A : Type} {A' : Type} (l : gamma ∕ A ∋ A') : var l = {(gamma ∕ A) ⊢ A'} extends var l \elim A', l
+      | _, Z p => idp
+      | Natural, ∋.S l => idp
+      | --> A1 A2, ∋.S l => idp
+      | EmptyT, ∋.S l => idp
 
-  \func substId-lemma' {gamma : SimpleContext} {A : Type} : var = {SimpleSubst (gamma ∕ A) (gamma ∕ A)} extends var =>
-    ext substId-lemma
-
-}
+    \func substId-lemma' {gamma : SimpleContext} {A : Type} : var = {SimpleSubst (gamma ∕ A) (gamma ∕ A)} extends var =>
+      ext substId-lemma
+  }

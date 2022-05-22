@@ -7,14 +7,15 @@
 \import Star
 \import lambda.GeneralContext
 \import lambda.simplyTypedLambdaDeBruijne.Lambda
-\import lambda.simplyTypedLambdaDeBruijne.Substitute (SimpleSubstOperaions)
+\import lambda.simplyTypedLambdaDeBruijne.Substitute (SimpleSubstOperaions, rename)
+\open lambda.simplyTypedLambdaDeBruijne.Substitute.rename (renameApp)
 
 \data Value {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A) : \Prop \elim A, t
   | Natural, zero => V-zero
   | Natural, succ c => V-Succ (Value c)
   | --> A B, lam t => V-lam
-\where {
-  \func isValue {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A) : Dec (Value t)
+  \where {
+    \func isValue {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A) : Dec (Value t)
     \elim A, t
       | Natural, zero => yes V-zero
       | Natural, succ t => \case isValue t \with {
@@ -26,7 +27,15 @@
       | T, var l => no (\lam v => \case v)
       | --> A B, lam t => yes V-lam
       | B, ⋅ t1 t2 => no (\lam v => \case v)
-}
+
+    \func afterRename {gamma delta : SimpleContext} {A : Type} {t : gamma ⊢ A} (h : Value t)
+                      {r : Rename gamma delta}
+      : Value (rename r t)
+    \elim A, t, h
+      | Natural, zero, V-zero => V-zero
+      | Natural, succ t, V-Succ h => V-Succ (afterRename h)
+      | --> A A1, lam t, V-lam => V-lam
+  }
 
 \data Reduction {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A)
 \elim A, t
@@ -76,14 +85,14 @@
         | inr b => inr (V-Succ b)
       }
 
-    \func appCanReduce{T T' : Type} {f : ∅ ⊢ T --> T'} {arg : ∅ ⊢ T} : Reduction (f ⋅ arg)
-      => \case decide f, decide arg \with {
-        | inl a, _ => R-App1 a
-        | inr b, inl a => R-App2 a b
-        | inr b, inr b1 => \case \elim f, b \with {
-          | lam t, V-lam => R-Beta b1
-        }
+    \func appCanReduce{T T' : Type} {f : ∅ ⊢ T --> T'} {arg : ∅ ⊢ T} : Reduction (f ⋅ arg) =>
+    \case decide f, decide arg \with {
+      | inl a, _ => R-App1 a
+      | inr b, inl a => R-App2 a b
+      | inr b, inr b1 => \case \elim f, b \with {
+        | lam t, V-lam => R-Beta b1
       }
+    }
   }
 
 \func reduce {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} (r : Reduction t) : gamma ⊢ A
@@ -98,33 +107,100 @@
   | Natural, ⋅ (lam body) arg, R-Beta v => sub body arg
   | Natural, ⋅ f arg, R-App1 r => reduce r ⋅ arg
   | Natural, ⋅ f arg, R-App2 r v => f ⋅ reduce r
-\where {
-  \func app2 {c : SimpleContext} {T T' : Type} {f : c ⊢ T --> T'} {vf : Value f} {arg : c ⊢ T}
-             {r : Reduction arg} : reduce (R-App2 r vf) = f ⋅ reduce r
+
+  | EmptyT, ⋅ (lam body) arg, R-Beta v => sub body arg
+  | EmptyT, ⋅ f arg, R-App1 r => reduce r ⋅ arg
+  | EmptyT, ⋅ f arg, R-App2 r v => f ⋅ reduce r
+  \where {
+    \func app1 {c : SimpleContext} {T T' : Type} {f : c ⊢ T --> T'} {arg : c ⊢ T}
+               {r : Reduction f} : reduce (R-App1 {_} {_} {_} {_} {arg} r) = reduce r ⋅ arg
     \elim T', f
       | Natural, lam f => idp
+      | EmptyT, lam f => idp
+      | --> A T', lam f => idp
+      | Natural, ⋅ f1 f2 => idp
+      | EmptyT, ⋅ f1 f2 => idp
+      | --> T' T'1, ⋅ f1 f2 => idp
+
+    \func app2 {c : SimpleContext} {T T' : Type} {f : c ⊢ T --> T'} {vf : Value f} {arg : c ⊢ T}
+               {r : Reduction arg} : reduce (R-App2 r vf) = f ⋅ reduce r
+    \elim T', f
+      | Natural, lam f => idp
+      | EmptyT, lam f => idp
       | --> A B, lam f => idp
-}
+
+    \func beta {c : SimpleContext} {T T' : Type}
+               {body : c ∕ T ⊢ T'} {arg : c ⊢ T} {v : Value arg}
+      : reduce (R-Beta {_} {_} {_} {body} v) = sub body arg
+      \elim T'
+        | Natural => idp
+        | EmptyT => idp
+        | --> A T' => idp
+  }
 
 \func ReducesStep \alias \infix 5 ->1 {gamma : SimpleContext} {A : Type} (t t' : gamma ⊢ A) =>
   \Sigma (r : Reduction t) (reduce r = t')
+  \where {
+    \func underRename {gamma delta : SimpleContext} {A : Type} (r : Rename gamma delta)
+                      {t t' : gamma ⊢ A} (st : t ->1 t') : rename r t ->1 rename r t'
+    \elim A, t, st
+      | Natural, zero, ((),p)
+      | Natural, succ t, (R-Succ st,p) =>
+        \let (nextR, nextP) => underRename r (st, idp)
+        \in (R-Succ nextR, pmap succ nextP *> pmap (rename r) p)
+      | A, var l, ((),p)
+      | --> A A1, lam t, ((),p)
+      | A, ⋅ (lam body) arg, (R-Beta v, idp) =>
+        rewrite rename.renameApp
+            (R-Beta (Value.afterRename v),
+             rewrite (reduce.beta, reduce.beta) (underRename-sub r))
+      | A, ⋅ f t2, (R-App1 st,p) =>
+        \let (next, nextP) => underRename r (st, idp)
+             | p' => rewriteF reduce.app1 p
+        \in rewrite renameApp (R-App1 next, reduce.app1 *> pmap (__ ⋅ _) nextP *> inv renameApp *> pmap (rename r) p')
+      | A, ⋅ f t2, (R-App2 st v,p) =>
+        \let (next, nextP) => underRename r (st, idp)
+             | p' => rewriteF reduce.app2 p
+        \in rewrite renameApp (R-App2 next (Value.afterRename v),
+                               reduce.app2 *> pmap (_ ⋅ __) nextP *> inv renameApp *> pmap (rename r) p')
+      \where {
+        \func underRename-sub
+          {gamma delta : SimpleContext} (r : Rename gamma delta)
+          {A B : Type} {body : gamma ∕ A ⊢ B} {arg : gamma ⊢ A}
+          : sub (rename (extend r) body) (rename r arg) = rename r (sub body arg)
+        => {?}
+      }
+
+    \func fromRename {gamma delta : SimpleContext} {A : Type} {re : Rename gamma delta}
+                     {t : gamma ⊢ A} {t' : delta ⊢ A}
+      (st : rename re t ->1 t') : \Sigma (t'' : gamma ⊢ A) (t ->1 t'') (rename re t'' = t') \elim A, t, st
+      | Natural, zero, ((), _)
+      | Natural, succ t, (R-Succ r, idp) =>
+        \let (t'', st', p) => fromRename (r, idp)
+        \in (succ t'', (R-Succ st'.1, pmap succ st'.2),
+             pmap succ p)
+      | Natural, var l, ((), p)
+      | EmptyT, var l, ((), p)
+      | --> A A1, var l, ((), p)
+      | --> A A1, lam t, ((),p)
+      | A, ⋅ t1 t2, (r,p) => \let r' => rewrite renameApp r \in {?}
+  }
 
 \func idpStep {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} {r : Reduction t} : t ->1 reduce r => (r, idp)
 
 \func Reduces \alias \infix 5 ->* {gamma : SimpleContext} {A : Type} (t t' : gamma ⊢ A) => Star (->1) t t'
-\where {
-  \func under
-    {gamma : SimpleContext} {T : Type}
-    {f : \Pi (gamma ⊢ T) -> gamma ⊢ T}
-    (u : \Pi {t t' : gamma ⊢ T} (t ->1 t') -> f t ->1 f t')
-    {t t' : gamma ⊢ T} (h : t ->* t') : f t ->* f t'
+  \where {
+    \func under
+      {gamma : SimpleContext} {T : Type}
+      {f : \Pi (gamma ⊢ T) -> gamma ⊢ T}
+      (u : \Pi {t t' : gamma ⊢ T} (t ->1 t') -> f t ->1 f t')
+      {t t' : gamma ⊢ T} (h : t ->* t') : f t ->* f t'
     \elim h
       | refl p => refl (pmap f p)
       | ~> r s => u r ~> under {_} {_} {f} u s
 
-  \func underSucc {gamma : SimpleContext}
-    => under {gamma} {Natural} {succ} (\lam r => (R-Succ r.1, pmap succ r.2))
-}
+    \func underSucc {gamma : SimpleContext} => under {gamma} {Natural} {succ} (\lam r => (R-Succ r.1, pmap succ r.2))
+  }
 
 \func eval (fuel : Nat) {A : Type} (t : ∅ ⊢ A) : ∅ ⊢ A
 \elim fuel
@@ -146,6 +222,7 @@
 
 -- Normal, but not value, is stuck
 -- this should not happen in a typed setting
+
 \func Normal {c : SimpleContext} {T : Type} (t : c ⊢ T) : \Prop => Not (Reduction t)
   \where {
     \func value {c : SimpleContext} {T : Type} {t : c ⊢ T} (v : Value t) : Normal t
@@ -156,10 +233,11 @@
       }
       | --> A B, lam t, V-lam => \lam r => \case r
   }
+
 \func Stuck {c : SimpleContext} {T : Type} (t : c ⊢ T) => \Sigma (Normal t) (Not (Value t))
 
-\func progress {A : Type} (t : ∅ ⊢ A) : Or (Value t) (\Sigma (t' : ∅ ⊢ A) (t ->1 t'))
-  => \case Reduction.decide t \with {
-    | inl a => inr (reduce a, idpStep)
-    | inr b => inl b
-  }
+\func progress {A : Type} (t : ∅ ⊢ A) : Or (Value t) (\Sigma (t' : ∅ ⊢ A) (t ->1 t')) =>
+\case Reduction.decide t \with {
+  | inl a => inr (reduce a, idpStep)
+  | inr b => inl b
+}

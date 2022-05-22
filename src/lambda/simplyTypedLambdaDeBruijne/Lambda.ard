@@ -1,11 +1,12 @@
 \import lambda.GeneralContext
 
 {-
-- Intrinsicly types lambda calculus
+- Intrinsicly types lambda calculus with base types
 - -}
 
 \data Type
   | Natural
+  | EmptyT
   | \infixr 6 --> (A B : Type)
 
 \func SimpleContext => Context Type

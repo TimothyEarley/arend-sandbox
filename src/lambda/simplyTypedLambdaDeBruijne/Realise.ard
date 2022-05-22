@@ -1,23 +1,36 @@
+\import Logic
+\import Logic.Meta
 \import lambda.GeneralContext
 \import lambda.simplyTypedLambdaDeBruijne.Lambda
 
 \func realiseType (T : Type) : \Set
   | Natural => Nat
+  | EmptyT => Empty
   | --> A B => (realiseType A) -> (realiseType B)
-
 
 \func RealisedContext (c : SimpleContext) => \Pi {A : Type} (c ∋ A) -> realiseType A
 \where {
+  \func empty : RealisedContext ∅
+    => \lam {A} l => \case l
+
   \func extend {c : SimpleContext} (env : RealisedContext c) {A : Type} (r : realiseType A) {B : Type} (h : c ∕ A ∋ B) : realiseType B
     \elim h
       | Z idp => r
       | S h => env h
 }
 
-\func realise {gamma : SimpleContext} {A : Type} (env : RealisedContext gamma) (t : gamma ⊢ A) : realiseType A
+\func realiseCtx {gamma : SimpleContext} {A : Type} (env : RealisedContext gamma) (t : gamma ⊢ A) : realiseType A
   \elim A, t
     | Natural, zero => Nat.zero
-    | Natural, succ t => suc (realise env t)
+    | Natural, succ t => suc (realiseCtx env t)
     | T, var l => env l
-    | --> A B, lam t => \lam r => realise (RealisedContext.extend env r) t
-    | B, ⋅ t1 t2 => (realise env t1) (realise env t2)
+    | --> A B, lam t => \lam r => realiseCtx (RealisedContext.extend env r) t
+    | B, ⋅ t1 t2 => (realiseCtx env t1) (realiseCtx env t2)
+
+\func realise {A : Type} (t : ∅ ⊢ A) : realiseType A
+  => realiseCtx {∅} RealisedContext.empty t
+
+\func cannotTypeEmpty : Not (∃ (∅ ⊢ EmptyT))
+  => \case __ \with {
+    | inP a => realise a
+  }

@@ -1,6 +1,7 @@
 \import Arith.Nat
 \import Logic
 \import Order.PartialOrder
+\import Paths.Meta
 \import util.Nat
 
 \data Context (Type : \Set)
@@ -35,6 +36,25 @@
 \meta #3 => S #2
 
 \func Rename {Type : \Set} (gamma delta : Context Type) => \Pi {A : Type} (gamma ∋ A) -> delta ∋ A
+\where {
+  \func id {Type : \Set} {gamma : Context Type} : Rename gamma gamma
+    => \lam {A} l => l
+
+  \func weaken {Type : \Set} {gamma : Context Type} {A : Type} : Rename gamma (gamma ∕ A)
+    => \lam {_} => S
+
+  \func compose {Type : \Set} {gamma delta epsilon : Context Type}
+    (r1 : Rename gamma delta) (r2 : Rename delta epsilon) : Rename gamma epsilon
+    => \lam {A} l => r2 (r1 l)
+
+  \func extendCompose {Type : \Set} {gamma delta epsilon : Context Type}
+                      {r1 : Rename gamma delta} {r2 : Rename delta epsilon} {A : Type}
+    : extend (compose r1 r2) = {Rename (gamma ∕ A) (epsilon ∕ A)} compose (extend r1) (extend r2)
+    => ext (\lam {A1} l => \case \elim l \with {
+      | Z p => idp
+      | S l => idp
+    })
+}
 
 \func Subst {Type : \Set} {Term : Context Type -> Type -> \Set} (gamma delta : Context Type)
   => \Pi {A : Type} (gamma ∋ A) -> Term delta A
