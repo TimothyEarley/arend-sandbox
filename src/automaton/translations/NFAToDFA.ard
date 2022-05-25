@@ -1,12 +1,17 @@
 \import Data.List
 \import Logic
 \import Logic.Meta
+\import Meta
 \import Paths.Meta
 \import automaton.DFA
 \import automaton.Language
 \import automaton.NFA \hiding (Action, End, State, delta, start)
+\import sets.DecidableSet
 \import sets.Elements
 \import sets.MySet
+\import sets.finite.Sized
+\open DFA (DecidableDFA)
+\open NFA (DecidableNFA)
 
 \func nFAToDFA (nfa : NFA) : DFA \cowith
   | Action => nfa.Action
@@ -37,4 +42,19 @@
       | :: a tail, DFA.isStep h => \case helper2 tail (DFA.delta {nFAToDFA nfa} Q a) h \with {
         | inP ((q', inP (q, qEl, d)), a) => inP ((q, qEl), NFA.isStep q' d a)
       }
+  }
+
+\func nFAToDFA_Dec (nfa : DecidableNFA) : DecidableDFA \cowith
+  | Action => nfa.Action
+  | State => DecSizedEnsemble nfa.State
+  | delta => \lam Q a => \new DecSizedEnsemble {
+    | S => \lam q' => ∃ (q : nfa.State) (q ∈ Q) (nfa.delta (q, a, q'))
+    | size => {?}
+    | sizeProof => {?}
+    | decideEq => nfa.decState.decideEq
+  }
+  | start => DecSizedEnsemble.singleSized {nfa.decState} nfa.start
+  | End => \lam Q => Any Q nfa.End
+  | isEnd => \new DecElementEnsemble {
+    | decElement s => Any.any? s nfa.isEnd
   }

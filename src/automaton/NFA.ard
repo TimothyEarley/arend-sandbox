@@ -1,4 +1,5 @@
 \import Data.List
+\import Set
 \import automaton.Language
 \import sets.DecidableSet
 
@@ -10,6 +11,7 @@
   | End : State -> \Prop
   \where {
     \class DecidableNFA \extends NFA
+      | decState : DecSet State
       | isEnd : DecElementEnsemble State End
 
     \truncated \data accepts (d : NFA) (q : d.State) (u : Word d.Action) : \Prop \elim u

@@ -1,10 +1,12 @@
 \import Data.Bool
 \import Data.List
+\import Function
 \import Function.Meta
 \import Logic
 \import Logic.Meta
 \import Paths
 \import Paths.Meta
+\import Set \hiding (#)
 \import automaton.Language
 \import sets.DecidableSet
 \import sets.MySet
@@ -17,9 +19,12 @@
   | End : State -> \Prop
   \where {
     \class DecidableNFAeps \extends NFAeps
+      | decState : DecSet State
       | isEnd : DecElementEnsemble State End
+
     \func makeDecidable (n : NFAeps)
                         (h : DecElementEnsemble n.State n.End)
+                        (h' : DecSet n.State)
       : DecidableNFAeps \cowith
       | Action => n.Action
       | State => n.State
@@ -27,6 +32,7 @@
       | start => n.start
       | End => n.End
       | isEnd => h
+      | decState => h'
 
     \data Label (A : \Set)
       | epsilon
@@ -77,11 +83,19 @@
       | leftState State
       | rightState State'
 
-    \func noneNFAeps {A : Alphabet} : NFAeps { | Action => A } \cowith
+    \func noneNFAeps {A : Alphabet} : DecidableNFAeps { | Action => A } \cowith
       | State => \Sigma
       | delta => ∅
       | start => ()
       | End => ∅
+      | isEnd => \new DecElementEnsemble {
+        | decElement s => no id
+      }
+      | decState => \new DecSet {
+        | decideEq x y => \case \elim x, \elim y \with {
+          | (), () => yes idp
+        }
+      }
       \where {
         \func hasNoWords {A : Alphabet} {w : Word A} (h : w ∈ language noneNFAeps) : Empty
         \elim w, h

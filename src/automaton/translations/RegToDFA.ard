@@ -1,0 +1,14 @@
+\import Function.Meta
+\import automaton.DFA
+\import automaton.Language
+\import automaton.Regular
+\import automaton.translations.NFAToDFA
+\import automaton.translations.NFAepsToNFA
+\import automaton.translations.RegToNFAEps
+\open DFA (DecidableDFA)
+
+\func regToDFA {A : Alphabet} (reg : RegularExpression A) : DFA { | Action => A }
+  => nFAToDFA $ nFAepsToNFA  $ regToNFAeps reg
+
+\func regToDFA_dec {A : DecAlphabet} (reg : RegularExpression A) : DecidableDFA { | Action => A }
+  => nFAToDFA_Dec $ nFAepsToNFA_dec $ regToNFAeps_dec reg

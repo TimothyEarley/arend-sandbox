@@ -1,9 +1,14 @@
+\import Data.Bool
+\import Function
 \import Logic
+\import Logic.Meta
 \import Paths.Meta
+\import Set
 \import automaton.Language
 \import automaton.NFAeps
 \import automaton.Regular
-\open NFAeps (choice, concatNFAEps, language, noneNFAeps, singleNFAeps, starEps)
+\import sets.DecidableSet
+\open NFAeps (DecidableNFAeps, choice, concatNFAEps, language, makeDecidable, noneNFAeps, singleNFAeps, starEps)
 
 \func regToNFAeps {A : Alphabet} (re : RegularExpression A) : NFAeps { | Action => A } \elim re
   | none => noneNFAeps
@@ -40,3 +45,44 @@
       }
       | * re => rewrite respectsLanguage (starEps.inLanguageIsStar h)
   }
+
+\func regToNFAeps_dec {A : DecAlphabet} (re : RegularExpression A) : DecidableNFAeps { | Action => A } \elim re
+  | none => noneNFAeps
+  | alpha a => makeDecidable (singleNFAeps a) (\new DecElementEnsemble {
+    | decElement => \case \elim __ \with {
+      | false => no (\case __)
+      | true => yes so
+    }
+  }) {?}
+  | + a b =>
+    \let
+      | a' : DecidableNFAeps => regToNFAeps_dec a
+      | b' : DecidableNFAeps => regToNFAeps_dec b
+    \in
+      makeDecidable (choice a' b') (\new DecElementEnsemble {
+        | decElement => \case \elim __ \with {
+          | NFAeps.startState => no id
+          | NFAeps.leftState s => a'.isEnd.decElement s
+          | NFAeps.rightState s => b'.isEnd.decElement s
+        }
+      }) {?}
+  | ⋅ a b =>
+    \let
+      | a' : DecidableNFAeps => regToNFAeps_dec a
+      | b' : DecidableNFAeps => regToNFAeps_dec b
+    \in makeDecidable (concatNFAEps a' b') (\new DecElementEnsemble {
+      | decElement => \case \elim __ \with {
+        | NFAeps.startState => no id
+        | NFAeps.leftState s => no id
+        | NFAeps.rightState s => b'.isEnd.decElement s
+      }
+    }) {?}
+  | * a =>
+    \let
+      | a' => regToNFAeps_dec a
+    \in makeDecidable (starEps a') (\new DecElementEnsemble {
+      | decElement => \case \elim __ \with {
+        | NFAeps.starEps.startState => yes idp
+        | NFAeps.starEps.originalState s => no (\lam e => contradiction)
+      }
+    }) {?}

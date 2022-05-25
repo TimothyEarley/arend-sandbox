@@ -1,0 +1,77 @@
+\import Data.List
+\import Logic
+\import Logic.Meta
+\import Paths.Meta
+\import Set
+\import automaton.Language
+\import automaton.NFA
+\import automaton.NFAeps \hiding (Action, End, State, delta, start)
+\import sets.DecidableSet
+\import sets.MySet
+\open nFAepsToNFA (epsToEnd, makeDelta)
+\open NFAeps (DecidableNFAeps)
+\open NFA (DecidableNFA)
+
+\func nFAepsToNFA (nfaeps : NFAeps) : NFA \cowith
+  | Action => nfaeps.Action
+  | State => nfaeps.State
+  | delta => makeDelta nfaeps
+  | start => nfaeps.start
+  | End => epsToEnd nfaeps
+
+\where {
+
+  \func makeDelta (nfaeps : NFAeps) : (\Sigma nfaeps.State nfaeps.Action nfaeps.State) -> \Prop
+    => \lam (s, a, s') => TruncP (NFAeps.run nfaeps s s' (a :: nil))
+
+  \func epsToEnd (nfaeps : NFAeps) : Ensemble nfaeps.State
+    => \lam s => ∃ (s' : nfaeps.State) (nfaeps.End s') (NFAeps.run nfaeps s s' nil)
+
+  \func existingDelta (nfaeps : NFAeps) : (\Sigma nfaeps.State nfaeps.Action nfaeps.State) -> \Prop
+    => \lam (s,a,s1) => nfaeps.delta (s, NFAeps.action a, s1)
+
+  \func respectsLanguage {nfaeps : NFAeps} : NFAeps.language nfaeps = NFA.language (nFAepsToNFA nfaeps)
+    => ext (\lam w => ext (respectsLanguage-1 w (NFAeps.noStep idp),
+                           respectsLanguage-2 w))
+    \where {
+      -- q -- epsilons -> q' -- accepts -> end
+
+      \func respectsLanguage-1 {nfaeps : NFAeps} {q q' : nfaeps.State} (w : Word nfaeps.Action) (r : NFAeps.run nfaeps q q' nil) (h : NFAeps.accepts nfaeps q' w)
+        : NFA.accepts (nFAepsToNFA nfaeps) q w
+      \elim w, h
+        | nil, NFAeps.isLast e => NFA.isLast (inP (q', e, r))
+        | :: a tail, NFAeps.isStep q'' d h => NFA.isStep q'' (runToDelta r d) (respectsLanguage-1 tail (NFAeps.noStep idp) h)
+        | w, NFAeps.isEps q'1 d h => respectsLanguage-1 w (NFAeps.run.concat r (NFAeps.run.oneEps q'1 d (NFAeps.noStep idp))) h
+
+      \func runToDelta {nfaeps : NFAeps} {q q' q'' : nfaeps.State}
+                       (r : NFAeps.run nfaeps q q' nil)
+                       {a : nfaeps.Action}
+                       (d : nfaeps.delta (q', NFAeps.action a, q''))
+        : makeDelta nfaeps (q, a, q'') \elim r
+        | NFAeps.noStep idp => inP (NFAeps.oneStep q'' d (NFAeps.noStep idp))
+        | NFAeps.oneEps q1 d1 r => \case runToDelta r d \with {
+          | inP rest => inP (NFAeps.oneEps q1 d1 rest)
+        }
+
+      \func respectsLanguage-2 {nfaeps : NFAeps} {q : nfaeps.State} (w : Word nfaeps.Action) (h : NFA.accepts (nFAepsToNFA nfaeps) q w)
+        : NFAeps.accepts nfaeps q w \elim w, h
+        | nil, NFA.isLast (inP (s', e, r)) => NFAeps.run.toAccepts r e
+        | :: a tail, NFA.isStep _ (inP r) h => \case NFAeps.run.fromAccepts (respectsLanguage-2 tail h) \with {
+          | inP (_, e, r') => NFAeps.run.toAccepts (NFAeps.run.concat r r') e
+        }
+    }
+}
+
+\func nFAepsToNFA_dec (nfaeps : DecidableNFAeps) : DecidableNFA \cowith
+  | Action => nfaeps.Action
+  | State => nfaeps.State
+  | delta => makeDelta nfaeps
+  | start => nfaeps.start
+  | End => epsToEnd nfaeps
+  | decState => nfaeps.decState
+  | isEnd => \new DecElementEnsemble {
+    | decElement s => \case nfaeps.isEnd.decElement s \with {
+      | yes e => yes (inP (s, e, NFAeps.noStep idp))
+      | no n => no {?} -- this is wrong, need algo to find true answer
+    }
+  }

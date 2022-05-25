@@ -1,0 +1,38 @@
+\import Data.List
+\import Function.Meta ($)
+\import Logic.Meta
+\import Meta
+\import Set
+\import automaton.DFA
+\import automaton.Language
+\import automaton.Regular
+\import automaton.translations.RegToDFA
+\import automaton.translations.RegToNFAEps
+\import sets.MySet
+\import util.True
+
+\module LanguageExamples
+\where {
+
+  \data ABLang
+    | a | b
+
+  \instance DecABLang : DecAlphabet
+    | E => ABLang
+    | decideEq x y => \case \elim x, \elim y \with {
+      | a, a => yes idp
+      | a, b => no (\lam p => contradiction)
+      | b, a => no (\lam p => contradiction)
+      | b, b => yes idp
+    }
+
+  \func a*b* : RegularExpression DecABLang
+    => * (alpha a) ⋅  * (alpha b)
+
+  \cons aabbb : Word DecABLang
+    => a :: a :: b :: b :: b :: nil
+
+  \func test1 : aabbb ∈ DFA.language (regToDFA_dec a*b*)
+    => toWitness {_} {DFA.language? (regToDFA_dec a*b*) aabbb} (unfold (a*b*, DFA.language?) $ {?})
+
+}
