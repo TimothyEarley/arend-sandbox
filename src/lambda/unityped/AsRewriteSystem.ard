@@ -1,0 +1,91 @@
+\import Data.Fin
+\import Data.List (++, ++_nil, List, nil, ::)
+\import Data.SubList
+\import Logic.Rewriting.TRS.Examples.LambdaCalculus \hiding (I)
+\import Logic.Rewriting.TRS.HRS \using (var \as hrsVar)
+\import Logic.Rewriting.TRS.MetaContexts
+\import Logic.Rewriting.TRS.Substitutions
+\import Logic.Rewriting.TRS.Utils
+\import Paths
+\import Paths.Meta
+\import lambda.GeneralContext
+\import lambda.unityped.Lambda
+\import lambda.unityped.Reduction
+\open FSignature (!!domain, !!sort)
+
+\func unitypedToHRSLambda {ctx : UniContext} {T : UniType} (t : ctx u⊢ T) {ctx' : List Sort}
+  (p : ctx' = convertContext ctx) -- this way we can carry around the path p instead of transporting in this function
+  -- which does not play nicely
+  : Term LC-FSignature ctx' lc-term EmptyMetaContext
+\elim T, t, p
+  | *, var l, idp => hrsVar (indexInConverted l) indexHasSort
+  | *, lam t, p => Term.func abstraction (\lam 0 => unitypedToHRSLambda t (pmap (__ ++ (lc-term :: nil)) p))
+  | *, ⋅ t t1, idp => Term.func application (\case \elim __ \with {
+    | 0 => unitypedToHRSLambda t ++_nil
+    | 1 => unitypedToHRSLambda t1 ++_nil
+  })
+  \where {
+    \func typeToSort (T : UniType) : SingularSort \elim T
+      | * => lc-term
+
+    -- these functions must ensure that the addition of context computes, i.e. does not need a rewrite in the lam case above
+
+    \func convertContext (ctx : UniContext) : List Sort \elim ctx
+      | ∅ => nil
+      | ∕ c t => convertContext c Data.List.++ (typeToSort t :: nil)
+
+    \func indexInConverted {ctx : UniContext} {T : UniType} (l : ctx ∋ T) : Index (convertContext ctx) \elim ctx, l
+      | ∕ c head, Z p => expand-fin-right 0
+      | ∕ c head, S l => expand-fin-left (indexInConverted l)
+
+    \func indexHasSort {ctx : UniContext} {T : UniType} {l : ctx ∋ T} : typeToSort T = convertContext ctx Data.List.!! indexInConverted l \elim ctx, l
+      | ∕ c head, Z idp => rewrite (expand-fin-right.correct 0) idp
+      | ∕ c head, S l => rewrite (expand-fin-left.correct _) indexHasSort
+  }
+
+
+\func simToHRS {ctx : UniContext} {T : UniType} {t t' : ctx u⊢ T} (h : t ->1_u t')
+  {ctx' : List Sort} (p : ctx' = unitypedToHRSLambda.convertContext ctx)
+  : RewriteRelation LC-rules (unitypedToHRSLambda t p) (unitypedToHRSLambda t' p)
+\elim T, t, h, p
+  | *, var l, ((),_), _
+  | *, lam t, (R-Lam r, idp), idp =>
+    RewriteRelation.rewrite-with-parameter-f idp 0 (simToHRS (r, idp) idp) (\lam 0 => impossible-lambda)
+
+  | *, ⋅ (lam t) t1, (R-Beta, idp), idp =>
+  \let
+    | sub : MetaSubstitution LC-FSignature ctx' BetaRedexContext EmptyMetaContext => \lam {s} (mvar : MetaVariables) => \case \elim s, \elim mvar \with {
+      | lc-term, metavar-a => unitypedToHRSLambda t idp
+      | lc-term, metavar-b => unitypedToHRSLambda t1 ++_nil
+    }
+    | l : MetaSubstitution.apply
+      (func application (\lam (i : Fin 2) => weakening (\case \elim i \return Term LC-FSignature (application !!domain {_} {lc-term} i) (application !!sort {_} {lc-term} i) BetaRedexContext \with {
+        | 0 => func abstraction (\lam 0 => metavar metavar-a (\lam 0 => hrsVar 0 idp))
+        | 1 => metavar metavar-b impossible-lambda
+      }) (SubList.extend-right-both SubList.sublist-nil-free)))
+      SubList.identity
+      sub =
+    Term.func application (\case \elim __ \with {
+      | 0 => unitypedToHRSLambda {_} {*} (lam t) ++_nil
+      | 1 => unitypedToHRSLambda t1 ++_nil
+    }) => pmap (func application __) (extext (\case \elim __ \with {
+      | 0 => pmap (func abstraction __) (extext (\lam 0 => {?})) -- the end is where no metavariables remain, TODO show something
+      | 1 => {?}
+    }))
+  \in
+    RewriteRelation.rewrite-with-rule () sub l {?}
+
+  | *, ⋅ t t1, (R-App1 r, idp), idp => rewrite reduce.reduceApp1
+      (RewriteRelation.rewrite-with-parameter-f idp 0 (simToHRS (r, idp) ++_nil)
+          (\case \elim __ \with {
+            | 0 => impossible-lambda
+            | 1 => \lam _ => idp
+          })
+      )
+  | *, ⋅ t t1, (R-App2 r, idp), idp => rewrite reduce.reduceApp2
+      (RewriteRelation.rewrite-with-parameter-f idp 1 (simToHRS (r, idp) ++_nil)
+          (\case \elim __ \with {
+            | 0 => \lam _ => idp
+            | 1 => impossible-lambda
+          })
+      )

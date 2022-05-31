@@ -1,0 +1,19 @@
+\import Data.Fin
+\import Data.List
+\import Paths
+
+\func toMapIndex {A B : \Type} {l : List A} {f : A -> B} (i : Index l) : Index (map f l)
+  \elim l, i
+    | :: a l, 0 => 0
+    | :: a l, suc i => suc (toMapIndex i)
+
+\func !!map {A B : \Type} {l : List A} {f : A -> B} {i : Index l}
+  : map f l !! toMapIndex i = f (l !! i) \elim l, i
+  | :: a l, 0 => idp
+  | :: a l, suc i => !!map
+
+
+\func map++ {A B : \Type} {l1 l2 : List A} {f : A -> B} : map f (l1 ++ l2) = map f l1 ++ map f l2
+  \elim l1
+    | nil => idp
+    | :: a l1 => pmap (f a :: __) map++
