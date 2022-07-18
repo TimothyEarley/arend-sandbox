@@ -1,9 +1,13 @@
 \import Algebra.Meta
 \import Data.Or
 \import Equiv
+\import Function
+\import Function.Meta
 \import Logic
+\import Logic.Meta
 \import Paths
 \import Paths.Meta
+\import sets.MySet
 
 \lemma doubleNegationLEM {A : \Type} : Not (Not (Or A (Not A))) => \lam n => n (inr (\lam a => n (inl a)))
 
@@ -18,13 +22,13 @@
   }
 
 \func eckmannHilton {X : \Set}
-              (+ * : X -> X -> X)
-              (o i : X)
-              (left-id-+ : Left-id + o)
-              (right-id-+ : Right-id + o)
-              (left-id-* : Left-id * i)
-              (right-id-* : Right-id * i)
-              (h : \Pi {x y z w : X} -> * (+ x y) (+ z w) = + (* x z) (* y w))
+                    (+ * : X -> X -> X)
+                    (o i : X)
+                    (left-id-+ : Left-id + o)
+                    (right-id-+ : Right-id + o)
+                    (left-id-* : Left-id * i)
+                    (right-id-* : Right-id * i)
+                    (h : \Pi {x y z w : X} -> * (+ x y) (+ z w) = + (* x z) (* y w))
   : \Sigma
   (i = o) (+ = *) (Assoc +) (Comm +) =>
   \let
@@ -36,11 +40,11 @@
         (+ o o) {left-id-+}
         o
     | x+y=x*y => \lam x y => equation
-      (+ x y) {pmap2 + (inv right-id-*) (inv left-id-*)}
-      (+ (* x i) (* i y)) {inv h}
-      (* (+ x i) (+ i y)) {pmap2 * (pmap (+ x) i=o) (pmap (+ __ y) i=o)}
-      (* (+ x o) (+ o y)) {pmap2 * right-id-+ left-id-+}
-      (* x y )
+        (+ x y) {pmap2 + (inv right-id-*) (inv left-id-*)}
+        (+ (* x i) (* i y)) {inv h}
+        (* (+ x i) (+ i y)) {pmap2 * (pmap (+ x) i=o) (pmap (+ __ y) i=o)}
+        (* (+ x o) (+ o y)) {pmap2 * right-id-+ left-id-+}
+        (* x y )
     | assoc+ : Assoc + => \lam {x} {y} {z} => equation
         (+ x (+ y z)) {x+y=x*y x (+ y z)}
         (* x (+ y z)) {pmap (* __ _) (inv right-id-+)}
@@ -71,3 +75,21 @@
 
     \func Comm {X : \Set} (f : X -> X -> X) : \Prop => \Pi {x y : X} -> f x y = f y x
   }
+
+-- All I know is that I don't know nothing
+
+\func lyric (Know : \Set) (Knowledges : Know -> \Prop) (KnowledgesAreTrue : ∀ k (Knowledges k)) : \Prop =>
+  (\lam p => ∃ (k : Know) (p = Knowledges k)) = {Ensemble \Prop} single (Not (Know = Empty))
+
+\lemma singleIsLyric : lyric (\Sigma) (\lam _ => Not ((\Sigma) = Empty)) (\lam k p => transport id p k) => extSet
+    (\lam {x} (inP (_, p)) => rewrite p idp)
+    (\lam {x} p => inP ((), inv p))
+
+\lemma emptyIsNotLyric : Not (lyric Empty absurd (\lam k => absurd k)) => \lam l =>
+    \let prop => Not (Empty = Empty)
+         | propInSingle : prop ∈ single (Not (Empty = Empty)) => idp
+         | propInKnowledges : prop ∈ (\lam p => ∃ (k : Empty) (p = absurd k)) => rewrite l propInSingle
+         | elementOfEmpty : Empty => \case propInKnowledges \with {
+           | inP a => a.1
+         }
+    \in elementOfEmpty
