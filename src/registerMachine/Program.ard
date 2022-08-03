@@ -1,7 +1,3 @@
-\import Data.Bool
-\import Set (Dec, decToBool, no, yes)
-\open MachineSpec (Reg)
-
 \record MachineSpec {
   | registerCount : Nat -- plus one
   | alphabetSize : Nat

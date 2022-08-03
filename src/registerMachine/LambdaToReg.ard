@@ -1,0 +1,263 @@
+\import Data.Array \hiding (Index)
+\import Debug.Meta
+\import Meta
+\import lambda.GeneralContext (#0, Context, ∅, ∋)
+\import lambda.unityped.Lambda
+\import registerMachine.Program
+\import registerMachine.Semantics
+\import registerMachine.Utils
+\import typeclasses.Monad
+\open MachineSpec (String)
+\open DArray (!!)
+\open lambdaSpec (A_AMD, A_APP, A_LAM, A_STK, A_UNA, A_VAR)
+
+\func lambdaSpec : MachineSpec \cowith
+  -- reg 0: current lambda expression
+  -- reg 1: variable stack
+  -- reg 2 : temp stack
+  | registerCount => 2
+  -- 0: lambda
+  -- 1: application (arg first, then function)
+  -- 2: variable encoded in unary 3s
+  -- 3: unary encoding
+  -- 4: meta delimter for apps
+  -- 5: stack delimier
+  | alphabetSize => 6
+  \where {
+    \func A_LAM : lambdaSpec.Alphabet => 0
+
+    \func A_APP : lambdaSpec.Alphabet => 1
+
+    \func A_VAR : lambdaSpec.Alphabet => 2
+
+    \func A_UNA : lambdaSpec.Alphabet => 3
+
+    \func A_AMD : lambdaSpec.Alphabet => 4
+
+    \func A_STK : lambdaSpec.Alphabet => 5
+  }
+
+\func encode {ctx : UniContext} (t : ctx u⊢ *) : String {lambdaSpec} \elim t
+  | var l => 2 :: natToUnary (∋.toIndex l)
+  | lam t => 0 :: encode t
+  | ⋅ f arg => 1 :: encode arg ++ 4 :: encode f
+  \where {
+    \func natToUnary (n : Nat) : String {lambdaSpec} \elim n
+      | 0 => nil
+      | suc n => 3 :: natToUnary n
+  }
+
+-- call by value
+
+\func lambdaExecuter : Program lambdaSpec =>
+  -- get the current instruction type
+  case CURRENT_EXPR ERROR (LAMBDA :: APP :: VAR :: ERROR :: ERROR :: ERROR :: nil) :: -- 0
+
+  -- LAMBDA
+  jmp HALT :: -- 1
+
+  -- APP
+  -- remove app symbol
+  sub CURRENT_EXPR A_APP :: -- 2
+  -- check if the argument is a value
+  case CURRENT_EXPR ERROR (APP.IS_LAM :: APP.NOT_VAL :: APP.NOT_VAL :: ERROR :: ERROR :: ERROR :: nil) :: -- 3
+
+  -- it is a value, in which case proceed with beta redution
+  -- 1. move variable into stack (reversed) with added STK marker
+  add VAR_STACK A_STK :: -- 4
+  -- TODO this is broken for nested apps (need to keep track of which delimiter is correct)
+  case CURRENT_EXPR ERROR
+      (APP.IS_LAM.CP_0 :: APP.IS_LAM.CP_1 :: APP.IS_LAM.CP_2 :: APP.IS_LAM.CP_3 :: APP.IS_LAM.CP_DONE :: ERROR :: nil) :: -- 5
+  -- CP_0
+  sub CURRENT_EXPR 0 :: -- 6
+  add VAR_STACK 0 ::
+  jmp APP.IS_LAM.CP ::
+
+  -- CP_1
+  sub CURRENT_EXPR 1 :: -- 9
+  add VAR_STACK 1 ::
+  jmp APP.IS_LAM.CP ::
+
+  -- CP_2
+  sub CURRENT_EXPR 2 :: -- 12
+  add VAR_STACK 2 ::
+  jmp APP.IS_LAM.CP ::
+
+  -- CP_3
+  sub CURRENT_EXPR 3 :: -- 15
+  add VAR_STACK 3 ::
+  jmp APP.IS_LAM.CP ::
+
+  -- 2. Remove the app meta delimiter
+  sub CURRENT_EXPR A_AMD :: -- 18
+  -- 3. Remove the lambda identifier
+  sub CURRENT_EXPR A_LAM ::
+  -- 4. recurse
+  jmp 0 ::
+
+  -- it is not a value
+  jmp ERROR :: -- 21
+
+  -- VAR
+  -- we now need to retrieve the variable from the stack and push it in the current term
+  sub CURRENT_EXPR A_VAR :: -- 22
+  case CURRENT_EXPR VAR.HIT (VAR.HIT :: VAR.HIT :: VAR.HIT :: VAR.NEXT :: VAR.HIT :: ERROR :: nil) :: -- 23
+
+  -- NEXT
+  sub CURRENT_EXPR A_UNA :: -- 24
+  add TEMP_STACK A_STK :: -- 25
+
+  -- move arg to temp
+  case VAR_STACK ERROR
+      (VAR.NEXT.CP_0 :: VAR.NEXT.CP_1 :: VAR.NEXT.CP_2 :: VAR.NEXT.CP_3 :: ERROR :: VAR.NEXT.CP_DONE :: nil) :: -- 26
+  -- CP_0
+  sub VAR_STACK 0 :: -- 27
+  add TEMP_STACK 0 ::
+  jmp VAR.NEXT.CP ::
+
+  -- CP_1
+  sub VAR_STACK 1 :: -- 30
+  add TEMP_STACK 1 ::
+  jmp VAR.NEXT.CP ::
+
+  -- CP_2
+  sub VAR_STACK 2 :: -- 33
+  add TEMP_STACK 2 ::
+  jmp VAR.NEXT.CP ::
+
+  -- CP_3
+  sub VAR_STACK 3 :: -- 36
+  add TEMP_STACK 3 ::
+  jmp VAR.NEXT.CP ::
+
+  -- CP_Done
+  sub CURRENT_EXPR A_STK :: -- 39
+
+  -- we have now moved one arg to the stack, restart the loop
+  jmp VAR.LOOP :: -- 40
+
+  -- HIT
+  -- copy top arg to current
+  case VAR_STACK ERROR
+      (VAR.HIT.CP_0 :: VAR.HIT.CP_1 :: VAR.HIT.CP_2 :: VAR.HIT.CP_3 :: ERROR :: VAR.HIT.CP_DONE :: nil) :: -- 41
+  -- CP_0
+  sub VAR_STACK 0 :: -- 42
+  add CURRENT_EXPR 0 ::
+  jmp VAR.HIT.CP ::
+
+  -- CP_1
+  sub VAR_STACK 1 :: -- 45
+  add CURRENT_EXPR 1 ::
+  jmp VAR.HIT.CP ::
+
+  -- CP_2
+  sub VAR_STACK 2 :: -- 48
+  add CURRENT_EXPR 2 ::
+  jmp VAR.HIT.CP ::
+
+  -- CP_3
+  sub VAR_STACK 3 :: -- 51
+  add CURRENT_EXPR 3 ::
+  jmp VAR.HIT.CP ::
+
+  -- CP_Done
+  sub VAR_STACK A_STK :: -- 54
+  -- TODO move all the other args back to the var stack
+
+  jmp 0 :: -- 55
+
+  -- ERROR
+  halt :: -- 56
+
+  -- HALT
+  print :: -- 57
+  halt ::
+  nil
+
+  \where {
+    \func CURRENT_EXPR : lambdaSpec.Reg => 0
+
+    \func VAR_STACK : lambdaSpec.Reg => 1
+
+    \func TEMP_STACK : lambdaSpec.Reg => 2
+
+    \func LAMBDA : LineNumber => 1
+
+    \func APP : LineNumber => 2
+      \where {
+        \func IS_LAM : LineNumber => 4
+          \where {
+            \func CP : LineNumber => 5
+
+            \func CP_0 : LineNumber => 6
+
+            \func CP_1 : LineNumber => 9
+
+            \func CP_2 : LineNumber => 12
+
+            \func CP_3 : LineNumber => 15
+
+            \func CP_DONE : LineNumber => 18
+          }
+
+        \func NOT_VAL : LineNumber => 21
+      }
+
+    \func VAR : LineNumber => 22
+      \where {
+        \func LOOP : LineNumber => 23
+
+        \func HIT : LineNumber => 41
+          \where {
+            \func CP : LineNumber => 41
+
+            \func CP_0 : LineNumber => 42
+
+            \func CP_1 : LineNumber => 45
+
+            \func CP_2 : LineNumber => 48
+
+            \func CP_3 : LineNumber => 51
+
+            \func CP_DONE : LineNumber => 54
+          }
+
+        \func NEXT : LineNumber => 24
+          \where {
+            \func CP : LineNumber => 26
+
+            \func CP_0 : LineNumber => 27
+
+            \func CP_1 : LineNumber => 30
+
+            \func CP_2 : LineNumber => 33
+
+            \func CP_3 : LineNumber => 36
+
+            \func CP_DONE : LineNumber => 39
+          }
+      }
+
+    \func ERROR : LineNumber => 56
+
+    \func HALT : LineNumber => 57
+  }
+
+\func lambdaConfig {ctx : UniContext} (t : ctx u⊢ *) : Configuration lambdaSpec \cowith
+  | line => 0
+  | registers => encode t :: nil :: nil :: nil
+  | output => nil
+
+\func exampleLambda : Context.∅ u⊢ * =>
+  lam (var #0) ⋅ lam (var #0) -- lam (lam (var #0 ⋅ var #1)) ⋅ lam (var #0) ⋅ lam (var #0)
+  \where {
+    \func exampleResult : Configuration lambdaSpec => run {
+    -- TODO why is getting so slow the more we execute? If we start the process manually at 10 steps in it does
+    -- not slow down. There must be some lazy evaluation/duplication going on
+      \let! c => lambdaConfig exampleLambda,
+      \let! c => execute lambdaExecuter c 10, println c,
+      \let! c => execute lambdaExecuter c 10, println c,
+      println c,
+      c
+    }
+  }

@@ -1,0 +1,5 @@
+\import registerMachine.Program
+\open MachineSpec (Reg)
+
+\func jmp {spec : MachineSpec} (l : LineNumber) : Instruction spec
+  => case 0 l (\lam _ => l)

@@ -1,14 +1,8 @@
-\import Data.Array (mkArray)
-\import Data.Bool
 \import Data.Maybe
-\import Logic
-\import Logic.Meta
 \import Meta
-\import Paths
 \import Paths.Meta
 \import Set
 \import Star
-\import identity.FinIdentity
 \import identity.Identity
 \import identity.NatIdentity
 \import registerMachine.Program
@@ -17,9 +11,7 @@
 \import typeclasses.Monad
 \import util.ArrayUtils
 \import util.Maybe (orElse)
-\open MachineSpec (Alphabet, Reg, String)
 \open ArrayUtils (??, arrayOf)
-\open example (eSpec)
 
 \func Label => Nat
 

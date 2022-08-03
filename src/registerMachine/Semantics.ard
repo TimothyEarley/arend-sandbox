@@ -1,19 +1,16 @@
 \import Data.Bool
-\import Logic
-\import Logic.Meta
+\import Data.Maybe
+\import Debug.Meta
+\import Function.Meta ($)
 \import Meta
-\import Paths
-\import Paths.Meta
-\import Prelude
 \import Set
 \import Star
-\import Util
 \import identity.FinIdentity
 \import registerMachine.Program
 \import util.ArrayUtils
 \import util.Maybe
-\open MachineSpec (String)
 \open ArrayUtils (??, arrayOf, set)
+\open DArray (!!)
 
 \record Configuration (spec : MachineSpec)
   | line : Nat
@@ -35,7 +32,11 @@
   }
   | sub register c1 => \new Configuration {
     | line => suc c.line
-    | registers => set c.registers register (subString (c.registers register) c1)
+    | registers =>
+      \let!
+        | prev => c.registers register
+        | subbed => subString prev c1
+      \in set c.registers register subbed
     | output => c.output
   }
   | case register emptyCase alphabetCase => \new Configuration {
@@ -63,7 +64,20 @@
   }
 
 \func programmStep {spec : MachineSpec} (p : Program spec) (c : Configuration spec) : Configuration spec =>
-  stepInstruction ((p ?? c.line) orElse halt) c
+  \let! result => stepInstruction ((p ?? c.line) orElse halt) c \in result
 
 \func runs {spec : MachineSpec} (p : Program spec) (c c' : Configuration spec) : \Type =>
   Star (programmStep p __ = __) c c'
+
+\func execute {spec : MachineSpec} (p : Program spec) (c : Configuration spec) (fuel : Nat) : Configuration spec \elim fuel
+  | 0 => c
+  | suc fuel => if (isHalting p c) c (
+    \let! step => programmStep p c \in execute p step fuel
+  )
+  \where {
+    \func isHalting {spec : MachineSpec} (p : Program spec) (c : Configuration spec) : Bool => \case p ?? c.line \with {
+      | nothing => true
+      | just halt => true
+      | just _ => false
+    }
+  }

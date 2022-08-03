@@ -58,18 +58,17 @@
 
   \func arrayOf {A : \Type} (val : A) {n : Nat} : Array A n => mkArray (\lam f => val)
 
-  \func set {n : Nat} {A : \Type} (a : Array A n) (i : Fin n) (v : A) : Array A n =>
-    \lam j => \case i fin≟ j \return A \with {
-      | yes e => v
-      | no n => a j
-    }
+--  \func set {n : Nat} {A : \Type} (a : Array A n) (i : Fin n) (v : A) : Array A n =>
+--    \lam j => \case i fin≟ j \return A \with {
+--      | yes e => v
+--      | no n => a j
+--    }
 
-    \where {
-      \data Test | aTest | bTest | cTest | dTest
-
-      \func test : set {3} (aTest :: bTest :: cTest :: nil) 1 dTest = aTest :: dTest :: cTest :: nil =>
-        idp
-    }
+  -- hopefully faster, even though we eagerly create a new array
+  -- this is because otherwise Arend leaves things lazy and ends up doing duplicate work (I think)
+  \func set {n : Nat} {A : \Type} (a : Array A n) (i : Fin n) (v : A) : Array A n \elim n, a, i
+    | suc n, :: a a1, 0 => v :: a1
+    | suc n, :: a a1, suc i => a :: set a1 i v
 
   \func maxOf {A : JoinSemilattice} {n : Nat} (l : Array A (suc n)) : \Sigma (m : A) (\Pi (x : A) (Index x l) -> x Order.PartialOrder.<= m)
   \elim n, l
