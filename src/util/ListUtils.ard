@@ -1,6 +1,8 @@
 \import Data.Fin
 \import Data.List
+\import Meta
 \import Paths
+\import Paths.Meta
 
 \func toMapIndex {A B : \Type} {l : List A} {f : A -> B} (i : Index l) : Index (map f l)
   \elim l, i
@@ -17,3 +19,31 @@
   \elim l1
     | nil => idp
     | :: a l1 => pmap (f a :: __) map++
+
+
+\func rev {A : \Type} (l : List A) : List A \elim l
+  | nil => nil
+  | :: a as => rev as ++ (a :: nil)
+\where {
+  \func revAppend {A : \Type} {l l' : List A} : rev (l ++ l') = rev l' ++ rev l
+    \elim l
+      | nil => rewrite ++_nil idp
+      | :: a l => rewrite revAppend ++-assoc
+
+  \func revrev {A : \Type} {l : List A} : rev (rev l) = l \elim l
+    | nil => idp
+    | :: a l => rewrite revAppend (pmap (a :: __) revrev)
+}
+
+\func fastrev_aux {A : \Type} (l : List A) (acc : List A) : List A \elim l
+  | nil => acc
+  | :: a l => fastrev_aux l (a :: acc)
+
+\func fastrev {A : \Type} (l : List A) : List A => fastrev_aux l nil
+\where {
+  \func rev_equiv {A : \Type} : rev {A} = fastrev
+    => ext (\lam l => \let p => rev_aux_equiv l nil \in rewriteF ++_nil p)
+  \func rev_aux_equiv {A : \Type} (l l' : List A) : rev l ++ l' = fastrev_aux l l' \elim l
+    | nil => idp
+    | :: a l => rewriteI (rev_aux_equiv l (a :: l')) ++-assoc
+}
