@@ -1,54 +1,98 @@
 \import Function
+\import Function.Meta
+\import Logic
+\import Paths
+\import Paths.Meta
+\import lambda.GeneralContext
+\import lambda.simplyTypedLambdaDeBruijne.Lambda (-->, EmptyT, Natural, SimpleContext, Type \as SimpleType, lam, succ, var, ⊢, ⋅)
+\import lambda.simplyTypedLambdaDeBruijne.Reduction
+\import lambda.simplyTypedLambdaDeBruijne.examples.ChurchNumerals
 
 -- https://lemonidas.github.io/pdf/DeeperShallowEmbeddings.pdf
 
-\module Shallow \where {
-  \func Ctx => \Type
-    \where {
-      \func empty : Ctx => \Sigma
+\func Ctx => \Type
+  \where {
+    \func empty : Ctx => \Sigma
 
-      \func cons (C : Ctx) (T : Type C) : Ctx => \Sigma (c : C) (T c)
-    }
-
-  \func Type : Ctx -> \Type => \lam c => c -> \Type
-    \where {
-      \func Pi {C : Ctx} (T : Type C) (A : Type (Ctx.cons C T)) : Type C => \lam c => \Pi (t : T c) -> A (c, t)
-
-      \func U {C : Ctx} : Type C => \lam c => \Type
-    }
-
-  \func Var (C : Ctx) (T : Type C) : \Type => \Pi (c : C) -> T c
-    \where {
-      \func same {C : Ctx} {T : Type C} : Var (Ctx.cons C T) (T o (\lam x => x.1)) => \lam c => c.2
-
-      \func next {C : Ctx} {T A : Type C} (v : Var C A) : Var (Ctx.cons C T) (A o (\lam x => x.1)) => \lam c => v c.1
-    }
-
-  \func Term (C : Ctx) (T : Type C) : \Type => \Pi (c : C) -> T c
-    \where {
-      \func var {C : Ctx} {T : Type C} (v : Var C T) : Term C T => v
-
-      \func lambda {C : Ctx} {A : Type C} {B : Type (Ctx.cons C A)} (t : Term (Ctx.cons C A) B) : Term C (Type.Pi A B) =>
-        \lam c a => t (c, a)
-
-      \func app {C : Ctx} {A : Type C} {B : Type (Ctx.cons C A)} (f : Term C (Type.Pi A B)) (arg : Term C A) : Term C (\lam c => B (c, arg c)) =>
-        \lam c => (f c) (arg c)
-    }
-
-  \module Example \where {
-    \func NatT {C : Ctx} : Type C => \lam c => Nat
-
-    \func zeroNat {C : Ctx} : Term C NatT => \lam c => 0
-
-    \func natId {C : Ctx} : Term C (Type.Pi NatT NatT) => Term.lambda (Term.var Var.same)
-
-    \func useNatId : Term Ctx.empty NatT => Term.app {_} {_} {NatT} natId zeroNat
-
-    \func evalUseNatId : useNatId () = 0 => idp
-
-    \func polyId {C : Ctx} : Term C (Type.Pi Type.U (Type.Pi Var.same (Var.next Var.same))) =>
-      Term.lambda {_} {_} {Type.Pi Var.same (Var.next Var.same)}
-          (Term.lambda {_} {_} {Var.next Var.same}
-              (Term.var Var.same))
+    \func cons (C : Ctx) (T : Type C) : Ctx => \Sigma (c : C) (T c)
   }
+
+\func Type : Ctx -> \Type => \lam c => c -> \Type
+  \where {
+    \func Pi {C : Ctx} (T : Type C) (A : Type (Ctx.cons C T)) : Type C => \lam c => \Pi (t : T c) -> A (c, t)
+
+    \func U {C : Ctx} : Type C => \lam c => \Type
+  }
+
+\func Var (C : Ctx) (T : Type C) : \Type => \Pi (c : C) -> T c
+  \where {
+    \func same {C : Ctx} {T : Type C} : Var (Ctx.cons C T) (T o (\lam x => x.1)) => \lam c => c.2
+
+    \func next {C : Ctx} {T A : Type C} (v : Var C A) : Var (Ctx.cons C T) (A o (\lam x => x.1)) => \lam c => v c.1
+  }
+
+\func Term (C : Ctx) (T : Type C) : \Type => \Pi (c : C) -> T c
+  \where {
+    \func var {C : Ctx} {T : Type C} (v : Var C T) : Term C T => v
+
+    \func lambda {C : Ctx} {A : Type C} {B : Type (Ctx.cons C A)} (t : Term (Ctx.cons C A) B) : Term C (Type.Pi A B) =>
+      \lam c a => t (c, a)
+
+    \func app {C : Ctx} {A : Type C} {B : Type (Ctx.cons C A)} (f : Term C (Type.Pi A B)) (arg : Term C A) : Term C (\lam c => B (c, arg c)) =>
+      \lam c => (f c) (arg c)
+  }
+
+\module Example \where {
+  \func NatT {C : Ctx} : Type C => \lam c => Nat
+
+  \func zeroNat {C : Ctx} : Term C NatT => \lam c => 0
+
+  \func natId {C : Ctx} : Term C (Type.Pi NatT NatT) => Term.lambda (Term.var Var.same)
+
+  \func useNatId : Term Ctx.empty NatT => Term.app {_} {_} {NatT} natId zeroNat
+
+  \func evalUseNatId : useNatId () = 0 => idp
+
+  \func polyId {C : Ctx} : Term C (Type.Pi Type.U (Type.Pi Var.same (Var.next Var.same))) =>
+    Term.lambda {_} {_} {Type.Pi Var.same (Var.next Var.same)}
+        (Term.lambda {_} {_} {Var.next Var.same}
+            (Term.var Var.same))
+
+  \func withVariable : Term (Ctx.cons Ctx.empty NatT) NatT => Var.same
+
+  \func evalWithVariable : withVariable ((), 4) = 4 => idp
 }
+
+\func embedSTLC {c : SimpleContext} {T : SimpleType} (t : c ⊢ T)
+  : Term (simpleContextToContext c) (simpleTypeToType T (simpleContextToContext c))
+\elim T, t
+  | Natural, ⊢.zero => \lam _ => 0
+  | Natural, succ t => \let! t' => embedSTLC t \in \lam c => suc (t' c)
+  | T, var l => Term.var (convertVar l)
+  | --> T T1, lam t => \lam c a => \let t' => embedSTLC t (c, a) \in rewriteF simpleTypeToTypeOblivious t'
+  | T, ⋅ {A} t1 t2 => \lam c => embedSTLC t1 c (embedSTLC t2 c)
+  \where {
+    \func simpleTypeToType (T : SimpleType) (C : \Set) : \Pi C -> \Set \elim T
+      | Natural => \lam _ => Nat
+      | EmptyT => \lam _ => Empty
+      | --> A T => \lam c =>
+      -- non-dependent Pi type, otherwise size to big for \Set
+      -- this is the trouble maker, see simpleTypeToTypeOblivious
+          \Pi (t : simpleTypeToType A C c) -> simpleTypeToType T C c
+
+    \func simpleTypeToTypeOblivious {T : SimpleType} {C C' : \Set} {c : C} {c' : C'}
+      : simpleTypeToType T C c = simpleTypeToType T C' c' \elim T
+      | Natural => idp
+      | EmptyT => idp
+      | --> A T => pmap2 (__ -> __) simpleTypeToTypeOblivious simpleTypeToTypeOblivious
+
+    \func simpleContextToContext (c : SimpleContext) : \Set \elim c
+      | ∅ => Ctx.empty
+      | ∕ c t => Ctx.cons (simpleContextToContext c) (simpleTypeToType t (simpleContextToContext c))
+
+    \func convertVar {c : SimpleContext} {T : SimpleType} (l : c ∋ T) : Var (simpleContextToContext c) (simpleTypeToType T (simpleContextToContext c)) \elim c, l
+      | ∕ c _, Z idp => \lam c1 => rewriteF simpleTypeToTypeOblivious c1.2
+      | ∕ c _, S l => \let l' => convertVar l \in \lam c1 => rewriteF simpleTypeToTypeOblivious $ l' c1.1
+  }
+
+\func embedExample : embedSTLC {Context.∅} (Church.churchToNatural ⋅ Church.two) () = 2 => idp
