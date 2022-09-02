@@ -9,8 +9,9 @@
 \import lambda.unityped.Lambda
 \import lambda.unityped.Reduction
 \import lambda.unityped.Substitute
-\open SubstitutionAlgebra (shift)
+\open SubstitutionAlgebra (ids-id, shift)
 \open ->*_u (underApps)
+\open subst-commute (sub-sub)
 
 \func Halts (t : ∅ u⊢ *) : \Prop => ∃ (t' : ∅ u⊢ *) (t ->*_u t') (Normal t')
 
@@ -32,26 +33,50 @@
 
 \func haltingNotDecideable : Not (Decider Halts) => \lam (d : Decider Halts) =>
     \let
+      -- reverses the decision of d, returning true when the program does not halt and omega if it halts
+      -- (thus not halting)
       | isNotHalting : ∅ u⊢ * => lam $ ((subst shift d.prog ⋅ (var #0 ⋅ var #0)) ⋅ subst shift omega ⋅ uniTrue)
+      -- calling this function with itself results in calling the decider
+      | isNotHaltingReduction
+      : isNotHalting ⋅ isNotHalting ->*_u {_} {*} (d.prog ⋅ (isNotHalting ⋅ isNotHalting)) ⋅ omega ⋅ uniTrue =>
+        singleStep (R-Beta, pmap (__ ⋅ _ ⋅ _ ⋅ _) (sub-sub *> ids-id))
     \in \case d.toTrueOrFalse (isNotHalting ⋅ isNotHalting) \with {
-      | byLeft a => \case d.decidesTrue a \with {
-        | inP (t', r, n) =>
-          \let
-            | r' : (isNotHalting ⋅ isNotHalting) ->*_u omega =>
-              (isNotHalting ⋅ isNotHalting) ~~< (R-Beta, pmap ((__ ⋅ _) ⋅ _ ⋅ _) {?}) >~>
-                  ((d.prog ⋅ (isNotHalting ⋅ isNotHalting)) ⋅ omega ⋅ uniTrue) ~~~< underApps (underApps a (refl idp)) (refl idp) >~>
-                  (uniTrue ⋅ omega ⋅ uniTrue) ~~~< uniTrue.apply >~>
-                  omega `stop
-            | conf => ->*-u-confluent-normal r' r n
-          \in omegaDoesNotHalt (inP (t', conf, n))
-      }
+      | byLeft a =>
+        -- the decider reduces to true, so the thing must halt
+        \case d.decidesTrue a \with {
+          -- t' is the normal form of (isNotHalting ⋅ isNotHalting)
+          | inP (t', r, n) =>
+            \let
+              -- but then (isNotHalting ⋅ isNotHalting) evaluates to omega
+              | r' : (isNotHalting ⋅ isNotHalting) ->*_u omega =>
+                isNotHalting ⋅ isNotHalting
+                  ~~~< isNotHaltingReduction >~>
+                d.prog ⋅ (isNotHalting ⋅ isNotHalting) ⋅ omega ⋅ uniTrue
+                  ~~~< underApps (underApps a (refl idp)) (refl idp) >~>
+                uniTrue ⋅ omega ⋅ uniTrue
+                  ~~~< uniTrue.apply >~>
+                omega `stop
+
+
+              -- which with confluence means omega reduces to the value t', a contradiction
+              |  r'' : omega ->*_u t' => ->*-u-confluent-normal r' r n
+            \in omegaDoesNotHalt (inP (t', r'', n))
+        }
       | byRight b =>
-        \let
-          | nh => d.decidesFalse b
-          | r' : (isNotHalting ⋅ isNotHalting) ->*_u uniTrue =>
-            (isNotHalting ⋅ isNotHalting) ~~< (R-Beta, pmap ((__ ⋅ _) ⋅ _ ⋅ _) {?}) >~>
-                ((d.prog ⋅ (isNotHalting ⋅ isNotHalting)) ⋅ omega ⋅ uniTrue) ~~~< underApps (underApps b (refl idp)) (refl idp) >~>
-                (uniFalse ⋅ omega ⋅ uniTrue) ~~~< uniFalse.apply >~>
+        -- in this case the decider reduces to false, so we do not halt
+        \case d.decidesFalse b \with {
+          | nh =>
+            -- but then (isNotHalting ⋅ isNotHalting) evaluates to true, which does halt
+            \let
+              | r : isNotHalting ⋅ isNotHalting ->*_u uniTrue =>
+                isNotHalting ⋅ isNotHalting
+                  ~~~< isNotHaltingReduction >~>
+                d.prog ⋅ (isNotHalting ⋅ isNotHalting) ⋅ omega ⋅ uniTrue
+                  ~~~< underApps (underApps b (refl idp)) (refl idp) >~>
+                uniFalse ⋅ omega ⋅ uniTrue
+                  ~~~< uniFalse.apply >~>
                 uniTrue `stop
-        \in nh (inP (uniTrue, r', uniTrue.normnal))
+            \in
+              nh (inP (uniTrue, r, uniTrue.normal))
+        }
     }

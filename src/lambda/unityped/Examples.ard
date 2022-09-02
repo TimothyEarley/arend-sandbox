@@ -8,19 +8,19 @@
 \func uniId {ctx : UniContext} : ctx u⊢ * => lam (var #0)
 
 \func uniTrue {ctx : UniContext} : ctx u⊢ * => lam $ lam $ var #1
-\where {
-  \func normnal {ctx : UniContext} : Normal (uniTrue {ctx})
-    => \case __ \with {
+  \where {
+    \func normal {ctx : UniContext} : Normal (uniTrue {ctx}) => \case __ \with {
       | (t', (R-Lam (R-Lam ()), p))
     }
 
-  \func apply {ctx : UniContext} {x y : ctx u⊢ *} : uniTrue ⋅ x ⋅ y ->*_u x
-    => \let foo : subst (sub.extendsOne y) (rename (\lam {T} => S) x) = x => {?}
-       \in (R-App1 R-Beta, idp) ~> (R-Beta, idp) ~> refl foo
-}
+    \func apply {ctx : UniContext} {x y : ctx u⊢ *} : uniTrue ⋅ x ⋅ y ->*_u x =>
+      (R-App1 R-Beta, idp) ~> (R-Beta, idp) ~> refl subst-sub-rename-S
+  }
+
 \func uniFalse {ctx : UniContext} : ctx u⊢ * => lam $ lam $ var #0
-\where {
-  \func apply {ctx : UniContext} {x y : ctx u⊢ *} : uniFalse ⋅ x ⋅ y ->*_u y => {?}
-}
+  \where {
+    \func apply {ctx : UniContext} {x y : ctx u⊢ *} : uniFalse ⋅ x ⋅ y ->*_u y =>
+      (R-App1 R-Beta, idp) ~> (R-Beta, idp) ~> refl idp
+  }
 
 \func uniSequence {ctx : UniContext} : ctx u⊢ * => lam $ lam $ var #0 -- aka uniFalse

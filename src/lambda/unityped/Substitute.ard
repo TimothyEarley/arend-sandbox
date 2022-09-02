@@ -33,6 +33,24 @@
       | ⋅ f arg => subst s f ⋅ subst s arg
   }
 
+\func subst-no-effect {Ctx : UniContext} {x : Ctx u⊢ *}
+                      {s : UniSubst (Ctx ∕ *) Ctx}
+                      {r : Rename Ctx (Ctx ∕ *)}
+                      (h : \Pi (l : Ctx ∋ *) -> s (r l) = var l)
+  : subst s (rename r x) = x \elim x
+  | var l => h l
+  | lam x => pmap lam (subst-no-effect (\lam (l : Ctx ∕ * ∋ *) => \case \elim l \with {
+    | Z _ => idp
+    | S l =>
+      \let goal : rename S (s (r l)) = var (S l) =>  rewrite (h l) idp
+      \in goal
+  }))
+  | ⋅ x x1 => pmap2 (⋅) (subst-no-effect h) (subst-no-effect h)
+
+\func subst-sub-rename-S {Ctx : UniContext} {x y : Ctx u⊢ *} :
+  subst (sub.extendsOne y) (rename S x) = x => subst-no-effect (\lam l => idp)
+
+
 \module SubstitutionAlgebra \where {
   \func ids {gamma : UniContext} : UniSubst gamma gamma => \lam {A} l => var l
 
@@ -46,26 +64,26 @@
     }
 
   \func sequence \alias \infixr 6 ++ {gamma delta epsilon : UniContext}
-                                    (s : UniSubst gamma delta) (s' : UniSubst delta epsilon) : UniSubst gamma epsilon =>
+                                     (s : UniSubst gamma delta) (s' : UniSubst delta epsilon) : UniSubst gamma epsilon =>
     \lam {A} l => UniSubstOperaions.subst s' (s l)
 
   -- properties
 
-  \func extends-id {gamma : UniContext} : extends ids = {UniSubst (gamma ∕ *) (gamma ∕ *)} ids
-    => ext (\lam {A} l => \case \elim l \with {
+  \func extends-id {gamma : UniContext} : extends ids = {UniSubst (gamma ∕ *) (gamma ∕ *)} ids =>
+    ext (\lam {A} l => \case \elim l \with {
       | Z p => idp
       | S l1 => idp
     })
 
   \func ids-id {gamma : UniContext} {A : UniType} {t : gamma u⊢ A} : subst ids t = t \elim t
     | var l => idp
-    | lam t => \let goal : subst (extends ids) t = t => rewrite extends-id ids-id
-               \in pmap lam goal
+    | lam t =>
+      \let goal : subst (extends ids) t = t => rewrite extends-id ids-id
+      \in pmap lam goal
     | ⋅ t t1 => pmap2 (⋅) ids-id ids-id
 
   \func seq-ids {gamma delta : UniContext} {s : UniSubst gamma delta} :
-    s ++ ids {delta} = {UniSubst gamma delta} s
-    => ext (\lam {A} l => unfold (++) ids-id)
+    s ++ ids {delta} = {UniSubst gamma delta} s => ext (\lam {A} l => unfold (++) ids-id)
 }
 
 \open SubstitutionAlgebra
