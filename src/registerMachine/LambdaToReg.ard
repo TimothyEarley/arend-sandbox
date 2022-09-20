@@ -2,13 +2,13 @@
 \import Debug.Meta
 \import Meta
 \import lambda.GeneralContext (#0, Context, ∅, ∋)
+\import lambda.unityped.CallByValue
 \import lambda.unityped.Lambda
+\import lambda.unityped.Reduction
 \import registerMachine.Program
 \import registerMachine.Semantics
 \import registerMachine.Utils
-\import typeclasses.Monad
 \open MachineSpec (String)
-\open DArray (!!)
 \open lambdaSpec (A_AMD, A_APP, A_LAM, A_STK, A_UNA, A_VAR)
 
 \func lambdaSpec : MachineSpec \cowith
@@ -261,3 +261,14 @@
       c
     }
   }
+
+-- needs a notion of equivalent configs considering variables can be replaced or stored on the stack
+--\func lambdaExecuterRuns {ctx : UniContext} (t t' : ctx u⊢ *) (r : t ->1_u_cbv t')
+--  : runs lambdaExecuter (lambdaConfig t) (lambdaConfig t')
+--  \elim t, r
+--    | var l, ((), _, _)
+--    | lam t, (R-Lam r, (), _)
+--    | ⋅ f t1, (R-App2 r, i, idp) => {?}
+--    | ⋅ f t1, (R-App1 r, i, idp) => {?}
+--    | ⋅ (lam t) t1, (R-Beta, v, idp) => {?}
+--

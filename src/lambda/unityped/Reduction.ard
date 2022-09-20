@@ -15,8 +15,6 @@
   | lam body => R-Lam (Reduction body)
 
   \where {
-    -- call by value
-
     \func decide {gamma : UniContext} {A : UniType} (t : gamma u⊢ A) : Or (Reduction t) (Not (Reduction t))
     \elim t
       | var l => inr (\lam r => \case r)
