@@ -1,11 +1,7 @@
-\import Data.Or
 \import Logic
 \import Star
 \import lambda.unityped.Lambda
 \import lambda.unityped.Reduction
-
-\data Value {ctx : UniContext} {T : UniType} (t : ctx u⊢ T) \elim t
-  | lam t => Lam-Value
 
 \func IsCBVReduction {ctx : UniContext} {T : UniType} {t : ctx u⊢ T} (r : Reduction t) : \Prop \elim t, r
   | ⋅ t t1, R-App1 r => IsCBVReduction r

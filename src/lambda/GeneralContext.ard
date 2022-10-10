@@ -1,6 +1,6 @@
+\import Data.List
 \import Arith.Nat
 \import Data.Fin
-\import Data.List
 \import Order.PartialOrder
 \import Paths
 \import Paths.Meta
@@ -17,6 +17,16 @@
     \func toList {Type : \Set} (c : Context Type) : List Type \elim c
       | ∅ => nil
       | ∕ c t => toList c ++ t :: nil
+
+    \func getAt {Type : \Set} (c : Context Type) (i : Fin (length c)) : Type \elim c, i
+      | ∕ c t, 0 => t
+      | ∕ c t, suc i => getAt c i
+
+    \func toArray {Type : \Set} (c : Context Type) : Array Type
+      => \new DArray {
+        | len => length c
+        | at => getAt c
+      }
   }
 
 \data Lookup \alias \infix 5 ∋ {Type : \Set} (c : Context Type) (T : Type) \elim c

@@ -1,6 +1,6 @@
+\import Data.Bool
 \import Data.Fin
 \import Data.List
-\import Meta
 \import Paths
 \import Paths.Meta
 
@@ -47,3 +47,7 @@
     | nil => idp
     | :: a l => rewriteI (rev_aux_equiv l (a :: l')) ++-assoc
 }
+
+\func isEmpty {A : \Type} (l : List A) : Bool \elim l
+  | nil => true
+  | :: a l => false

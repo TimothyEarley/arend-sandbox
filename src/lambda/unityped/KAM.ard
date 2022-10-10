@@ -1,0 +1,111 @@
+\import Data.Bool
+\import Data.List
+\import Paths
+\import Star
+\import lambda.GeneralContext
+\import lambda.unityped.HaltingProblem
+\import lambda.unityped.Lambda
+\import lambda.unityped.Reduction
+\import lambda.unityped.Substitute
+\import util.ListUtils
+
+-- Krivine Abstract Machine
+
+\data Closure (T : UniType) : \Set
+  | clos {ctx : UniContext} (ctx u⊢ T) (env : Env ctx)
+
+\data Stack (fromT toT : UniType) : \Set
+  | nilStack (fromT = toT)
+  -- If we had function types:
+  -- - fromT = via1 -> via2
+  -- - Closure via1
+  -- - Stack via2 toT
+  | consStack \alias \infix 6 ::: (Closure *) (Stack * toT)
+  \where {
+    \func isEmpty {A B : UniType} (s : Stack A B) : Bool \elim s
+      | nilStack p => true
+      | ::: c s => false
+  }
+
+\data Env (ctx : UniContext) : \Set \elim ctx
+  | ∅ => NoneEnv
+  | ∕ c T => ConsEnv \alias \infix 6 /env (Closure T) (Env c)
+
+\record KAM
+  | ctx : UniContext
+  --  | fromT : UniType
+  --  | toT : UniType
+  | currentTerm : ctx u⊢ * -- fromT
+  | stack : Stack * * -- fromT toT
+  | env : Env ctx
+
+  \where {
+    \func initial {ctx : UniContext} (env : Env ctx) (t : ctx u⊢ *) => \new KAM ctx t (nilStack idp) env
+  }
+
+\data KAMStep (k : KAM) : \Set \elim k
+  | (ctx, ⋅ t t1, stk, env) => KApp
+  | (ctx, lam t, ::: top stk, env) => KLam
+  | (∕ ctx t, var (Z p), stk, env) => KZero
+  | (∕ ctx *, var (S l), stk, env) => KSuc
+  \where {
+    \func reduce {k : KAM} (s : KAMStep k) : KAM
+      | {(ctx,⋅ t t1, stk, env)}, KApp => \new KAM ctx t (clos t1 env ::: stk) env
+      | {(ctx, lam t, ::: top stk, env)}, KLam => \new KAM (ctx ∕ *) t stk (top /env env)
+      | {(∕ ctx *, var (Z _), stk, (/env (clos {ctx'} t te) env))}, KZero => \new KAM ctx' t stk te
+      | {(∕ ctx *, var (S l), stk, (/env _ env))}, KSuc => \new KAM ctx (var l) stk env
+
+    \func deterministic {k : KAM} (s s' : KAMStep k) : s = s' \elim k, s, s'
+      | (ctx,⋅ t t1,stk,env), KApp, KApp => idp
+      | (ctx,lam t,::: top stk,env), KLam, KLam => idp
+      | (∕ ctx t,var (Z p),stk,env), KZero, KZero => idp
+      | (∕ ctx *,var (S l),stk,env), KSuc, KSuc => idp
+  }
+
+\func kamStep \alias \infix 6 ->1_kam (k k' : KAM) => \Sigma (r : KAMStep k) (KAMStep.reduce r = k')
+  \where {
+    \func deterministic {k k' k'' : KAM} (s : k ->1_kam k') (s' : k ->1_kam k'') : k' = k'' \elim s, s'
+      | (r, idp), (r', idp) => pmap KAMStep.reduce (KAMStep.deterministic r r')
+  }
+
+\func kamReduces \alias \infix 6 ->*_kam (k k' : KAM) => Star (->1_kam) k k'
+
+-- I think this needs a way to evaluate closures (which in general is not possible)
+
+--\func fillIn (k : KAM) : ∅ u⊢ * => subst
+--    (\lam {A} l =>
+--        \let c => lookupInEnv l env
+--        \in {?}
+--    )
+--    k.currentTerm
+--  \where {
+--    \func lookupInEnv {ctx : UniContext} {T : UniType} (l : ctx ∋ T) (env : Env ctx) : Closure T
+--    \elim ctx, l, env
+--      | ∕ c T, Z idp, /env c1 env => c1
+--      | ∕ c *, S l, /env c1 env => lookupInEnv l env
+--  }
+
+\func example1KAM :
+  KAM.initial {∅} NoneEnv (lam (var #0 ⋅ var #0) ⋅ lam (var #0))
+    ->*_kam
+  \new KAM ∅ (lam (var #0)) (nilStack idp) NoneEnv =>
+  (\new KAM ∅ (lam (var #0 ⋅ var #0) ⋅ lam (var #0)) (nilStack idp) NoneEnv) ~~< (KApp, idp) >~>
+  (\new KAM ∅ (lam (var #0 ⋅ var #0)) (clos (lam (var #0)) NoneEnv ::: nilStack idp) NoneEnv) ~~< (KLam, idp) >~>
+  (\new KAM (∅ ∕ *) (var #0 ⋅ var #0) (nilStack idp) (clos (lam (var #0)) NoneEnv /env NoneEnv)) ~~< (KApp, idp) >~>
+  (\new KAM (∅ ∕ *) (var #0) (clos (var #0) (clos (lam (var #0)) NoneEnv /env NoneEnv) ::: nilStack idp) (clos (lam (var #0)) NoneEnv /env NoneEnv)) ~~< (KZero, idp) >~>
+  (\new KAM ∅ (lam (var #0)) (clos (var #0) (clos (lam (var #0)) NoneEnv /env NoneEnv) ::: nilStack idp) NoneEnv) ~~< (KLam, idp) >~>
+  (\new KAM (∅ ∕ *) (var #0) (nilStack idp) (clos (var #0) (clos (lam (var #0)) NoneEnv /env NoneEnv) /env NoneEnv)) ~~< (KZero, idp) >~>
+  (\new KAM (∅ ∕ *) (var #0) (nilStack idp) (clos (lam (var #0)) NoneEnv /env NoneEnv)) ~~< (KZero, idp) >~>
+  (\new KAM ∅ (lam (var #0)) (nilStack idp) NoneEnv) `stop
+
+\func exampleOmega
+  : KAM.initial NoneEnv omega ->*_kam {?} =>
+  (\new KAM ∅ omega (nilStack idp) NoneEnv) ~~< (KApp, idp) >~>
+  (\new KAM ∅ (lam (var #0 ⋅ var #0)) (clos (lam (var #0 ⋅ var #0)) NoneEnv ::: nilStack idp) NoneEnv) ~~< (KLam, idp) >~>
+  (\new KAM (∅ ∕ *) (var #0 ⋅ var #0) (nilStack idp) (clos (lam (var #0 ⋅ var #0)) NoneEnv /env NoneEnv)) ~~< (KApp, idp) >~>
+  (\new KAM (∅ ∕ *) (var #0) (clos (var #0) (clos (lam (var #0 ⋅ var #0)) NoneEnv /env NoneEnv) ::: nilStack idp) (clos (lam (var #0 ⋅ var #0)) NoneEnv /env NoneEnv)) ~~< (KZero, idp) >~>
+  (\new KAM ∅ (lam (var #0 ⋅ var #0)) (clos (var #0) (clos (lam (var #0 ⋅ var #0)) NoneEnv /env NoneEnv) ::: nilStack idp) NoneEnv) ~~< (KLam, {?}) >~>
+  {?} `stop
+
+
+\func isDone (k : KAM) : \Prop => \Sigma (So (Stack.isEmpty k.stack)) (Value k.currentTerm)

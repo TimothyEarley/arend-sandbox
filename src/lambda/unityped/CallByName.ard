@@ -1,0 +1,75 @@
+\import Logic
+\import Logic.Meta
+\import Paths
+\import Paths.Meta
+\import Star
+\import lambda.GeneralContext
+\import lambda.unityped.Lambda
+\import lambda.unityped.Reduction
+
+\func IsCBNReduction {ctx : UniContext} {T : UniType} {t : ctx u⊢ T} (r : Reduction t) : \Prop \elim t, r
+  | ⋅ t t1, R-App1 r => IsCBNReduction r
+  | ⋅ t t1, R-App2 r => Empty
+  | ⋅ (lam t) t1, R-Beta => \Sigma
+  | lam t, R-Lam r => Empty
+
+  \where {
+    \func valueNoCBNReduction {ctx : UniContext} {T : UniType} {t : ctx u⊢ T} (v : Value t) (r : Reduction t) (cbv : IsCBNReduction r) : Empty
+
+    -- TODO: how can Arend help me here?
+
+    \func app1 {ctx : UniContext} {f arg : ctx u⊢ *} {r : Reduction f}
+      : IsCBNReduction (R-App1 {_} {*} {_} {arg} r) = IsCBNReduction r
+    \elim f
+      | var l => idp
+      | lam f => idp
+      | ⋅ f f1 => idp
+
+    \func app2 {ctx : UniContext} {f arg : ctx u⊢ *} {r : Reduction arg}
+      : IsCBNReduction (R-App2 {_} {*} {f} {_} r) = Empty
+    \elim f
+      | var l => idp
+      | lam f => idp
+      | ⋅ f f1 => idp
+  }
+
+\func cbnReduceStep \alias \infix 6 ->1_u_cbn {ctx : UniContext} {T : UniType} (t t' : ctx u⊢ T) =>
+  \Sigma (r : Reduction t) (IsCBNReduction r) (reduce r = t')
+  \where {
+    \func singleReduction {ctx : UniContext} {t : ctx u⊢ *}
+                          {r r' : Reduction t} (hr : IsCBNReduction r) (hr' : IsCBNReduction r')
+      : r = r'
+    \elim t, r, r', hr, hr'
+      | ⋅ t t1, R-App2 r, _, hr, hr' => absurd (rewriteF IsCBNReduction.app2 hr)
+      | ⋅ t t1, _, R-App2 r', hr, hr' => absurd (rewriteF IsCBNReduction.app2 hr')
+      | ⋅ (lam t) t1, R-App1 r, _, hr, _ => absurd (IsCBNReduction.valueNoCBNReduction Lam-Value r hr)
+      | ⋅ (lam t) t1, _, R-App1 r', _, hr' => absurd (IsCBNReduction.valueNoCBNReduction Lam-Value r' hr')
+      | lam t, R-Lam r, R-Lam r', (), hr'
+
+      | ⋅ (lam t) t1, R-Beta, R-Beta, hr, hr' => idp
+      | ⋅ t t1, R-App1 r, R-App1 r', hr, hr' => pmap R-App1 (singleReduction (rewriteF IsCBNReduction.app1 hr) (rewriteF IsCBNReduction.app1 hr'))
+
+    \func deterministic {ctx : UniContext} {t t' t'' : ctx u⊢ *}
+                        (s : t ->1_u_cbn t') (s' : t ->1_u_cbn t'') : t' = t'' \elim s, s'
+      | (r,i,idp), (r1,i1,idp) => pmap reduce (singleReduction i i1)
+  }
+
+\func cbnReduces \alias \infix 6 ->*_u_cbn {ctx : UniContext} {T : UniType} (t t' : ctx u⊢ T) => Star (->1_u_cbn) t t'
+
+-- https://arxiv.org/pdf/1202.2924.pdf
+\module ClosedCBNReduction \where {
+
+  \data Closed (T : UniType) : \Set
+    | closure {ctx : UniContext} (t : ctx u⊢ T) (Env ctx)
+    | clapp (f arg : Closed *)
+
+  \data Env (ctx : UniContext) : \Set \elim ctx
+    | ∅ => NoneEnv
+    | ∕ ctx T => ConsEnv (Env ctx) (Closed T)
+
+  \func ClosedValue {T : UniType} (c : Closed T) : \Prop \elim c
+    | closure t e => Value t
+    | clapp f c => Empty
+
+
+}

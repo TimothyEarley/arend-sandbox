@@ -106,3 +106,6 @@
   }
 
 \func Normal {ctx : UniContext} (t : ctx u⊢ *) => Not (\Sigma (t' : ctx u⊢ *) (t ->1_u t'))
+
+\data Value {ctx : UniContext} {T : UniType} (t : ctx u⊢ T) : \Prop \elim t
+  | lam t => Lam-Value
