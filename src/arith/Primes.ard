@@ -1,0 +1,37 @@
+\import Algebra.Monoid
+\import Algebra.Monoid.Prime
+\import Algebra.Ring
+\import Arith.Nat
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Paths
+\open Monoid (Inv, LDiv)
+\open NatSemiring (cancel_*-left)
+\open Nat (mod)
+
+\func notLDiv0 {x : Nat} : Not (LDiv 0 (suc x)) => \lam l => \case \elim l \with {
+  | (e, p : 0 * e = suc x) => suc/=0 (inv p *> Ring.zro_*-left)
+}
+
+\func isLDiv? (x y : Nat) : LDiv x y || Not (LDiv x y) => cases (y mod x arg addPath) \with {
+  | 0, p => byLeft (mod_div p)
+  | suc c, p => byRight (\lam d => suc/=0 (inv p *> div_mod d))
+}
+
+\lemma twoIsPrime : Prime {NatSemiring} 2 \cowith
+  | notInv (h : Inv 2) => \case \elim h \with {
+    | (0, _, _) => contradiction
+    | (suc n, _, _) => contradiction
+  }
+  | isCancelable-left => cancel_*-left (\lam p => suc/=0 p)
+  | isPrime {x} {y} m => \case \elim m \with {
+    | (e, p) =>
+      \let
+        | xy|2 : LDiv 2 (x * y) => \new LDiv {
+          | inv => e
+          | inv-right => p
+        }
+      \in {?}
+  }
+
