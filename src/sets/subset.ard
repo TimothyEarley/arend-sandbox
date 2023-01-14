@@ -1,13 +1,10 @@
-\import Function
 \import Logic
 \import Paths.Meta
 \import sets.Add
 \import sets.Elements
-\import sets.MySet
-\import sets.Complement
 \import sets.Intersect
+\import sets.MySet
 \import sets.remove
-\import sets.subset
 \import sets.union
 
 \func subset \alias \infix 5 ⊆ {A : \Set} (a b : Ensemble A) : \Prop => \Pi {x : A} (x ∈ a) -> x ∈ b

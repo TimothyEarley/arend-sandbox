@@ -1,12 +1,9 @@
 \import Arith.Nat
-\import Data.Bool
 \import Function
 \import Logic
-\import Order.LinearOrder
 \import Order.PartialOrder
 \import Paths
 \import Set
-\import Util
 \import identity.DecMaps
 \import identity.Identity
 \import util.Nat

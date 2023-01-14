@@ -1,20 +1,13 @@
 \import Data.Bool
 \import Data.Or
-\import Equiv
 \import Logic
 \import Logic.Meta
-\import LogicUtil
 \import Meta
 \import Paths.Meta
 \import sets.Add
-\import sets.Disjoint
 \import sets.Elements
-\import sets.finite.FiniteS
 \import sets.MySet
-\import sets.Complement
-\import sets.Intersect
 \import sets.subset
-\import sets.union
 \import util.TruncOrUtils
 
 \func union \alias \infixl 6 ∪ {E : \Set} (a b : Ensemble E) : Ensemble E => \lam e => (e ∈ a) || (e ∈ b)

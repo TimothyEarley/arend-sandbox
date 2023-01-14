@@ -190,11 +190,6 @@
           | 0, nil, i => var i
           | suc m, :: a with, 0 => a
           | suc m, :: a with, suc i => substFunction with i
-
-      \func recurseSub  {L : Language} {n m : Nat} {f : Formula (suc (n Nat.+ m))}
-                        {t : Term n} {d : Array (Term n) m}
-        : subN f (t :: d) = subN (sub f (liftN _ t)) d
-        => unfold subN {?}
     }
 
     \func FreeVar {L : Language} {n : Nat} (f : Formula n) (i : Fin n) : \Prop \elim f

@@ -14,13 +14,11 @@
 \import sets.finite.Sized
 \import sets.remove
 \import sets.subset
-\open Formula (Subst, extends, sub, subN, subTerm, subTermLift, subTermsAt, subst)
+\open Formula (Subst, extends, sub, subTerm, subTermLift, subTermsAt, subst)
 \open Semantics (Interpretation, evaluate, ⊧)
 \open Interpretation (subOneRename)
 
 \module SequentCalulus \where {
-
-
   \data SequentProof \alias \infix 5 ⊢ {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) (toShow : Formula n)
   \elim toShow
     | toShow => Ass (toShow ∈ axioms)
@@ -75,23 +73,6 @@
 
       -- TruncP because thats where we use it
 
-      \func E-SubstN {L : Language} {baseNum numOfAdded : Nat}
-                     {toShow : Formula baseNum}
-                     (axioms : Ensemble (Formula baseNum))
-                     (d d' : Array (Term baseNum) numOfAdded)
-                     (f : Formula (baseNum Nat.+ numOfAdded))
-                     (hp : axioms ⊢ subN f d)
-                     (dd' : DArray (\lam i => TruncP (axioms ⊢ equal (d i) (d' i))))
-                     (tsp : subN f d' = toShow)
-        : TruncP (axioms ⊢ toShow) \elim numOfAdded, d, d', dd'
-        | 0, nil, nil, nil => rewriteI tsp (inP hp)
-        | suc numOfAdded, :: t d, :: t' d', :: (inP t=t') dd' =>
-          E-SubstN axioms d d'
-              (sub f (Term.liftN _ t'))
-              (E-Subst' t t' t=t' {?} {?} {?})
-              dd'
-              (inv subN.recurseSub *> tsp)
-
       \func CP3 {L : Language} {n : Nat}
                 {axioms : Ensemble (Formula n)} {x y : Formula n}
                 (h : add axioms (notH y) ⊢ x)
@@ -105,9 +86,9 @@
                         (h : axioms ⊢ notH (notH f))
         : axioms ⊢ f => MP (notH (notH f)) h (CP3 (Ass (byRight idp)))
 
---      \func intro-notnot {L : Language} {n : Nat} {axioms : Ensemble (Formula n)} {f : Formula n}
---                         (h : axioms ⊢ f)
---        : axioms ⊢ notH (notH f) => {?}
+      --      \func intro-notnot {L : Language} {n : Nat} {axioms : Ensemble (Formula n)} {f : Formula n}
+      --                         (h : axioms ⊢ f)
+      --        : axioms ⊢ notH (notH f) => {?}
 
       \func CP4 {L : Language} {n : Nat}
                 {axioms : Ensemble (Formula n)} {x y : Formula n}
@@ -156,8 +137,8 @@
           })))
           h2
 
---      \func intro-or1 {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
---                      {x y : Formula n} (h : axioms ⊢ x) : axioms ⊢ x orH y => impIntro' (intro-notnot h)
+      --      \func intro-or1 {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
+      --                      {x y : Formula n} (h : axioms ⊢ x) : axioms ⊢ x orH y => impIntro' (intro-notnot h)
 
       \func intro-or2 {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
                       {x y : Formula n} (h : axioms ⊢ y) : axioms ⊢ x orH y => impIntro (weaken h (byLeft __))
@@ -206,8 +187,6 @@
   \func entails \alias \infix 6 ⊫e {L : Language} (from : Ensemble (Formula 0)) (to : Formula 0) =>
     \Pi (I : Interpretation 0) (h : \Pi {f : Formula 0} (f ∈ from) -> I ⊧ f) -> I ⊧ to
 
-  -- TODO how should the classical requirement be handled?
-
   \func proofIsEntails
     {L : Language} {from : Ensemble (Formula 0)} {to : Formula 0}
     (decidable : \Pi (I : Interpretation 0) (f : Formula 0) -> Dec (I ⊧ f))
@@ -228,16 +207,17 @@
         }
     | to, Ctr psi h1 h2 => \lam I h => \case decidable I to \with {
       | yes e => e
-      | no n => \let
-        | Ipsi => proofIsEntails decidable h1 I (\case __ \with {
-          | byLeft a => h a
-          | byRight p => rewriteI p n
-        })
-        | InotPsi => proofIsEntails decidable h2 I (\case __ \with {
-          | byLeft a => h a
-          | byRight p => rewriteI p n
-        })
-                \in absurd (InotPsi Ipsi)
+      | no n =>
+        \let
+          | Ipsi => proofIsEntails decidable h1 I (\case __ \with {
+            | byLeft a => h a
+            | byRight p => rewriteI p n
+          })
+          | InotPsi => proofIsEntails decidable h2 I (\case __ \with {
+            | byLeft a => h a
+            | byRight p => rewriteI p n
+          })
+        \in absurd (InotPsi Ipsi)
     }
     | equal x y, E-Refl idp => \lam I h => idp
     | to, E-Subst t t' e phi h idp => \lam I h1 =>
@@ -251,15 +231,15 @@
     })
     | impH x to, impIntro' h => \lam I mf mx => absurd (proofIsEntails decidable h I mf mx)
     | toShow, impElim x y el h1 h2 => \lam I h => \case decidable I x \with {
-        | yes Ix => proofIsEntails decidable h2 I (\case __ \with {
-          | byLeft inFrom => h inFrom
-          | byRight =y => rewriteI =y $ h el Ix
-        })
-        | no Inx => proofIsEntails decidable h1 I (\case __ \with {
-          | byLeft inFrom => h inFrom
-          | byRight =nx => rewriteI =nx $ Inx
-        })
-      }
+      | yes Ix => proofIsEntails decidable h2 I (\case __ \with {
+        | byLeft inFrom => h inFrom
+        | byRight =y => rewriteI =y $ h el Ix
+      })
+      | no Inx => proofIsEntails decidable h1 I (\case __ \with {
+        | byLeft inFrom => h inFrom
+        | byRight =nx => rewriteI =nx $ Inx
+      })
+    }
 
   \func subModel {L : Language} {I : Interpretation 0} {phi : Formula 1} {t t' : Term 0}
                  (h : I ⊧ sub phi t) (e : evaluate I t = evaluate I t')
@@ -276,8 +256,9 @@
         | atomic r d => transport (Semantics.rel {I.1} r)
             (ext (ext (\lam j => rewriteF (inv $ subTermsAt j, inv $ subTermsAt j) (evalSubst (d j) (\lam {k} free => freeSame $ inP (j, free))))))
             h
-        | impH x phi => \lam mo => \let xs : I ⊧ subst s x => substModel x (\lam fr => inv (freeSame (byLeft fr))) mo
-                                   \in substModel phi (\lam fr => freeSame (byRight fr)) (h xs)
+        | impH x phi => \lam mo =>
+            \let xs : I ⊧ subst s x => substModel x (\lam fr => inv (freeSame (byLeft fr))) mo
+            \in substModel phi (\lam fr => freeSame (byRight fr)) (h xs)
         | notH phi => \lam mo => h (substModel phi (\lam fr => inv (freeSame fr)) mo)
         | forallH phi => \lam x => substModel
             phi
@@ -298,8 +279,6 @@
                 \let h' => evalSubst (d j) (\lam {k} free => h $ inP (j, free))
                 \in rewriteF (inv $ subTermsAt j, inv $ subTermsAt j) h')))
     }
-
-  -- TODO show that it is subset
 
   \func sequentProofUsesFiniteAxioms {L : DecLanguage} {axioms : DecElementEnsemble (Formula 0)} {f : Formula 0}
                                      (h : axioms ⊢ f) : \Sigma (reducedAxioms : DecSizedEnsemble (Formula 0)) (reducedAxioms.S ⊆ axioms) (reducedAxioms ⊢ f)
@@ -382,62 +361,68 @@
                               (⊆.trans sax1 (⊆.unionSubset ⊆.refl (\lam {x} x=notH => transport (__ ∈ axioms.S) x=notH e)))
                               (⊆.trans sax2 (⊆.unionSubset ⊆.refl (\lam {x} x=notH => transport (__ ∈ axioms.S) x=notH e))),
                           Ctr psi (weaken pax1 (\lam z => byLeft (byLeft z))) (weaken pax2 (\lam z => byLeft (byRight z))))
-        | no n, yes e, yes e1 => \let
-          | ax1' : DecSizedEnsemble => ax1.removeSized e
-          | ax2' : DecSizedEnsemble => ax2.removeSized e1
-          | axioms' => ax1'.unionSized ax2'
-          | ax1sub : ax1.S ⊆ add axioms' (notH f) => \lam {x} e => \case decideEq (notH f) x \with {
-            | yes e1 => byRight e1
-            | no n2 => byLeft (byLeft (e, n2))
-          }
-          | ax2sub : ax2.S ⊆ add axioms' (notH f) => \lam {x} e => \case decideEq (notH f) x \with {
-            | yes e1 => byRight e1
-            | no n2 => byLeft (byRight (e, n2))
-          }
-                                 \in (axioms', ⊆.unionSubset (⊆.removeAdd sax1) (⊆.removeAdd sax2),
-                                      Ctr psi (weaken pax1 ax1sub) (weaken pax2 ax2sub)
+        | no n, yes e, yes e1 =>
+          \let
+            | ax1' : DecSizedEnsemble => ax1.removeSized e
+            | ax2' : DecSizedEnsemble => ax2.removeSized e1
+            | axioms' => ax1'.unionSized ax2'
+            | ax1sub : ax1.S ⊆ add axioms' (notH f) => \lam {x} e => \case decideEq (notH f) x \with {
+              | yes e1 => byRight e1
+              | no n2 => byLeft (byLeft (e, n2))
+            }
+            | ax2sub : ax2.S ⊆ add axioms' (notH f) => \lam {x} e => \case decideEq (notH f) x \with {
+              | yes e1 => byRight e1
+              | no n2 => byLeft (byRight (e, n2))
+            }
+          \in (axioms', ⊆.unionSubset (⊆.removeAdd sax1) (⊆.removeAdd sax2),
+               Ctr psi (weaken pax1 ax1sub) (weaken pax2 ax2sub)
           )
-        | no n, yes e, no n1 => \let
-          | ax1' : DecSizedEnsemble => ax1.removeSized e
-          | axioms' => ax1'.unionSized ax2
-          | sax2' : ax2.S ⊆ axioms => rewrite (remove.alreadyGone n1) $ ⊆.removeAdd sax2
-          | ax1sub : ax1.S ⊆ add axioms' (notH f) => \lam {x} e => \case decideEq (notH f) x \with {
-            | yes e1 => byRight e1
-            | no n2 => byLeft (byLeft (e, n2))
-          }
-          | ax2sub : ax2.S ⊆ add axioms' (notH f) => \lam z => byLeft (byRight z)
-                                \in (axioms', ⊆.unionSubset (⊆.removeAdd sax1) sax2',
-                                     Ctr psi (weaken pax1 ax1sub) (weaken pax2 ax2sub))
-        | no n, no n1, yes e => \let
-          | ax2' : DecSizedEnsemble => ax2.removeSized e
-          | axioms' => ax1.unionSized ax2'
-          | sax1' : ax1.S ⊆ axioms => rewrite (remove.alreadyGone n1) $ ⊆.removeAdd sax1
-          | ax1sub : ax1.S ⊆ add axioms' (notH f) => \lam z => byLeft (byLeft z)
-          | ax2sub : ax2.S ⊆ add axioms' (notH f) => \lam {x} e => \case decideEq (notH f) x \with {
-            | yes e1 => byRight e1
-            | no n2 => byLeft (byRight (e, n2))
-          }
-                                \in (axioms', ⊆.unionSubset sax1' (⊆.removeAdd sax2),
-                                     Ctr psi (weaken pax1 ax1sub) (weaken pax2 ax2sub))
-        | no n, no n1, no n2 => \let
-          | axioms' => ax1.unionSized ax2
-          | sax1' : ax1.S ⊆ axioms => rewrite (remove.alreadyGone n1) $ ⊆.removeAdd sax1
-          | sax2' : ax2.S ⊆ axioms => rewrite (remove.alreadyGone n2) $ ⊆.removeAdd sax2
-          | ax1sub : ax1.S ⊆ add axioms' (notH f) => \lam z => byLeft (byLeft z)
-          | ax2sub : ax2.S ⊆ add axioms' (notH f) => \lam z => byLeft (byRight z)
-                                \in (axioms', ⊆.unionSubset sax1' sax2',
-                                     Ctr psi (weaken pax1 ax1sub) (weaken pax2 ax2sub))
+        | no n, yes e, no n1 =>
+          \let
+            | ax1' : DecSizedEnsemble => ax1.removeSized e
+            | axioms' => ax1'.unionSized ax2
+            | sax2' : ax2.S ⊆ axioms => rewrite (remove.alreadyGone n1) $ ⊆.removeAdd sax2
+            | ax1sub : ax1.S ⊆ add axioms' (notH f) => \lam {x} e => \case decideEq (notH f) x \with {
+              | yes e1 => byRight e1
+              | no n2 => byLeft (byLeft (e, n2))
+            }
+            | ax2sub : ax2.S ⊆ add axioms' (notH f) => \lam z => byLeft (byRight z)
+          \in (axioms', ⊆.unionSubset (⊆.removeAdd sax1) sax2',
+               Ctr psi (weaken pax1 ax1sub) (weaken pax2 ax2sub))
+        | no n, no n1, yes e =>
+          \let
+            | ax2' : DecSizedEnsemble => ax2.removeSized e
+            | axioms' => ax1.unionSized ax2'
+            | sax1' : ax1.S ⊆ axioms => rewrite (remove.alreadyGone n1) $ ⊆.removeAdd sax1
+            | ax1sub : ax1.S ⊆ add axioms' (notH f) => \lam z => byLeft (byLeft z)
+            | ax2sub : ax2.S ⊆ add axioms' (notH f) => \lam {x} e => \case decideEq (notH f) x \with {
+              | yes e1 => byRight e1
+              | no n2 => byLeft (byRight (e, n2))
+            }
+          \in (axioms', ⊆.unionSubset sax1' (⊆.removeAdd sax2),
+               Ctr psi (weaken pax1 ax1sub) (weaken pax2 ax2sub))
+        | no n, no n1, no n2 =>
+          \let
+            | axioms' => ax1.unionSized ax2
+            | sax1' : ax1.S ⊆ axioms => rewrite (remove.alreadyGone n1) $ ⊆.removeAdd sax1
+            | sax2' : ax2.S ⊆ axioms => rewrite (remove.alreadyGone n2) $ ⊆.removeAdd sax2
+            | ax1sub : ax1.S ⊆ add axioms' (notH f) => \lam z => byLeft (byLeft z)
+            | ax2sub : ax2.S ⊆ add axioms' (notH f) => \lam z => byLeft (byRight z)
+          \in (axioms', ⊆.unionSubset sax1' sax2',
+               Ctr psi (weaken pax1 ax1sub) (weaken pax2 ax2sub))
       }
-    | f, E-Subst t t' e phi h p => \let
-      | (ax : DecSizedEnsemble, sax, pax) => sequentProofUsesFiniteAxioms h
-                                   \in (ax.addSized' (equal t t'),
-                                        \case \elim __ \with {
-                                          | byLeft z => sax z
-                                          | byRight z => transport (__ ∈ axioms) z e
-                                        },
-                                        E-Subst t t' (byRight idp) phi (weaken pax (byLeft __)) p)
-    | impH x f, impIntro h => \let (ax : DecSizedEnsemble, sax, pax) => sequentProofUsesFiniteAxioms {_} {axioms.addElement x} h
-                              \in \case axioms.decElement x, ax.decElement x \with {
+    | f, E-Subst t t' e phi h p =>
+      \let
+        | (ax : DecSizedEnsemble, sax, pax) => sequentProofUsesFiniteAxioms h
+      \in (ax.addSized' (equal t t'),
+           \case \elim __ \with {
+             | byLeft z => sax z
+             | byRight z => transport (__ ∈ axioms) z e
+           },
+           E-Subst t t' (byRight idp) phi (weaken pax (byLeft __)) p)
+    | impH x f, impIntro h =>
+      \let (ax : DecSizedEnsemble, sax, pax) => sequentProofUsesFiniteAxioms {_} {axioms.addElement x} h
+      \in \case axioms.decElement x, ax.decElement x \with {
         | yes e, _ => (ax, ⊆.trans sax (⊆.unionSubset ⊆.refl (⊆.singleSubset e)), impIntro (weaken pax (byLeft __)))
         | no n, yes e => (ax.removeSized e, ⊆.removeAdd sax, impIntro (rewriteI (remove.addBack e _) pax))
         | no n, no n1 => (ax, \lam {y} e => \case sax e \with {
@@ -446,7 +431,71 @@
         }, impIntro (weaken pax (byLeft __)))
       }
     | impH x f, impIntro' h => \let (ax, sax, pax) => sequentProofUsesFiniteAxioms h \in (ax, sax, impIntro' pax)
-    | toShow, impElim phi psi e h1 h2 => {?}
+    | toShow, impElim phi psi impIn h1 h2 =>
+      -- phi -> psi
+      -- A, n phi |- S
+      -- A, psi |- S
+      -- ----------------
+      -- A |- S
+
+      \let
+        | addAxiomsNot : DecElementEnsemble (Formula 0) => \new DecElementEnsemble {
+          | E => Formula 0
+          | S => add axioms (notH phi)
+          | decElement x => \case axioms.decElement x, decideEq {FormulaDec} (notH phi) x \with {
+            | yes e1, _ => yes (byLeft e1)
+            | _, yes e1 => yes (byRight e1)
+            | no n, no n1 => no (\case __ \with {
+              | byLeft a => n a
+              | byRight b => n1 b
+            })
+          }
+        }
+        | addAxioms : DecElementEnsemble (Formula 0) => \new DecElementEnsemble {
+          | E => Formula 0
+          | S => add axioms psi
+          | decElement x => \case axioms.decElement x, decideEq {FormulaDec} psi x \with {
+            | yes e1, _ => yes (byLeft e1)
+            | _, yes e1 => yes (byRight e1)
+            | no n, no n1 => no (\case __ \with {
+              | byLeft a => n a
+              | byRight b => n1 b
+            })
+          }
+        }
+
+        | (h1axioms : DecSizedEnsemble, h1subset, h1Proof) => sequentProofUsesFiniteAxioms {_} {addAxiomsNot} h1
+        | (h2axioms : DecSizedEnsemble, h2subset, h2Proof) => sequentProofUsesFiniteAxioms {_} {addAxioms} h2
+        | h1Pure : DecSizedEnsemble => h1axioms.removeSized' (notH phi)
+        | h2Pure : DecSizedEnsemble => h2axioms.removeSized' psi
+        | unionAxioms : DecSizedEnsemble => h1Pure.unionSized h2Pure
+        | withAdded : DecSizedEnsemble => unionAxioms.addSized' (phi impH psi)
+      \in \case axioms.decElement psi \with {
+        | yes psiIn =>
+          -- then h2 is sufficient
+          (h2axioms, ⊆.trans h2subset (⊆.unionSubset ⊆.refl (⊆.singleSubset psiIn)), h2Proof)
+
+        -- then we need to remove psi from the union
+        | no psiNotIn => \case axioms.decElement (notH phi) \with {
+          | yes nPhiIn =>
+            -- then h1 is sufficient
+            (h1axioms, ⊆.trans h1subset (⊆.unionSubset ⊆.refl (⊆.singleSubset nPhiIn)), h1Proof)
+
+          | no nPhiNotIn =>
+            -- we need to craft a finite implemtation of impElim (union of h1 and h2 minus psi / not phi and keep (psi -> phi))
+            (withAdded,
+             ⊆.unionSubset (⊆.unionSubset (⊆.removeAdd h1subset) (⊆.removeAdd h2subset)) (⊆.singleSubset impIn),
+             impElim phi psi (byRight idp)
+                 (weaken h1Proof (\lam {x} e => \case decideEq (notH phi) x \with {
+                   | yes x=notPhi => byRight x=notPhi
+                   | no x/=notPhi => byLeft (byLeft (byLeft (e, x/=notPhi)))
+                 }))
+                 (weaken h2Proof (\lam {x} e => \case decideEq psi x \with {
+                   | yes x=psi => byRight x=psi
+                   | no x/=psi => byLeft (byLeft (byRight (e, x/=psi)))
+                 })))
+        }
+      }
 
   \class TermCongruence {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) \extends Equivalence
     | A => Term n
