@@ -1,21 +1,8 @@
-\import Arith.Int
-\import Arith.Nat
-\import Data.Bool
 \import Data.List
 \import Data.Or
-\import Data.Sigma
-\import Equiv
-\import Meta
-\import Order.LinearOrder
-\import Set
 \import Logic
 \import Logic.Meta
-\import LogicUtil
-\import Order.PartialOrder
 \import Paths
-\import Paths.Meta
-\open LinearOrder (<=-dec)
-\open NatSemiring (<)
 
 -- Or
 

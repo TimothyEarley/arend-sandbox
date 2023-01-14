@@ -1,24 +1,15 @@
 \import Data.Array
 \import Data.Bool
-\import Meta
-\import logik.AussagenLogik (⊧)
 \import Data.Or
-\import Equiv
-\import sets.Add
-\import sets.Elements
-\import sets.Complement
-\import sets.finite.FiniteS
-\import sets.Intersect
-\import sets.pow
-\import sets.subset
-\import sets.union
-\import Logic.Meta
-\import Set
-\import Util
 \import Logic
+\import Logic.Meta
 \import LogicUtil
+\import Meta
 \import Paths
 \import Paths.Meta
+\import Set
+\import Util
+\import sets.Add
 \import sets.MySet
 \import util.So
 
@@ -52,7 +43,7 @@
                          (h : J ⊧ f) (h' : J ⊭ f) {B : \Type} : B => absurd (h' h)
 
     \func rAnd {V : \Set} {J : Assignment V} {A B : Formula V} (ja : J ⊧ A) (jb : J ⊧ B) : J ⊧ (A andH B) =>
-      unfold (⊧) (rewrite (soTrue ja) (rewrite (soTrue jb) so))
+      unfold (⊧) (rewrite (soTrue ja) (rewrite (soTrue jb) ()))
 
     \func rAnd1 {V : \Set} {J : Assignment V} {A B : Formula V} (j : J ⊧ A andH B) : J ⊧ A =>
       soAnd1 (rewriteF notNot (rewriteF notNot (transport So deMorganOr j)))
@@ -67,11 +58,11 @@
       \lam m => nb (rAnd2 m)
 
     \func r=>1 {V : \Set} {J : Assignment V} (A : Formula V) {B : Formula V} (jb : J ⊧ B) : J ⊧ (A ==> B) =>
-      \let goal : So (evaluate J (notH A) or evaluate J B) => rewrite (soTrue jb) (rewrite orTrue So.so)
+      \let goal : So (evaluate J (notH A) or evaluate J B) => rewrite (soTrue jb) (rewrite orTrue ())
       \in goal
 
     \func r=>2 {V : \Set} {J : Assignment V} (A : Formula V) (na : J ⊭ A) (B : Formula V) : J ⊧ (A ==> B) =>
-      \let goal : So (not (evaluate J A) or evaluate J B) => rewrite (soFalse na) (rewrite (trueOr {evaluate J B}) So.so)
+      \let goal : So (not (evaluate J A) or evaluate J B) => rewrite (soFalse na) ()
       \in goal
 
     \func r=> {V : \Set} {J : Assignment V} {A B : Formula V} (h : (J ⊧ A) -> J ⊧ B) : J ⊧ (A ==> B) =>
@@ -106,8 +97,8 @@
 
 \func models? \alias \infix 6 ⊧? {V : \Set} (J : Assignment V) (f : Formula V) : Dec (J ⊧ f) =>
   cases (evaluate J f arg addPath) \with {
-    | Bool.true, p => yes (unfold (⊧) (rewrite p so))
-    | Bool.false, p => no (\lam (m : So (evaluate J f)) => So.absurd (rewriteF p m))
+    | Bool.true, p => yes (unfold (⊧) (rewrite p ()))
+    | Bool.false, p => no (\lam (m : So (evaluate J f)) => \case (rewriteF p m))
   }
 
 \func Formulae (V : \Set) : \Set => Formula V -> \Prop
@@ -164,7 +155,7 @@
     | ja => e J js
               \in (⊧.rNot jna) ja
 
-\func listable-entails {V : DecSet} {n : Nat} {l : Array (Formula V) n} {a : Formula V}
+\lemma listable-entails {V : DecSet} {n : Nat} {l : Array (Formula V) n} {a : Formula V}
   : valid (fold (andH) tt l ==> a) = setOf l ⊧e a =>
   ext (\lam v J m => ⊧.r-mp (fold (andH) tt l) (v J) (modelsSetToFold m),
        \lam e J => ⊧.r=> (\lam m => e J (foldTomodelsSet m)))
@@ -174,7 +165,7 @@
                           {n : Nat} {l : Array (Formula V.E) n}
                           (h : J ⊧s setOf l)
       : J ⊧ fold (andH) tt l \elim n, l
-      | 0, nil => So.so
+      | 0, nil => ()
       | suc n, :: a l => ⊧.rAnd (h (a, inP (0, idp))) (modelsSetToFold (\lam (e, inP in) => h (e, inP (fsuc in.1, in.2))))
 
     \func foldTomodelsSet {V : DecSet} {J : Assignment V.E}
@@ -205,7 +196,7 @@
   \func sound {V : \Set} {axioms : Formulae V} {f : Formula V} (h : axioms ⊢ f) : axioms ⊧e f \elim f, h
     | f, Ax a => \lam J m => m (f, a)
     | f, ff-El a => \lam J m => \case m (ff, a)
-    | tt, tt-In => \lam J m => so
+    | tt, tt-In => \lam J m => ()
     | f, or-El {a} {b} el h1 h2 => \lam J m => \case ⊧.rOr (m (a orH b, el)) \with {
         | inl e => (sound h1) J (⊧s.modelsAdd m e)
         | inr e => (sound h2) J (⊧s.modelsAdd m e)
