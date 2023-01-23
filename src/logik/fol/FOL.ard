@@ -1,7 +1,7 @@
 \import Arith.Nat
+\import Data.Array
 \import Logic
 \import Logic.Meta
-\import Meta
 \import Order.Lattice
 \import Order.PartialOrder
 \import Paths
@@ -11,7 +11,7 @@
 \import logik.fol.Semantics
 \import sets.MySet
 \open Semantics (Interpretation, ⊧, ⊭)
-\open Term (liftN, lifts)
+\open Term (lifts)
 
 -- http://r6.ca/Goedel/goedel1.html
 
@@ -68,9 +68,8 @@
       | 0 => t
       | suc k => lift (liftNL k t)
 
-    \func liftsN  {L : Language} {n l : Nat} (k : Nat) (t : Array (Term n) l) : Array (Term (n Nat.+ k)) l \elim l, t
-      | 0, nil => nil
-      | suc l, :: a t => liftN k a :: liftsN k t
+    \func liftsN  {L : Language} {n l : Nat} (k : Nat) (t : Array (Term n) l) : Array (Term (n Nat.+ k)) l =>
+      map (liftN k) t
   }
 
 \data Formula {L : Language} (variables : Nat) : \Set
@@ -179,18 +178,17 @@
         }
       }
 
-    \func subN' {L : Language} {n : Nat} (f : Formula n) (with : Array (Term 0) n) : Formula 0
-      => subN f with
+    \func subN' {L : Language} {n : Nat} (f : Formula n) (with : Array (Term 0) n) : Formula 0 => subN f with
 
-    \func subN {L : Language} {n m : Nat} (f : Formula (n Nat.+ m)) (with : Array (Term n) m) : Formula n
-      => subst (substFunction with) f
-    \where {
-      \func substFunction {L : Language} {n m : Nat} (with : Array (Term n) m) (i : Fin (n Nat.+ m)) : Term n
+    \func subN {L : Language} {n m : Nat} (f : Formula (n Nat.+ m)) (with : Array (Term n) m) : Formula n =>
+      subst (substFunction with) f
+      \where {
+        \func substFunction {L : Language} {n m : Nat} (with : Array (Term n) m) (i : Fin (n Nat.+ m)) : Term n
         \elim m, with, i
           | 0, nil, i => var i
           | suc m, :: a with, 0 => a
           | suc m, :: a with, suc i => substFunction with i
-    }
+      }
 
     \func FreeVar {L : Language} {n : Nat} (f : Formula n) (i : Fin n) : \Prop \elim f
       | equal x y => Term.FreeVar x i || Term.FreeVar y i
@@ -235,8 +233,7 @@
       \lam m => m (\lam m1 m2 => h m2)
   }
 
-\func \infix 7 <->H {L : Language} {n : Nat} (x y : Formula n) : Formula n
-  => (x impH y) andH (y impH x)
+\func \infix 7 <->H {L : Language} {n : Nat} (x y : Formula n) : Formula n => (x impH y) andH (y impH x)
 
 \func System {L : Language} => Ensemble (Formula {L} 0)
 

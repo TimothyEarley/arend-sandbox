@@ -14,12 +14,13 @@
 \import sets.finite.Sized
 \import sets.remove
 \import sets.subset
-\open Formula (Subst, extends, sub, subTerm, subTermLift, subTermsAt, subst)
+\open Formula (Subst, extends, sub, subN, subTerm, subTermLift, subTermsAt, subst)
 \open Semantics (Interpretation, evaluate, ⊧)
-\open Interpretation (subOneRename)
+\open Nat (+)
+\open SequentCalulus.⊢ (E-SubstN)
 
 \module SequentCalulus \where {
-  \data SequentProof \alias \infix 5 ⊢ {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) (toShow : Formula n)
+  \data SequentProof \alias \infix 5 ⊢ {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) (toShow : Formula n) : \Set
   \elim toShow
     | toShow => Ass (toShow ∈ axioms)
     | toShow => PC (psi : Formula n) (add {Formula n} axioms psi ⊢ toShow) (add axioms (notH psi) ⊢ toShow)
@@ -53,6 +54,21 @@
                      (h : axioms ⊢ sub phi t)
                      {toShow : Formula n} (p : toShow = sub phi t') : axioms ⊢ toShow =>
         MP (equal t t') te (E-Subst t t' (byRight idp) phi (weaken h (byLeft __)) p)
+
+      \func E-SubstN {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
+                     {length : Nat} (d d' : Array (Term n) length) (de : DArray (\lam i => axioms ⊢ equal (d i) (d' i)))
+                     (phi : Formula (n + length)) (h : axioms ⊢ subN phi d)
+                     (toShow : Formula n) (p : toShow = subN phi d') : axioms ⊢ toShow \elim length, d, d', de
+        | 0, nil, nil, nil => rewrite p h
+        | suc length, a :: d, a' :: d', a=a' :: d=d' =>
+          E-SubstN
+              d
+              d'
+              d=d'
+              (sub phi {?})
+              {?}
+              {?}
+              {?}
 
       \func E-Symm {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
                    {x y : Term n}
@@ -517,8 +533,48 @@
     | ~-reflexive => inP (E-Refl idp)
     | ~-symmetric {x} {y} (inP h) => inP (⊢.E-Symm h)
     | ~-transitive {x} {y} {z} (inP h) (inP h') => inP (⊢.E-Trans h h')
-    | fCong f d d' d~d' => {?}
+    | fCong f d d' d~d' => \case helpTrunc d~d' \with {
+      | inP f_d~d' =>
+        \let
+          | subTerms= : Formula.subTerms (subN.substFunction {L} {n} {L.functionArity f} d) (Term.liftsN (L.functionArity f) d) =
+          {Array (Term {L} n) (functionArity f)}
+          Formula.subTerms (subN.substFunction {L} {n} {L.functionArity f} d) arrayOfVars
+          => ext (ext (\lam j => subTermsAt j *> {?} *> inv (subTermsAt j)))
+          | substArray=d : apply f (Formula.subTerms (subN.substFunction d) (Term.liftsN (L.functionArity f) d)) = apply f (Formula.subTerms (subN.substFunction d) arrayOfVars) =>
+            pmap (apply f) subTerms=
+          | d=d : apply f d = apply f (Formula.subTerms (subN.substFunction d') (Term.liftsN (L.functionArity f) d))
+          => {?}
+          | substArray=d' : apply f d' = apply f (Formula.subTerms (subN.substFunction d') arrayOfVars)
+          => {?}
+        \in inP $ E-SubstN {L} {n}
+                      d d'
+                      f_d~d'
+                      (equal (apply f (Term.liftsN (L.functionArity f) d)) (apply f arrayOfVars))
+                      (E-Refl substArray=d)
+                      (equal (apply f d) (apply f d'))
+                      (pmap2 equal d=d substArray=d')
+    }
     | relCong r d d' d~d' h => {?}
+    \where {
+      -- TODO what is the general principle here?
+
+      \func helpTrunc {n : Nat} {B : \Pi (i : Fin n) -> \Type}
+                      (f : \Pi (i : Fin n) -> TruncP (B i)) : TruncP (\Pi (i : Fin n) -> B i)
+      \elim n
+        | 0 => inP (\case __)
+        | suc n1 => \case f 0, helpTrunc (\lam i => f (suc i)) \with {
+          | inP bZero, inP f' =>
+            inP (\case \elim  __ \with {
+              | 0 => bZero
+              | suc i' => f' i'
+            })
+        }
+
+      \func arrayOfVars {length : Nat} : Array (Term {L} (n + length)) length
+      \elim length
+        | 0 => nil
+        | suc length => var 0 :: Term.liftsN 1 arrayOfVars
+    }
 
   \func TermInterpretation {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) : Interpretation n =>
     (\new Semantics.Structure {
