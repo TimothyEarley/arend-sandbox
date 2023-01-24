@@ -1,0 +1,186 @@
+\import Arith.Nat
+\import Data.Or
+\import Equiv
+\import Function.Meta ($)
+\import Logic
+\import Logic.Meta
+\import LogicUtil
+\import Meta
+\import Paths
+\import Paths.Meta
+\import Set
+\import identity.FinIdentity
+\open NatSemiring (<)
+
+\func isKFinite (X : \Type) (k : Nat) => TruncP (Equiv {Fin k} {X})
+  \where {
+    \lemma nonZeroHasElement (h : isKFinite X (suc k)) : ∃ X
+      | inP (equiv : Equiv {Fin (suc k)} {X}) => inP (equiv.f 0)
+
+    \lemma zeroHasNoElement (h : isKFinite X 0) : Not X
+      | inP (equiv : Equiv) => \case equiv.ret __
+
+    \func indexOf (equiv : Equiv {Fin k} {X}) (x : X) : Fin k => equiv.ret x
+
+    \func lookup (equiv : Equiv {Fin k} {X}) (i : Fin k) : X => equiv.f i
+
+    \func lookupIndex (equiv : Equiv {Fin k} {X}) {x : X} : lookup equiv (indexOf equiv x) = {X} x => equiv.f_ret x
+
+    \func decideEq (equiv : Equiv {Fin k} {X}) (x y : X) : Or (x = y) (x /= y) =>
+      \case DecSet.decideEq (indexOf equiv x) (indexOf equiv y) \with {
+        | yes e => inl (inv (lookupIndex equiv) *> pmap (lookup equiv) e *> lookupIndex equiv)
+        | no n => inr (\lam p => n (pmap (indexOf equiv) p))
+      }
+
+    \func decideEqRefl {equiv : Equiv {Fin k} {X}} {x : X} :
+      isKFinite.decideEq equiv x x =
+      inl (inv (lookupIndex equiv) *> pmap (lookup equiv) idp *> lookupIndex equiv) =>
+      \let
+        | goal : (\case DecSet.decideEq (indexOf equiv x) (indexOf equiv x) \with {
+          | yes e => inl (inv (lookupIndex equiv) *> pmap (lookup equiv) e *> lookupIndex equiv)
+          | no n => inr (\lam p => n (pmap (indexOf equiv) p))
+        }) = inl _ => rewrite (decideEq=_reduce idp) idp
+      \in goal
+
+    \func decideEqNot {equiv : Equiv {Fin k} {X}} {x y : X} (h' : equiv.ret x /= equiv.ret y)
+      : decideEq equiv x y = inr (\lam p => h' (pmap (indexOf equiv) p)) =>
+      \let
+        | goal : (\case DecSet.decideEq (equiv.ret x) (equiv.ret y) \with {
+          | yes e => inl (inv (lookupIndex equiv) *> pmap (lookup equiv) e *> lookupIndex equiv)
+          | no n => inr (\lam p => n (pmap (indexOf equiv) p))
+        }) = inr (\lam p => h' (pmap (indexOf equiv) p)) => mcases \with {
+          | yes e => absurd (h' e)
+          | no n => pmap inr ext
+        }
+      \in goal
+  }
+
+\lemma pigeonHolePrinciple {n m : Nat}
+                           {X Y : \Type}
+                           (finX : isKFinite X n) (finY : isKFinite Y m)
+                           (f : X -> Y)
+                           (m<n : m < n) : ∃ (x x' : X) (x /= x') (f x = f x')
+\elim n, m, finX, finY, m<n
+  | suc n, 0, inP (eqX : Equiv), inP (eqY : Equiv), <.zero<suc => \case eqY.ret (f $ eqX.f 0)
+  | suc n, suc m, inP (eqX : Equiv), inP (eqY : Equiv), <.suc<suc m<n =>
+    \case findSamePropAsFirst
+              eqX
+              (\lam x => f (first eqX) = f x)
+              (\lam x => isKFinite.decideEq Y (suc m) eqY (f (eqX 0)) (f x))
+    \with {
+      | yes (inP (x', proof)) => inP (first eqX, x'.1, invN x'.2, proof)
+      | no nh =>
+        \let f' : RemoveFirst eqX -> RemoveOne eqY (f (eqX 0)) => \lam x => (f x.1, \lam p => nh (inP (x, inv p)))
+        \in \case pigeonHolePrinciple (inP $ removeFirst eqX) (inP $ removeOne eqY (f $ eqX 0)) f' m<n \with {
+          | inP (x, x', x/=x', fx=fx') => inP
+              (
+                x.1,
+                x'.1,
+                \lam p => x/=x' (ext p),
+                pmap __.1 fx=fx'
+              )
+        }
+    }
+  \where {
+    \func first{X : \Type} {k : Nat} (equiv : Equiv {Fin (suc k)} {X}) => equiv 0
+
+    \func RemoveFirst {X : \Type} {k : Nat} (equiv : Equiv {Fin (suc k)} {X}) : \Type => RemoveOne equiv (equiv 0)
+
+    \func RemoveOne {X : \Type} {k : Nat} (equiv : Equiv {Fin (suc k)} {X}) (x : X) : \Type => \Sigma (x' : X) (x' /= x)
+
+    \func removeFirst {X : \Type} {k : Nat} (equiv : Equiv {Fin (suc k)} {X}) : QEquiv {Fin k} {RemoveFirst equiv}
+    \cowith
+      | f i => (equiv.f (suc i), \lam p => suc/=0 (equiv.isInj {suc i} {0} p))
+      | ret (x, xh) => cases (equiv.ret x arg addPath) \with {
+        | 0, p => absurd $ xh (inv (equiv.f_ret x) *> pmap equiv.f p)
+        | suc i', p => i'
+      }
+      | ret_f i => mcases \with {
+        | 0, p => absurd $ suc/=0 (inv (equiv.ret_f (suc i)) *> p)
+        | suc i', p => unfsuc (inv p *> equiv.ret_f (suc i))
+      }
+      | f_sec (x, xh) => mcases \with {
+        | 0, p => absurd $ xh (inv (equiv.f_ret x) *> pmap equiv p)
+        | suc i', p => ext (inv $ inv (equiv.f_ret x) *> pmap equiv p)
+      }
+
+    \func removeOne {X : \Type} {k : Nat} (equiv : Equiv {Fin (suc k)} {X}) (x : X) : QEquiv {Fin k} {RemoveOne equiv x} =>
+      removeFirst (swapped equiv x)
+
+      \where {
+        \func swapped {X : \Type} {k : Nat} (equiv : Equiv {Fin (suc k)} {X}) (x : X) : QEquiv {Fin (suc k)} {X} \cowith
+          | f => \case \elim __ \with {
+            | 0 => x -- the first is now x
+            | suc i => \case isKFinite.decideEq X (suc k) equiv (equiv (suc i)) x \with {
+              | inl a => equiv 0 -- replace x with the first element
+              | inr b => equiv (suc i) -- rest stays the same
+            }
+          }
+          | ret x' => \case isKFinite.decideEq X (suc k) equiv x' x \with {
+            | inl a => 0
+            | inr b => \case isKFinite.decideEq X (suc k) equiv x' (equiv 0) \with {
+              | inl a => equiv.ret x
+              | inr b1 => equiv.ret x'
+            }
+          }
+          | ret_f => \case \elim __ \with {
+            | 0 => rewrite (isKFinite.decideEqRefl X) idp
+            | suc f1 => cases (isKFinite.decideEq X (suc k) equiv (equiv (suc f1)) x arg addPath) \with {
+              | inl a, p => cases (isKFinite.decideEq X (suc k) equiv (equiv 0) x) \with {
+                | inl a1 => absurd $ suc/=0 {f1} $ equiv.isInj (a *> inv a1)
+                | inr b => rewrite (isKFinite.decideEqRefl X (suc k) {equiv} {equiv 0})
+                    $ inv $ equiv.isInj $ a *> inv (equiv.f_ret x)
+              }
+              | inr b, p => rewrite (p, isKFinite.decideEqNot X (suc k) (\lam q => suc/=0 {f1} $ inv (equiv.ret_f (suc f1)) *> q *> equiv.ret_f 0)) $ equiv.ret_f (suc f1)
+            }
+          }
+          | f_sec x' => cases (isKFinite.decideEq X (suc k) equiv x' x) \with {
+            | inl a => inv a
+            | inr b => cases (isKFinite.decideEq X (suc k) equiv x' (equiv 0)) \with {
+              | inl a => cases (equiv.ret x arg addPath) \with {
+                | 0, p => absurd $ b $ a *> (inv $ pmap equiv p) *> equiv.f_ret x
+                | suc f1, p => cases (isKFinite.decideEq X (suc k) equiv (equiv (suc f1)) x) \with {
+                  | inl a1 => inv a
+                  | inr b1 => absurd $ b1 $ (inv $ pmap equiv p) *> equiv.f_ret x
+                }
+              }
+              | inr b1 => cases (equiv.ret x' arg addPath) \with {
+                | 0, p => absurd $ b1 $ inv (equiv.f_ret x') *> pmap equiv p
+                | suc f1, p => cases (isKFinite.decideEq X (suc k) equiv (equiv (suc f1)) x) \with {
+                  | inl a => absurd $ b $ inv (equiv.f_ret x') *> pmap equiv p *> a
+                  | inr b2 => inv $ inv (equiv.f_ret x') *> pmap equiv p
+                }
+              }
+            }
+          }
+      }
+
+    \func findSamePropAsFirst {X : \Type} {k : Nat}
+                              (equiv : Equiv {Fin (suc k)} {X})
+                              (P : X -> \Type)
+                              (decP : \Pi (x : X) -> Or (P x) (Not (P x)))
+      : Dec (∃ (x' : RemoveFirst equiv) (P x'.1))
+    \elim k
+      | 0 => no (\case __ \with {
+        | inP (x', _) => x'.2 (cases (equiv.ret x'.1 arg addPath) \with {
+          | 0, p => inv (equiv.f_ret x'.1) *> pmap equiv p
+        })
+      })
+      | suc k => \case decP (equiv 1) \with {
+        | inl pa => yes (inP ((equiv 1, \lam p => suc/=0 {0} $ equiv.isInj p), pa))
+        | inr na => \case findSamePropAsFirst {RemoveFirst equiv} {k}
+                              (removeFirst equiv)
+                              (\lam x => P x.1)
+                              (\lam x => decP x.1)
+        \with {
+          | yes (inP (x', x'h)) => yes (inP (x'.1, x'h))
+          | no n => no (\case __ \with {
+            | inP (x', x'h) => \case isKFinite.decideEq X (suc $ suc k) equiv x'.1 (equiv 1) \with {
+              | inl a => na (rewriteI a x'h)
+              | inr b => n (inP ((x', \lam p => b (pmap __.1 p)), x'h))
+            }
+          })
+        }
+      }
+  }
+

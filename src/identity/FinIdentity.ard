@@ -38,6 +38,9 @@
     }
 }
 
+\func unfsuc {k : Nat} {n m : Fin k} (p : fsuc n = fsuc m) : n = m
+  => FinIdentity.code-decode (FinIdentity.code-encode {fsuc n} {fsuc m} p)
+
 -- use instead of generic one if you want to compute
 \func eqFin \alias \infix 6 fin≟ {n : Nat} (x y : Fin n) : Dec (x = y)
   => decMap (FinIdentity.code-decide x y) (code-decode, code-encode)
