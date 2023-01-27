@@ -1,0 +1,23 @@
+\import Relation.Equivalence
+\import logik.fol.FOL
+\import logik.fol.Semantics
+\import logik.fol.TermCongruence
+\import sets.MySet
+\open Semantics (Interpretation, evaluate)
+
+\func TermInterpretation {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) : Interpretation n =>
+  (\new Semantics.Structure {
+     | Universe => Quotient {Term n} (~ {T~ axioms})
+     | rel => relInterpretation axioms
+     | funcs f d => {?}
+   },
+   \lam f => in~ (var f))
+  \where {
+    \func relInterpretation {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) (r : Relations) (d : Array (Quotient {Term n} (~ {T~ axioms})) (relationsArity r)) : \Prop =>
+      {?}
+
+    \func termInterpretationIsQuotient {L : Language} {axioms : Ensemble (Formula 0)} {t : Term 0}
+      : evaluate (TermInterpretation axioms) t = in~ t \elim t
+      | var f => idp
+      | apply f d => {?}
+  }

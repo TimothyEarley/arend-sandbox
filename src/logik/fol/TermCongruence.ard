@@ -1,0 +1,74 @@
+\import Function.Meta
+\import Logic
+\import Paths
+\import Paths.Meta
+\import Relation.Equivalence
+\import logik.fol.FOL
+\import logik.fol.SequentCalculus
+\import sets.MySet
+\open SequentCalulus (⊢)
+\open Formula (subN, subTermsAt)
+\open Nat (+)
+
+\class TermCongruence {L : Language} {n : Nat} {axioms : Ensemble (Formula n)} \extends Equivalence
+  | A => Term n
+  | fCong (f : Functions)
+          (d : Array (Term n) (functionArity f))
+          (d' : Array (Term n) (functionArity f))
+          (d~d' : \Pi (i : Fin (functionArity f)) -> d i ~ d' i) : apply f d ~ apply f d'
+  | relCong  (r : Relations)
+             (d : Array (Term n) (relationsArity r))
+             (d' : Array (Term n) (relationsArity r))
+             (d~d' : \Pi (i : Fin (relationsArity r)) -> d i ~ d' i)
+             (h : axioms ⊢ atomic r d) : axioms ⊢ atomic r d'
+
+\func T~ {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) : TermCongruence \cowith
+  | L => L
+  | n => n
+  | axioms => axioms
+  | ~ x y => TruncP (axioms ⊢ equal x y)
+  | ~-reflexive => inP (SequentCalulus.E-Refl idp)
+  | ~-symmetric {x} {y} (inP h) => inP (⊢.E-Symm h)
+  | ~-transitive {x} {y} {z} (inP h) (inP h') => inP (⊢.E-Trans h h')
+  | fCong f d d' d~d' => \case helpTrunc d~d' \with {
+    | inP f_d~d' =>
+      \let
+        | subTerms= : Formula.subTerms (subN.substFunction {L} {n} {L.functionArity f} d) (Term.liftsN (L.functionArity f) d) =
+        {Array (Term {L} n) (functionArity f)}
+        Formula.subTerms (subN.substFunction {L} {n} {L.functionArity f} d) arrayOfVars
+        => ext (ext (\lam j => subTermsAt j *> {?} *> inv (subTermsAt j)))
+        | substArray=d : apply f (Formula.subTerms (subN.substFunction d) (Term.liftsN (L.functionArity f) d)) = apply f (Formula.subTerms (subN.substFunction d) arrayOfVars) =>
+          pmap (apply f) subTerms=
+        | d=d : apply f d = apply f (Formula.subTerms (subN.substFunction d') (Term.liftsN (L.functionArity f) d))
+        => {?}
+        | substArray=d' : apply f d' = apply f (Formula.subTerms (subN.substFunction d') arrayOfVars)
+        => {?}
+      \in inP $ ⊢.E-SubstN {L} {n}
+                    d d'
+                    f_d~d'
+                    (equal (apply f (Term.liftsN (L.functionArity f) d)) (apply f arrayOfVars))
+                    (SequentCalulus.E-Refl substArray=d)
+                    (equal (apply f d) (apply f d'))
+                    (pmap2 equal d=d substArray=d')
+  }
+  | relCong r d d' d~d' h => {?}
+  \where {
+    -- TODO what is the general principle here?
+
+    \func helpTrunc {n : Nat} {B : \Pi (i : Fin n) -> \Type}
+                    (f : \Pi (i : Fin n) -> TruncP (B i)) : TruncP (\Pi (i : Fin n) -> B i)
+    \elim n
+      | 0 => inP (\case __)
+      | suc n1 => \case f 0, helpTrunc (\lam i => f (suc i)) \with {
+        | inP bZero, inP f' =>
+          inP (\case \elim  __ \with {
+            | 0 => bZero
+            | suc i' => f' i'
+          })
+      }
+
+    \func arrayOfVars {length : Nat} : Array (Term {L} (n + length)) length
+    \elim length
+      | 0 => nil
+      | suc length => var 0 :: Term.liftsN 1 arrayOfVars
+  }
