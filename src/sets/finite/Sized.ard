@@ -231,6 +231,14 @@
     | no n => addSized a n
   }
 
+  \func addSizedMany' (as : Array E) : DecSizedEnsemble E (add.addMany S as) \elim as
+    | nil => \new DecSizedEnsemble {
+      | size => size
+      | sizeProof => sizeProof
+      | decideEq => decideEq
+    }
+    | a :: l => \let addedL : DecSizedEnsemble => addSizedMany' l \in addedL.addSized' a
+
   \func addSized (a : E) (h : a ∉ S) : DecSizedEnsemble E (add S a) (suc size) \cowith
     | sizeProof => ext (\new QEquiv {
       | f e => \case decideEq e.1 a \with {

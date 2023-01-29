@@ -33,10 +33,12 @@
     | toShow =>   impElim (phi psi : Formula n) ((phi impH psi) ∈ axioms) (add axioms (notH phi) ⊢ toShow) (add axioms psi ⊢ toShow)
 
     | equal x y => E-Refl (x = y)
-    | toShow => E-Subst (t t' : Term n) (equal t t' ∈ axioms)
-                        (phi : Formula (suc n))
-                        (axioms ⊢ sub phi t)
-                        (p : toShow = sub phi t')
+
+    | toShow => E-Sub {m : Nat} (s s' : Subst m n)
+                      (subEqual : \Pi (i : Fin m) -> equal (s i) (s' i) ∈ axioms)
+                      (phi : Formula m)
+                      (sProof : axioms ⊢ subst s phi) (toShow = subst s' phi)
+
     \where {
       \func Contr' {L : Language} {n : Nat} {axioms :  Ensemble (Formula n)} {toShow : Formula n}
                    (phi : Formula n) (h : axioms ⊢ phi) (h' : axioms ⊢ notH phi) : axioms ⊢ toShow =>
@@ -48,6 +50,37 @@
           h'
           (Contr' phi (weaken h (byLeft __)) (Ass (byRight idp)))
 
+      \func MPs {L : Language} {n : Nat} {axioms : Ensemble (Formula n)} {toShow : Formula n}
+        (phis : Array (Formula n)) (hs : DArray (axioms ⊢ phis __)) (h' : add.addMany axioms phis ⊢ toShow)
+        : axioms ⊢ toShow \elim phis, hs
+        | nil, nil => h'
+        | phi :: phis, h :: hs => MP
+            phi
+            h
+            (MPs phis (\lam i => weaken (hs i) (byLeft __))
+            (rewrite add.addMany.commute h'))
+
+      \func E-Sub' {L : Language} {n m : Nat} {axioms : Ensemble (Formula n)} (s s' : Subst m n)
+                   (phi : Formula m)
+                   (subEqual : \Pi (i : Fin m) -> axioms ⊢ equal (s i) (s' i))
+                   (sProof : axioms ⊢ subst s phi)
+                   {toShow : Formula n}
+                   (p : toShow = subst s' phi) : axioms ⊢ toShow
+        => MPs (\lam i => equal (s i) (s' i)) subEqual
+            (E-Sub s s' (\lam i => add.addMany.isInArray (i, idp)) phi (weaken sProof add.addMany.isInOriginal) p)
+
+      \func E-Subst {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
+                     (t t' : Term n) (te : equal t t' ∈ axioms) (phi : Formula (suc n))
+                     (h : axioms ⊢ sub phi t)
+                     {toShow : Formula n} (p : toShow = sub phi t') : axioms ⊢ toShow =>
+        E-Sub' (sub.substFunction t) (sub.substFunction t') phi
+            (\case \elim __ \with {
+              | 0 => Ass te
+              | suc _ => E-Refl idp
+            })
+            h
+            p
+
       \func E-Subst' {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
                      (t t' : Term n) (te : axioms ⊢ equal t t') (phi : Formula (suc n))
                      (h : axioms ⊢ sub phi t)
@@ -55,19 +88,14 @@
         MP (equal t t') te (E-Subst t t' (byRight idp) phi (weaken h (byLeft __)) p)
 
       \func E-SubstN {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
-                     {length : Nat} (d d' : Array (Term n) length) (de : DArray (\lam i => axioms ⊢ equal (d i) (d' i)))
-                     (phi : Formula (n + length)) (h : axioms ⊢ subN phi d)
+                     {length : Nat}
+                     (d d' : Array (Term n) length)
+                     (de : DArray (\lam i => axioms ⊢ equal (d i) (d' i)))
+                     (phi : Formula (n + length))
+                     (h : axioms ⊢ subN phi d)
                      (toShow : Formula n) (p : toShow = subN phi d') : axioms ⊢ toShow \elim length, d, d', de
         | 0, nil, nil, nil => rewrite p h
-        | suc length, a :: d, a' :: d', a=a' :: d=d' =>
-          E-SubstN
-              d
-              d'
-              d=d'
-              (sub phi {?})
-              {?}
-              {?}
-              {?}
+        | suc length, x :: d, y :: d', de1 :: de => rewrite p {?}
 
       \func E-Symm {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
                    {x y : Term n}
@@ -177,27 +205,27 @@
     }
 
   \func weaken {L : Language} {n : Nat} {axioms axioms' : Ensemble (Formula n)} {toShow : Formula n}
-               (h : axioms ⊢ toShow) (s : axioms ⊆ axioms') : axioms' ⊢ toShow \elim toShow, h
-    | toShow, Ass e => Ass (s e)
+               (h : axioms ⊢ toShow) (sub : axioms ⊆ axioms') : axioms' ⊢ toShow \elim toShow, h
+    | toShow, Ass e => Ass (sub e)
     | toShow, PC psi h1 h2 => PC psi
         (weaken h1 (\case __ \with {
-          | byLeft a => byLeft (s a) | byRight b => byRight b
+          | byLeft a => byLeft (sub a) | byRight b => byRight b
         }))
         (weaken h2 (\case __ \with {
-          | byLeft a => byLeft (s a) | byRight b => byRight b
+          | byLeft a => byLeft (sub a) | byRight b => byRight b
         }))
     | toShow, Ctr psi h1 h2 => Ctr psi
         (weaken h1 (\case __ \with {
-          | byLeft a => byLeft (s a) | byRight b => byRight b
+          | byLeft a => byLeft (sub a) | byRight b => byRight b
         }))
         (weaken h2 (\case __ \with {
-          | byLeft a => byLeft (s a) | byRight b => byRight b
+          | byLeft a => byLeft (sub a) | byRight b => byRight b
         }))
     | equal x y, E-Refl p => E-Refl p
-    | toShow, E-Subst t t' e phi h p => E-Subst t t' (s e) phi (weaken h s) p
-    | impH x toShow, impIntro h => impIntro (weaken h (⊆.unionSubset' s ⊆.refl))
-    | impH x toShow, impIntro' h => impIntro' (weaken h s)
-    | toShow, impElim x y h h1 h2 => impElim x y (s h) (weaken h1 (⊆.unionSubset' s ⊆.refl)) (weaken h2 (⊆.unionSubset' s ⊆.refl))
+    | toShow, E-Sub s s' subEqual phi h p => E-Sub s s' (\lam i => sub (subEqual i)) phi (weaken h sub) p
+    | impH x toShow, impIntro h => impIntro (weaken h (⊆.unionSubset' sub ⊆.refl))
+    | impH x toShow, impIntro' h => impIntro' (weaken h sub)
+    | toShow, impElim x y h h1 h2 => impElim x y (sub h) (weaken h1 (⊆.unionSubset' sub ⊆.refl)) (weaken h2 (⊆.unionSubset' sub ⊆.refl))
 
   \func entails \alias \infix 6 ⊫e {L : Language} (from : Ensemble (Formula 0)) (to : Formula 0) =>
     \Pi (I : Interpretation 0) (h : \Pi {f : Formula 0} (f ∈ from) -> I ⊧ f) -> I ⊧ to
@@ -235,11 +263,13 @@
         \in absurd (InotPsi Ipsi)
     }
     | equal x y, E-Refl idp => \lam I h => idp
-    | to, E-Subst t t' e phi h idp => \lam I h1 =>
+    | toShow, E-Sub {m} s s' subEqual phi h idp => \lam I h1 =>
         \let
-          | p => h1 e
           | IphiT => proofIsEntails decidable h I h1
-        \in subModel IphiT p
+          | goal : I ⊧ {L} {0} subst {L} {m} {0} s' phi => subModel.substModel {_} {m} {_} {I} phi {s} {s'}
+              (\lam {i} _ => h1 (subEqual i))
+              IphiT
+        \in goal
     | impH x to, impIntro h => \lam I mf mx => proofIsEntails decidable h I (\case __ \with {
       | byLeft a => mf a
       | byRight b => rewriteI b mx
@@ -426,15 +456,20 @@
           \in (axioms', ⊆.unionSubset sax1' sax2',
                Ctr psi (weaken pax1 ax1sub) (weaken pax2 ax2sub))
       }
-    | f, E-Subst t t' e phi h p =>
+    | toShow, E-Sub s s' subEqual phi h p =>
       \let
         | (ax : DecSizedEnsemble, sax, pax) => sequentProofUsesFiniteAxioms h
-      \in (ax.addSized' (equal t t'),
-           \case \elim __ \with {
-             | byLeft z => sax z
-             | byRight z => transport (__ ∈ axioms) z e
+      \in (ax.addSizedMany' (\lam i => equal (s i) (s' i)),
+           \lam {x} e => \case add.addMany.isInOr e \with {
+             | byLeft h1 => sax h1
+             | byRight h2 => transport (__ ∈ axioms) h2.2 (subEqual h2.1)
            },
-           E-Subst t t' (byRight idp) phi (weaken pax (byLeft __)) p)
+           E-Sub s s'
+               (\lam i => add.addMany.isInArray (i, idp))
+               phi
+               (weaken pax add.addMany.isInOriginal)
+               p
+      )
     | impH x f, impIntro h =>
       \let (ax : DecSizedEnsemble, sax, pax) => sequentProofUsesFiniteAxioms {_} {axioms.addElement x} h
       \in \case axioms.decElement x, ax.decElement x \with {

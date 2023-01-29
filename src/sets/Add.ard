@@ -1,3 +1,4 @@
+\import Data.Array
 \import Logic
 \import Logic.Meta
 \import Paths
@@ -9,6 +10,47 @@
 \func add {E : \Set} (S : Ensemble E) (e : E) : Ensemble E => S ∪ single e
 
   \where {
+    \func addMany {E : \Set} (S : Ensemble E) (es : Array E) : Ensemble E \elim es
+      | nil => S
+      | a :: l => add (addMany S l) a
+      \where {
+        \func isInArray {E : \Set} {S : Ensemble E} {es : Array E} {e : E} (h : Index e es) : e ∈ addMany S es
+        \elim es, h
+          | nil, ((), p)
+          | a :: l, (0, p) => byRight p
+          | a :: l, (suc i, p) => byLeft (isInArray (i, p))
+
+        \func isInOriginal {E : \Set} {S : Ensemble E} {es : Array E} {e : E} (h : e ∈ S) : e ∈ addMany S es
+        \elim es
+          | nil => h
+          | a :: l => byLeft (isInOriginal h)
+
+        \func isInOr {E : \Set} {S : Ensemble E} {es : Array E} {e : E} (h : e ∈ addMany S es) : e ∈ S || Index e es
+        \elim es, h
+          | nil, h => byLeft h
+          | a :: l, byLeft h => \case isInOr h \with {
+            | byLeft h' => byLeft h'
+            | byRight h' => byRight (suc h'.1, h'.2)
+          }
+          | a :: l, byRight h => byRight (0, h)
+
+        \func commute {E : \Set} {S : Ensemble E} {es : Array E} {e : E} : addMany (add S e) es = addMany S (e :: es) =>
+          ext (\lam x => ext (
+            \lam h => \case isInOr h \with {
+              | byLeft (byLeft a) => byLeft (isInOriginal a)
+              | byLeft (byRight b) => byRight b
+              | byRight b => byLeft (isInArray b)
+            },
+            \lam h => \case h \with {
+              | byLeft a => \case isInOr a \with {
+                | byLeft a1 => isInOriginal (byLeft a1)
+                | byRight b => isInArray b
+              }
+              | byRight b => isInOriginal (byRight b)
+            })
+          )
+      }
+
     \func alreadyIn {E : \Set} {S : Ensemble E} {e : E} (h : e ∈ S) : add S e = S => extSet
         (\lam {x} e1 => \case \elim x, e1 \with {
           | _, byLeft a => a
@@ -17,39 +59,34 @@
         (\lam {x} e1 => byLeft e1)
 
     \func existingElement {E : \Set} {S : Ensemble E} {a : E}
-                          (e : Elements (add S a))  (h : e.1 /= a) : Elements S
-      => (e.1, \case e.2 \with {
-        | byLeft a1 => a1
-        | byRight b => contradiction
-      })
+                          (e : Elements (add S a)) (h : e.1 /= a) : Elements S => (e.1, \case e.2 \with {
+      | byLeft a1 => a1
+      | byRight b => contradiction
+    })
 
-    \func withUnion {E : \Set} {S S' : Ensemble E} {a : E} : S ∪ add S' a = add (S ∪ S') a
-      => extSet
-          (\lam {x} e => \case \elim e \with {
-            | byLeft xS => byLeft (byLeft xS)
-            | byRight (byLeft xS') => byLeft (byRight xS')
-            | byRight (byRight x=a) => byRight x=a
-          })
-          (\lam {x} e => \case \elim e \with {
-            | byLeft (byLeft xS) => byLeft xS
-            | byLeft (byRight xS') => byRight (byLeft xS')
-            | byRight x=a => byRight (byRight x=a)
-          })
+    \func withUnion {E : \Set} {S S' : Ensemble E} {a : E} : S ∪ add S' a = add (S ∪ S') a => extSet
+        (\lam {x} e => \case \elim e \with {
+          | byLeft xS => byLeft (byLeft xS)
+          | byRight (byLeft xS') => byLeft (byRight xS')
+          | byRight (byRight x=a) => byRight x=a
+        })
+        (\lam {x} e => \case \elim e \with {
+          | byLeft (byLeft xS) => byLeft xS
+          | byLeft (byRight xS') => byRight (byLeft xS')
+          | byRight x=a => byRight (byRight x=a)
+        })
 
     \func isInjective {A : \Set} {a : A} {S S' : Ensemble A}
                       (h : a ∉ S) (h' : a ∉ S')
-                      (p : add S a = add S' a) : S = S'
-      => extSet
-          (\lam {x} e => \case transport (x ∈ __) p (byLeft e) \with {
-            | byLeft xS' => xS'
-            | byRight x=a => absurd (h (rewrite x=a e))
-          })
-          (\lam {x} e => \case transportInv (x ∈ __) p (byLeft e) \with {
-            | byLeft xS => xS
-            | byRight x=a => absurd (h' (rewrite x=a e))
-          })
+                      (p : add S a = add S' a) : S = S' => extSet
+        (\lam {x} e => \case transport (x ∈ __) p (byLeft e) \with {
+          | byLeft xS' => xS'
+          | byRight x=a => absurd (h (rewrite x=a e))
+        })
+        (\lam {x} e => \case transportInv (x ∈ __) p (byLeft e) \with {
+          | byLeft xS => xS
+          | byRight x=a => absurd (h' (rewrite x=a e))
+        })
   }
 
-
-\func addToAll {E : \Set} (S : Ensemble (Ensemble E)) (e : E) : Ensemble (Ensemble E)
-  => S smap (\lam x => add x e)
+\func addToAll {E : \Set} (S : Ensemble (Ensemble E)) (e : E) : Ensemble (Ensemble E) => S smap (\lam x => add x e)
