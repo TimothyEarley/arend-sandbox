@@ -1,5 +1,6 @@
 \import Arith.Nat
 \import Data.Array
+\import Data.Fin (fsuc)
 \import Logic
 \import Logic.Meta
 \import Order.Lattice
@@ -7,11 +8,10 @@
 \import Paths
 \import Paths.Meta
 \import Set
-\import Util
 \import logik.fol.Semantics
 \import sets.MySet
 \open Semantics (Interpretation, ⊧, ⊭)
-\open Term (lifts)
+\open Term (liftN, lifts, liftsN)
 
 -- http://r6.ca/Goedel/goedel1.html
 
@@ -146,6 +146,32 @@
     \func extendsN {L : Language} {n m k : Nat} (s : Subst n m) : Subst (n Nat.+ k) (m Nat.+ k) \elim k
       | 0 => s
       | suc k => extends (extendsN s)
+
+    \func extendsN' {L : Language} {n m : Nat} (s : Subst m n) : Subst (n Nat.+ m) n => helper s
+      \where {
+        \func helper{n m : Nat} (s : Subst m n) (i : Fin (n Nat.+ m)) : Term {L} n \elim m, i
+          | 0, i => var i
+          | suc m, 0 => s 0
+          | suc m, suc i => helper (\lam f => s (suc f)) i
+
+        \func subExtendsLifts {L : Language} {n m : Nat} {s : Subst n m} {t : Term m}
+          : subTerm {L} {m Nat.+ n} {m} (extendsN' s) (liftN n t) = t
+        \elim n, t
+          | 0, var f => idp
+          | 0, apply f d => pmap {Array (Term m) (L.functionArity f)} (apply f) {subTerms (extendsN' s) d} {d}
+              {?}
+          | suc n, var f => {?}
+          | suc n, apply f d => {?}
+
+--        \func liftsN0 {L : Language} {n l : Nat} {t : Array (Term n) l} : liftsN 0 t = {Array (Term n) l} t \elim t
+--          | nil => idp
+--          | a :: t1 => pmap2 (::) idp liftsN0
+
+        \func subTermsExtendsLifts {L : Language} {n m l : Nat} (s : Subst n m) {t : Array (Term m) l}
+          : subTerms {L} {m Nat.+ n} {m} (extendsN' s) (liftsN n t) = {Array (Term m) l} t \elim l, t
+          | 0, nil => {?}
+          | suc l, a :: t => {?} -- pmap2 (::) {?} {?}
+      }
 
     \func subst {L : Language} {n m : Nat} (s : Subst {L} n m) (f : Formula {L} n) : Formula {L} m
     \elim f

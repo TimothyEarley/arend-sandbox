@@ -1,7 +1,7 @@
-\import Algebra.Meta
 \import Algebra.Monoid
 \import Arith.Int
 \import Arith.Nat
+\import Data.Fin
 \import Logic
 \import Meta
 \import Order.LinearOrder
@@ -13,7 +13,7 @@
 \import util.Nat
 
 \func neg<=pos {n m : Nat} : neg n <= pos m
-  => signum.signum_neg/=1
+  => signum.signum_neg/=1 __
 
 \func pos</=neg {n m : Nat} (h : pos n <= neg (suc m)) : Empty
   => h idp

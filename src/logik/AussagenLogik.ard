@@ -1,5 +1,6 @@
 \import Data.Array
 \import Data.Bool
+\import Data.Fin (fsuc)
 \import Data.Or
 \import Logic
 \import Logic.Meta
@@ -8,7 +9,6 @@
 \import Paths
 \import Paths.Meta
 \import Set
-\import Util
 \import sets.Add
 \import sets.MySet
 \import util.So

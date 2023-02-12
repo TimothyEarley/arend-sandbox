@@ -1,23 +1,100 @@
+\import Data.Fin
+\import Equiv
+\import Logic
+\import Paths
+\import Paths.Meta
 \import Relation.Equivalence
 \import logik.fol.FOL
 \import logik.fol.Semantics
+\import logik.fol.SequentCalculus
 \import logik.fol.TermCongruence
 \import sets.MySet
-\open Semantics (Interpretation, evaluate)
+\open Semantics (Interpretation, evaluate, ⊧)
+\open SequentCalulus (⊢)
+\open Formula (extendsN')
 
 \func TermInterpretation {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) : Interpretation n =>
   (\new Semantics.Structure {
-     | Universe => Quotient {Term n} (~ {T~ axioms})
+     | Universe =>  Quotient {Term n} (~ {T~ axioms})
      | rel => relInterpretation axioms
      | funcs f d => {?}
    },
    \lam f => in~ (var f))
   \where {
     \func relInterpretation {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) (r : Relations) (d : Array (Quotient {Term n} (~ {T~ axioms})) (relationsArity r)) : \Prop =>
-      {?}
+      relInterpretation' axioms r (Quotient.liftArray {relationsArity r} {_} (\lam {j} => ~ {T~ axioms}) (\lam {j} x => ~-reflexive {T~ axioms}) d)
 
-    \func termInterpretationIsQuotient {L : Language} {axioms : Ensemble (Formula 0)} {t : Term 0}
+    \func relInterpretation' {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) (r : Relations)
+                             (d : Quotient {Array (Term n) (relationsArity r)} (\lam f g => \Pi (i : Fin (L.relationsArity r)) -> f i ~ {T~ axioms} g i)) : \Prop
+    \elim d
+      | in~ d => TruncP (axioms ⊢ atomic r d)
+      | ~-equiv (x : Array _ (L.relationsArity r)) (y : Array _ (L.relationsArity r)) rxy => ext (
+        \case \elim __ \with {
+          | inP h => ⊢.E-Sub'-TruncP (extendsN' x) (extendsN' y)
+              (equalHelper rxy)
+              (atomic r T~.arrayOfVars)
+              (transportInv {Array (Term n) (L.relationsArity r)} (axioms ⊢ atomic r __) T~.subArrayOfVars h)
+              (pmap {Array (Term n) (relationsArity r)} (atomic r __) (inv {Array (Term n) (relationsArity r)} T~.subArrayOfVars))
+        },
+        \case \elim __ \with {
+          | inP h => ⊢.E-Sub'-TruncP (extendsN' y) (extendsN' x)
+              (equalHelper (\lam j => \case rxy j \with {
+                | inP rxyj => inP (⊢.E-Symm rxyj)
+              }))
+              (atomic r T~.arrayOfVars)
+              (transportInv {Array (Term n) (L.relationsArity r)} (axioms ⊢ atomic r __) {Formula.subTerms (extendsN' y) T~.arrayOfVars} {y} T~.subArrayOfVars h)
+              (pmap {Array (Term n) (relationsArity r)} (atomic r __) (inv {Array (Term n) (relationsArity r)} T~.subArrayOfVars))
+        })
+
+    \func equalHelper  {L : Language} {n l : Nat} {axioms : Ensemble (Formula n)} {x y : Array (Term n) l}
+                       (h : \Pi (j : Fin l) -> TruncP (axioms ⊢ equal (x j) (y j)))
+                       (i : Fin (n Nat.+ l))
+      : TruncP (axioms ⊢ equal (extendsN' x i) (extendsN' y i))
+    \elim l, i
+      | 0, i => inP (SequentCalulus.E-Refl idp)
+      | suc l, 0 => h 0
+      | suc l, suc i => equalHelper
+          {_} {n} {l} {axioms} {\lam j => x (fsuc j)} {\lam j => y (fsuc j)}
+          (\lam j => h (fsuc j)) i
+
+    \func termInterpretationIsQuotient {L : Language} {n : Nat} {axioms : Ensemble (Formula n)} {t : Term n}
       : evaluate (TermInterpretation axioms) t = in~ t \elim t
       | var f => idp
-      | apply f d => {?}
+      | apply f d => idp
+
+    \func termInterpretationEquivForAtomics {L : Language} {n : Nat}
+                                            {phi : Formula n}
+                                            {axioms : Ensemble (Formula n)}
+      -- TruncP because there could be many proofs?
+      : (TermInterpretation axioms ⊧ phi) = TruncP (axioms ⊢ phi)
+    \elim phi
+      | equal x y =>
+        (TermInterpretation axioms ⊧ equal x y) ==< idp >==
+        (evaluate (TermInterpretation axioms) x = evaluate (TermInterpretation axioms) y) ==< pmap2 (=) termInterpretationIsQuotient termInterpretationIsQuotient >==
+        (in~ x = {Quotient {Term n} (~ {T~ axioms})} in~ y) ==< quotientHelper >==
+        (x ~ {T~ axioms} y) ==< idp >==
+        TruncP (axioms ⊢ equal x y) `qed
+
+      | atomic r d =>
+        (TermInterpretation axioms ⊧ atomic r d) ==< idp >==
+        relInterpretation axioms r (\lam j => evaluate (TermInterpretation axioms) (d j))
+          ==<
+        pmap {Array (Quotient (~)) (L.relationsArity r)} (relInterpretation _ _) {\lam j => evaluate (TermInterpretation axioms) (d j)} {\lam j => in~ (d j)}
+            (ext (ext (\lam j => termInterpretationIsQuotient)))
+          >==
+        relInterpretation axioms r (\lam j => in~ (d j)) ==< {?} >==
+        TruncP (axioms ⊢ atomic r d) `qed
+
+      | x impH phi => ext
+          (\lam m => {?},
+           \lam t m => rewrite termInterpretationEquivForAtomics (inP (⊢.MP {?} {?} {?})))
+      | notH phi => {?}
+      | forallH phi => {?}
+
+    \func quotientHelper {E : Equivalence} {x y : E.A} : (in~ {E.A} {E.~} x = in~ y) = x ~ y => ext (\new QEquiv {
+      | f => Quotient.equalityEquiv E
+      | ret p => ~-equiv {E.A} {E.~} x y p
+      | ret_f p => ext
+      | f_sec p => ext
+    })
   }

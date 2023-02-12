@@ -1,8 +1,11 @@
+\import Data.Fin
 \import Data.List
 \import Data.Or
+\import LeipnizEquality
 \import Logic
 \import Logic.Meta
 \import Paths
+\open LeipnizIsEqual (i)
 
 -- Or
 
@@ -24,7 +27,6 @@
   }
 
 -- used when the inference gets it wrong
-\cons fsuc {n : Nat} (a : Fin n) : Fin (suc n) => suc a
 \func fpred {n : Nat} (a : Fin (suc n)) (h : a /= 0) : Fin n \elim n, a
   | n, zero => contradiction
   | n, suc a => a
@@ -32,8 +34,37 @@
   \elim a
     | zero => contradiction
     | suc a => idp
+\func finAsNat {n : Nat} (i : Fin n) : Nat \elim n, i
+  | suc n, 0 => 0
+  | suc n, suc i => suc (finAsNat i)
+
+\func finExpandLeft {n m : Nat} (i : Fin m) : Fin (n Nat.+ m)
+  \elim m, i
+    | suc m, 0 => 0
+    | suc m, suc i => suc (finExpandLeft i)
+\where {
+  \func equalAsNats {n m : Nat} {i : Fin m} : finAsNat i = {Nat} finAsNat (finExpandLeft {n} {m} i)
+    \elim m, i
+      | suc m, 0 => idp
+      | suc m, suc i => pmap suc equalAsNats
+}
+
+\func finInNOrSum {n m : Nat} (i : Fin (n Nat.+ m)) : Or (i = )
 
 \func sigmaMap {A : \Type} {B : A -> \Type}
   {C : \Type} {D : C -> \Type} (f : A -> C) (g : \Pi {a : A} (b : B a) -> D (f a))
                (s : \Sigma (a : A) (B a)): \Sigma (c : C) (D c)
   => (f s.1, g s.2)
+
+
+\func truncMap {n : Nat} {B : \Pi (i : Fin n) -> \Type}
+                (f : \Pi (i : Fin n) -> TruncP (B i)) : TruncP (\Pi (i : Fin n) -> B i)
+\elim n
+  | 0 => inP (\case __)
+  | suc n1 => \case f 0, truncMap (\lam i => f (suc i)) \with {
+    | inP bZero, inP f' =>
+      inP (\case \elim  __ \with {
+        | 0 => bZero
+        | suc i' => f' i'
+      })
+  }

@@ -1,6 +1,7 @@
 \import Algebra.Meta
 \import Arith.Nat
 \import Data.Bool
+\import Data.Fin
 \import Equiv
 \import Function
 \import Logic

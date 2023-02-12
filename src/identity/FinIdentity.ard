@@ -1,10 +1,9 @@
-\import Category.Functor
 \import Data.Bool
+\import Data.Fin
 \import Function
 \import Logic
 \import Paths
 \import Set
-\import Util
 \import identity.DecMaps
 \import identity.Identity
 

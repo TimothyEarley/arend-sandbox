@@ -4,6 +4,7 @@
 \import Paths
 \import Paths.Meta
 \import Set \hiding (#)
+\import Util
 \import logik.fol.FOL
 \import logik.fol.FormulaDec
 \import logik.fol.Semantics
@@ -13,9 +14,8 @@
 \import sets.finite.Sized
 \import sets.remove
 \import sets.subset
-\open Formula (Subst, extends, sub, subN, subTerm, subTermLift, subTermsAt, subst)
+\open Formula (Subst, extends, sub, subTerm, subTermLift, subTermsAt, subst)
 \open Semantics (Interpretation, evaluate, ⊧)
-\open Nat (+)
 \open Interpretation (subOneRename)
 
 \module SequentCalulus \where {
@@ -61,23 +61,32 @@
             (rewrite add.addMany.commute h'))
 
       \func E-Sub' {L : Language} {n m : Nat} {axioms : Ensemble (Formula n)} (s s' : Subst m n)
-                   (phi : Formula m)
                    (subEqual : \Pi (i : Fin m) -> axioms ⊢ equal (s i) (s' i))
+                   (phi : Formula m)
                    (sProof : axioms ⊢ subst s phi)
                    {toShow : Formula n}
                    (p : toShow = subst s' phi) : axioms ⊢ toShow
         => MPs (\lam i => equal (s i) (s' i)) subEqual
             (E-Sub s s' (\lam i => add.addMany.isInArray (i, idp)) phi (weaken sProof add.addMany.isInOriginal) p)
 
+      \func E-Sub'-TruncP {L : Language} {n m : Nat} {axioms : Ensemble (Formula n)} (s s' : Subst m n)
+                   (subEqual : \Pi (i : Fin m) -> TruncP (axioms ⊢ equal (s i) (s' i)))
+                   (phi : Formula m)
+                   (sProof : axioms ⊢ subst s phi)
+                   {toShow : Formula n}
+                   (p : toShow = subst s' phi) : TruncP (axioms ⊢ toShow)
+        => TruncP.map (truncMap subEqual) (E-Sub' s s' __ phi sProof p)
+
       \func E-Subst {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
                      (t t' : Term n) (te : equal t t' ∈ axioms) (phi : Formula (suc n))
                      (h : axioms ⊢ sub phi t)
                      {toShow : Formula n} (p : toShow = sub phi t') : axioms ⊢ toShow =>
-        E-Sub' (sub.substFunction t) (sub.substFunction t') phi
+        E-Sub' (sub.substFunction t) (sub.substFunction t')
             (\case \elim __ \with {
               | 0 => Ass te
               | suc _ => E-Refl idp
             })
+            phi
             h
             p
 
@@ -86,16 +95,6 @@
                      (h : axioms ⊢ sub phi t)
                      {toShow : Formula n} (p : toShow = sub phi t') : axioms ⊢ toShow =>
         MP (equal t t') te (E-Subst t t' (byRight idp) phi (weaken h (byLeft __)) p)
-
-      \func E-SubstN {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
-                     {length : Nat}
-                     (d d' : Array (Term n) length)
-                     (de : DArray (\lam i => axioms ⊢ equal (d i) (d' i)))
-                     (phi : Formula (n + length))
-                     (h : axioms ⊢ subN phi d)
-                     (toShow : Formula n) (p : toShow = subN phi d') : axioms ⊢ toShow \elim length, d, d', de
-        | 0, nil, nil, nil => rewrite p h
-        | suc length, x :: d, y :: d', de1 :: de => rewrite p {?}
 
       \func E-Symm {L : Language} {n : Nat} {axioms : Ensemble (Formula n)}
                    {x y : Term n}
