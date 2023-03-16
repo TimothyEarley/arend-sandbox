@@ -1,0 +1,34 @@
+\import Data.Fin
+\import Function.Meta
+\import Paths
+\import Paths.Meta
+
+\func revFin {n : Nat} (i : Fin n) : Fin n
+\elim n, i
+  | suc n, 0 => last-fin n
+  | suc n, suc i => revFin {n} i
+
+  \where {
+    \func revrev {n : Nat} {i : Fin n} : revFin (revFin i) = i
+      \elim n, i
+        | suc n, 0 => revLastFin
+        | suc n, suc i => rewrite revSucn $ pmap fsuc revrev
+
+    \func revLastFin {n : Nat} : revFin (last-fin n) = 0 \elim n
+      | 0 => idp
+      | suc n => revLastFin {n}
+
+    \func revSucn {n : Nat} {i : Fin n} : revFin {suc n} i = suc (revFin {n} i)
+      \elim n, i
+        | suc n, 0 => idp
+        | suc n, suc i => revSucn {n}
+
+    \func addsUp {n : Nat} {i : Fin (suc n)} : i Nat.+ revFin i = {Nat} n
+    \elim n, i
+      | n, 0 => lastFinEq
+      | suc n, suc i => pmap suc addsUp
+
+    \func lastFinEq {n : Nat} : last-fin n = {Nat} n \elim n
+      | 0 => idp
+      | suc n => pmap suc lastFinEq
+  }

@@ -1,11 +1,9 @@
 \import Data.Fin
 \import Data.List
 \import Data.Or
-\import LeipnizEquality
 \import Logic
 \import Logic.Meta
 \import Paths
-\open LeipnizIsEqual (i)
 
 -- Or
 
@@ -48,8 +46,6 @@
       | suc m, 0 => idp
       | suc m, suc i => pmap suc equalAsNats
 }
-
-\func finInNOrSum {n m : Nat} (i : Fin (n Nat.+ m)) : Or (i = )
 
 \func sigmaMap {A : \Type} {B : A -> \Type}
   {C : \Type} {D : C -> \Type} (f : A -> C) (g : \Pi {a : A} (b : B a) -> D (f a))

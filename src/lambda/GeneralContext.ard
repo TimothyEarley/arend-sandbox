@@ -1,9 +1,10 @@
-\import Data.List
 \import Arith.Nat
 \import Data.Fin
+\import Data.List
 \import Order.PartialOrder
 \import Paths
 \import Paths.Meta
+\import util.FinUtil
 
 \data Context (Type : \Set)
   | None \alias ∅
@@ -18,15 +19,18 @@
       | ∅ => nil
       | ∕ c t => toList c ++ t :: nil
 
+    \func toReversedList {Type : \Set} (c : Context Type) : List Type \elim c
+      | ∅ => nil
+      | ∕ c t => t :: toReversedList c
+
     \func getAt {Type : \Set} (c : Context Type) (i : Fin (length c)) : Type \elim c, i
       | ∕ c t, 0 => t
       | ∕ c t, suc i => getAt c i
 
-    \func toArray {Type : \Set} (c : Context Type) : Array Type
-      => \new DArray {
-        | len => length c
-        | at => getAt c
-      }
+    \func toArray {Type : \Set} (c : Context Type) : Array Type => \new DArray {
+      | len => length c
+      | at => getAt c
+    }
   }
 
 \data Lookup \alias \infix 5 ∋ {Type : \Set} (c : Context Type) (T : Type) \elim c
@@ -42,9 +46,20 @@
       | ∕ c head, S l => expand-fin-left (toIndex l)
 
     \func indexOfList {Type : \Set} {c : Context Type} {T : Type} {l : c ∋ T} : Context.toList c !! toIndex l = T
-      \elim c, l
-        | ∕ c head, Z idp => expand-fin-right.correct 0
-        | ∕ c head, S l => expand-fin-left.correct (toIndex l) *> indexOfList
+    \elim c, l
+      | ∕ c head, Z idp => expand-fin-right.correct 0
+      | ∕ c head, S l => expand-fin-left.correct (toIndex l) *> indexOfList
+
+    \func fromIndex {Type : \Set} {c : Context Type} (i : Index (Context.toList c)) : c ∋ (Context.toList c !! i) =>
+      \let revI => revFin i
+        | foo => {?}
+      \in {?}
+      \where {
+        \func fromIndexWithReversed {Type : \Set} {c : Context Type} (i : Index (Context.toReversedList c)) : c ∋ (Context.toReversedList c !! i)
+        \elim c, i
+          | ∕ c1 t, 0 => Z idp
+          | ∕ c1 t, suc f => S (fromIndexWithReversed f)
+      }
   }
 
 \meta #0 => Z idp

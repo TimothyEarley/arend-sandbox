@@ -1,8 +1,10 @@
 \import Data.Bool
 \import Data.Fin
 \import Data.List
+\import Function.Meta
 \import Paths
 \import Paths.Meta
+\import util.FinUtil
 
 \func toMapIndex {A B : \Type} {l : List A} {f : A -> B} (i : Index l) : Index (map f l)
   \elim l, i
@@ -33,6 +35,19 @@
   \func revrev {A : \Type} {l : List A} : rev (rev l) = l \elim l
     | nil => idp
     | :: a l => rewrite revAppend (pmap (a :: __) revrev)
+
+  \func sameLength {A : \Type} {l : List A} : length l = length (rev l)
+    \elim l
+      | nil => idp
+      | a :: l => rewrite length_++ $ pmap suc sameLength
+
+  \func revIndex {A : \Type} {l : List A} (i : Index l) : Index (rev l)
+    => revFin (rewriteI sameLength i)
+
+  \func revIndexGet {A : \Type} {l : List A} {i : Index l} : rev l !! revIndex i = l !! i
+    \elim l, i
+      | a :: l, 0 => {?}
+      | a :: l, suc f => {?}
 }
 
 \func fastrev_aux {A : \Type} (l : List A) (acc : List A) : List A \elim l
