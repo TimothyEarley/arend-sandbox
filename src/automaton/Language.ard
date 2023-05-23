@@ -4,6 +4,7 @@
 \import Paths.Meta
 \import Set
 \import sets.MySet
+\import sets.Single
 \import sets.union
 
 \func Alphabet => \Set

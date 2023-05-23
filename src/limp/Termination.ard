@@ -1,22 +1,17 @@
 \import Arith.Int
-\import Data.Bool (Bool, not \as bnot, and \as band, false, or \as bor, if, so, true)
+\import Data.Bool (Bool, not \as bnot, and \as band, false, or \as bor, if, true)
 \import Data.Maybe
-\import Data.Or
 \import Logic
 \import Logic.Meta
 \import LogicUtil
 \import Meta
-\import Order.LinearOrder
 \import Paths
 \import Paths.Meta
 \import Set \hiding (#)
-\import Util
 \import identity.IntIdentity
-\import identity.NatIdentity
 \import limp.LIMP
 \import typeclasses.Functor
 \import typeclasses.Monad
-\import util.Maybe (dejust)
 \import util.So
 
 -- uniform
@@ -82,8 +77,8 @@
         \func \infix 6 <=?? (a b : Num) : Bool => decToBool (a int<=? b)
 
         \func sound {S : Signature} {b : BExp} {s : State S} : (b, s) bEval evalBExp b s \elim b
-          | tt => rtrue so
-          | ff => rfalse so
+          | tt => rtrue ()
+          | ff => rfalse ()
           | eq a b => \case decideEq (evalAExp a s) (evalAExp b s) \with {
             | yes e => reqt (soYes e) evalAExp.sound evalAExp.sound e
             | no n => reqf (soNo n) evalAExp.sound evalAExp.sound n
@@ -93,18 +88,18 @@
             | no n => rleqf (soNo n) evalAExp.sound evalAExp.sound n
           }
           | not b => cases (evalBExp b s arg addPath) \with {
-            | false, p => rnott so (rewriteI p evalBExp.sound)
-            | true, p => rnotf so (rewriteI p evalBExp.sound)
+            | false, p => rnott () (rewriteI p evalBExp.sound)
+            | true, p => rnotf () (rewriteI p evalBExp.sound)
           }
           | and a b => cases (evalBExp a s arg addPath, evalBExp b s arg addPath) \with {
-            | false, p, _, _ => randf1 so (rewriteI p sound)
-            | _, _, false, q => randf2 (rewrite andFalse so) (rewriteI q sound)
-            | true, p, true, q => randt so (rewriteI p sound) (rewriteI q sound)
+            | false, p, _, _ => randf1 () (rewriteI p sound)
+            | _, _, false, q => randf2 (rewrite andFalse ()) (rewriteI q sound)
+            | true, p, true, q => randt () (rewriteI p sound) (rewriteI q sound)
           }
           | or a b => cases (evalBExp a s arg addPath, evalBExp b s arg addPath) \with {
-            | false, p, false, q => rorf so (rewriteI p sound) (rewriteI q sound)
-            | _, _, true, q => rort2 (rewrite orTrue so) (rewriteI q sound)
-            | true, p, _, _ => rort1 so (rewriteI p sound)
+            | false, p, false, q => rorf () (rewriteI p sound) (rewriteI q sound)
+            | _, _, true, q => rort2 (rewrite orTrue ()) (rewriteI q sound)
+            | true, p, _, _ => rort1 () (rewriteI p sound)
           }
       }
 
@@ -118,8 +113,8 @@
     \elim fuel
       | 0 => contradiction
       | suc fuel => \case \elim c, \elim h \with {
-        | skip, h => rsk (inv (unjust h))
-        | := e a, h => r:= evalAExp.sound (inv (unjust h))
+        | skip, h => rsk (inv (just-injective h))
+        | := e a, h => r:= evalAExp.sound (inv (just-injective h))
         | # a b, h => cases (fueledEval a fuel s arg addPath) \with {
           | just s'', q => r# (sound q) (sound (rewriteF q h))
           | nothing, q => using (rewriteF q h) contradiction
@@ -129,16 +124,16 @@
           | true, p => rift (rewriteI p evalBExp.sound) (sound (rewriteF p h))
         }
         | while b c, h => cases (evalBExp b s arg addPath) \with {
-          | false, p => rwhf (rewriteI p evalBExp.sound) (unjust (inv (rewriteF p h)))
+          | false, p => rwhf (rewriteI p evalBExp.sound) (just-injective (inv (rewriteF p h)))
           | true, p => \let h' => rewriteF p h \in cases (fueledEval c fuel s arg addPath) \with {
             | just s1, cEvalOnce => \let h2 : fueledEval (while b c) fuel s1 = just s' => rewriteF cEvalOnce h' \in
               rwht (rewriteI p evalBExp.sound) (sound cEvalOnce) (sound h2)
             | nothing, p1 => using (rewriteF p1 h') contradiction
           }
         }
-        | append e a, h => rAp evalAExp.sound (unjust (inv h))
+        | append e a, h => rAp evalAExp.sound (just-injective (inv h))
         | :=L v lv a, h => cases (cEval.select (s.lists lv) (evalAExp a s) arg addPath) \with {
-          | just index, p => rSt evalAExp.sound {index} p (inv (unjust (rewriteF p h)))
+          | just index, p => rSt evalAExp.sound {index} p (inv (just-injective (rewriteF p h)))
           | nothing, p => using (rewriteF p h) contradiction
         }
       }

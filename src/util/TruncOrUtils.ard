@@ -7,7 +7,7 @@
   | byLeft a => byRight a
   | byRight b => byLeft b
 
-\func ||-assoc {A B C : \Type} : (A || B) || C = A || B || C => propExt
+\lemma ||-assoc {A B C : \Type} : (A || B) || C = A || B || C => propExt
     (\lam h => \case \elim h \with {
       | byLeft (byLeft a) => byLeft a
       | byLeft (byRight b) => byRight (byLeft b)
@@ -19,14 +19,14 @@
       | byRight (byRight c) => byRight c
     })
 
-\func ||-collapse {A : \Prop} : A || A = A => propExt
+\lemma ||-collapse {A : \Prop} : A || A = A => propExt
     (\lam h => \case \elim h \with {
       | byLeft a => a
       | byRight a => a
     })
     byLeft
 
-\func ||-Empty-left {A : \Prop} : Empty || A = A => propExt
+\lemma ||-Empty-left {A : \Prop} : Empty || A = A => propExt
     (\case __ \with {
       | byLeft ()
       | byRight a => a

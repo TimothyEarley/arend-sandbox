@@ -10,6 +10,7 @@
 \import Paths.Meta
 \import Set
 \import sets.Add
+\import sets.FromArray
 \import sets.MySet
 \import util.So
 
@@ -128,7 +129,7 @@
 
 \func satSet {V : \Set} (s : Formulae V) : \Prop => ∃ (J : Assignment V) (J ⊧s s)
 
-\func example {V : \Set} {A B C : Formula V} (e : setOf (A :: B :: nil) ⊧e C) : valid ((A andH B) ==> C) =>
+\func example {V : \Set} {A B C : Formula V} (e : fromArray (A :: B :: nil) ⊧e C) : valid ((A andH B) ==> C) =>
   \lam J => \case J ⊧? A, J ⊧? B \with {
     | yes ja, yes jb =>
       \let jc => e J (\lam (a, inP (i, h)) => \case \elim i, h \with {
@@ -140,7 +141,7 @@
     | no na, _ => ⊧.r=>2 (A andH B) (⊧.rnotAnd1 na B) C
   }
 
-\func example' {V : \Set} {A B C : Formula V} (v : valid ((A andH B) ==> C)) : setOf (A :: B :: nil) ⊧e C =>
+\func example' {V : \Set} {A B C : Formula V} (v : valid ((A andH B) ==> C)) : fromArray (A :: B :: nil) ⊧e C =>
   \lam J m => \let
     | vv => v J
     | ja : J ⊧ A => m (A, inP (0, idp))
@@ -156,14 +157,14 @@
               \in (⊧.rNot jna) ja
 
 \lemma listable-entails {V : DecSet} {n : Nat} {l : Array (Formula V) n} {a : Formula V}
-  : valid (fold (andH) tt l ==> a) = setOf l ⊧e a =>
+  : valid (fold (andH) tt l ==> a) = fromArray l ⊧e a =>
   ext (\lam v J m => ⊧.r-mp (fold (andH) tt l) (v J) (modelsSetToFold m),
        \lam e J => ⊧.r=> (\lam m => e J (foldTomodelsSet m)))
 
   \where {
     \func modelsSetToFold {V : DecSet} {J : Assignment V.E}
                           {n : Nat} {l : Array (Formula V.E) n}
-                          (h : J ⊧s setOf l)
+                          (h : J ⊧s fromArray l)
       : J ⊧ fold (andH) tt l \elim n, l
       | 0, nil => ()
       | suc n, :: a l => ⊧.rAnd (h (a, inP (0, idp))) (modelsSetToFold (\lam (e, inP in) => h (e, inP (fsuc in.1, in.2))))
@@ -171,7 +172,7 @@
     \func foldTomodelsSet {V : DecSet} {J : Assignment V.E}
                           {n : Nat} {l : Array (Formula V.E) n}
                           (h : J ⊧ fold (andH) tt l)
-      : J ⊧s setOf l \elim n, l
+      : J ⊧s fromArray l \elim n, l
       | 0, nil => \lam (e, inP (i, _)) => \case i
       | suc n, :: a l => \lam (e, inP (i, p)) => \case \elim i, p \with {
         | 0, p => rewriteI p (⊧.rAnd1 h)

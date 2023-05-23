@@ -6,6 +6,7 @@
 \import Paths
 \import sets.MySet
 \import sets.Intersect
+\import sets.Single
 \import sets.subset
 \import sets.union
 \import team.ClosureProperty
@@ -50,4 +51,4 @@
   }
 
 \func NE-not-preserves-downwardClosure {P : \Set} : Not (Preserves {P} downwardClosure NE) =>
-  \lam h => h {single NE} idp nil () full ∅ (full/=empty (\lam _ => true)) ⊆.∅-is-⊆ idp
+  \lam h => h {single NE} idp nil () universal ∅ (universal/=empty (\lam _ => true)) ⊆.∅-is-⊆ idp

@@ -108,12 +108,11 @@
 
 \where {
   \func power_law-lemma {n : Nat} {d : Rat}
-    : ((ratio (suc n) 1 + rat 1 1 (\case __)) * re {d ^ suc n})
+    : ((ratio (suc n) 1 + rat 1 1 (\case __) idp) * re {d ^ suc n})
     = (ratio (suc (suc n)) 1                    * re {d ^ suc n})
     => pmap
         (__ * re {d ^ suc n})
         {ratio (suc n) 1 + ratio 1 1}
         {ratio (suc (suc n)) 1}
-        (ext (unfold (pmap pos (pmap suc (pmap suc (pmap (1 Nat.* __) ide-left)))),
-              idp))
+        idp
 }

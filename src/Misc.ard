@@ -2,12 +2,12 @@
 \import Data.Or
 \import Equiv
 \import Function
-\import Function.Meta
 \import Logic
 \import Logic.Meta
 \import Paths
 \import Paths.Meta
 \import sets.MySet
+\import sets.Single
 
 \lemma doubleNegationLEM {A : \Type} : Not (Not (Or A (Not A))) => \lam n => n (inr (\lam a => n (inl a)))
 

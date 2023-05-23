@@ -1,4 +1,3 @@
-\import Arith.Nat
 \import Function
 \import Function.Meta ($)
 \import Logic
@@ -7,8 +6,10 @@
 \import Set
 \import sets.Add
 \import sets.Disjoint
-\import sets.finite.FiniteS
+\import sets.Image
 \import sets.MySet
+\import sets.Single
+\import sets.finite.FiniteS
 \import sets.finite.Sized
 \import sets.remove
 \import sets.subset

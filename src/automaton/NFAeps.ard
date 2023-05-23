@@ -10,6 +10,7 @@
 \import automaton.Language
 \import sets.DecidableSet
 \import sets.MySet
+\import sets.Single
 
 \record NFAeps
   | Action : \Set
@@ -114,7 +115,7 @@
       | End => So
       \where {
         \func singleInLanguage {A : Alphabet} {a : A} : (a :: nil) ∈ language (singleNFAeps a) =>
-          isStep true idp (isLast so)
+          isStep true idp (isLast ())
 
         \func onlySingleInLanguage {A : Alphabet} {w : Word A} {a : A} (h : w ∈ language (singleNFAeps a))
           : a :: nil = w

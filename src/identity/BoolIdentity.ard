@@ -39,7 +39,7 @@
   \func test : false bool≟≟ true = false => idp
 }
 
-\func BoolDecSet : DecSizedEnsemble Bool full \cowith
+\func BoolDecSet : DecSizedEnsemble Bool universal \cowith
   | decideEq => bool≟
   | size => 2
   | sizeProof => ext (\new QEquiv {

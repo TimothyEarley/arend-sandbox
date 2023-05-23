@@ -6,11 +6,13 @@
 \import Paths.Meta
 \import sets.Add
 \import sets.Elements
+\import sets.Family
+\import sets.Image
 \import sets.MySet
 \import sets.subset
 \import util.TruncOrUtils
 
-\func union \alias \infixl 6 ∪ {E : \Set} (a b : Ensemble E) : Ensemble E => \lam e => (e ∈ a) || (e ∈ b)
+\func union \alias \infixl 7 ∪ {E : \Set} (a b : Ensemble E) : Ensemble E => \lam e => (e ∈ a) || (e ∈ b)
 
   \where {
     \func left-empty {E : \Set} {a : Ensemble E} : ∅ ∪ a = a => extSet
@@ -67,14 +69,11 @@
       }
   }
 
-\func bigUnion \alias ⋃ {A : \Set} (S : Ensemble (Ensemble A)) : Ensemble A
-  => \lam a => ∃ (S' : Ensemble A) (S' ∈ S) (a ∈ S')
-\where {
-  \func emptyBigUnion {A : \Set} : ⋃ ∅ = ∅ {A}
-    => show-empty (\lam (x, inP e) => e.2)
+\func bigUnion \alias ⋃ {A : \Set} (S : Family A) : Ensemble A => \lam a => ∃ (S' : Ensemble A) (S' ∈ S) (a ∈ S')
+  \where {
+    \func emptyBigUnion {A : \Set} : ⋃ ∅ = ∅ {A} => extSet-empty (\lam (x, inP e) => e.2)
 
-  \func addToUnion {A : \Set} {S : Ensemble (Ensemble A)} {S' : Ensemble A} : ⋃ (add S S') = ⋃ S ∪ S'
-    => extSet
+    \func addToUnion {A : \Set} {S : Family A} {S' : Ensemble A} : ⋃ (add S S') = ⋃ S ∪ S' => extSet
         (\lam {x} (inP (X, el, el')) => \case el \with {
           | byLeft XS => byLeft (inP (X, XS, el'))
           | byRight X=S' => byRight (rewrite X=S' el')
@@ -84,34 +83,41 @@
           | byRight xS' => inP (S', byRight idp, xS')
         })
 
-  \func componentwiseSubset {A : \Set} {S S' : Ensemble (Ensemble A)}
-    (h : \Pi (s : Elements S) -> ∃ (s' : Elements S') (s.1 ⊆ s'.1))
-    : ⋃ S ⊆ ⋃ S'
-    => \case \elim __ \with {
+    \func componentwiseSubset {A : \Set} {S S' : Family A}
+                              (h : \Pi (s : Elements S) -> ∃ (s' : Elements S') (s.1 ⊆ s'.1))
+      : ⋃ S ⊆ ⋃ S' => \case \elim __ \with {
       | inP (Sub, SubIn, xSub) => \case h (Sub, SubIn) \with {
         | inP ((Sub', Sub'In), subset) => inP (Sub', Sub'In, subset xSub)
       }
     }
-}
+  }
 
-\func disjointUnion \alias \infix 6 ⊎ {A : \Set} (S S' : Ensemble A) : Ensemble (\Sigma Bool A)
-  => \lam (b, a) => (\Sigma (So b) (a ∈ S)) || (\Sigma (So (not b)) (a ∈ S'))
+\func bigUnionIndexed \alias ⋃i {X I : \Set} (A : IndexFamily X I) : Ensemble X =>
+  \lam x => ∃ (i : I) (x ∈ A i)
+  \where {
+    \func =-bigUnion : ⋃i A = ⋃ (IndexFamily.toFamily A) => extSet
+        (\lam {x} (inP e) => inP (A e.1, inP (e.1, idp, ()), e.2))
+        (\lam {x} (inP (_, (inP (e2, e2', _)), e3)) => inP (e2, rewriteI e2' e3))
+  }
 
-\where {
-  -- TODO show that this is equiv to (S smap (true, __)) ∪ (S' smap (false, __))
+\func disjointUnion \alias \infix 6 ⊎ {A : \Set} (S S' : Ensemble A) : Ensemble (\Sigma Bool A) =>
+  \lam (b, a) => (\Sigma (So b) (a ∈ S)) || (\Sigma (So (not b)) (a ∈ S'))
 
-  \func rec {A : \Set} {S S' : Ensemble A} {a : A} {b : Bool} (el : (b, a) ∈ (S ⊎ S')) : Or (a ∈ S) (a ∈ S')
+  \where {
+    -- TODO show that this is equiv to (S smap (true, __)) ∪ (S' smap (false, __))
+
+    \func rec {A : \Set} {S S' : Ensemble A} {a : A} {b : Bool} (el : (b, a) ∈ (S ⊎ S')) : Or (a ∈ S) (a ∈ S')
     \elim b
       | false => inr (elRight {A} {S} el)
       | true => inl (elLeft {A} {S} el)
 
-  \func elLeft {A : \Set} {S S' : Ensemble A} {a : A} (h : (true, a) ∈ (S ⊎ S')) : a ∈ S
+    \func elLeft {A : \Set} {S S' : Ensemble A} {a : A} (h : (true, a) ∈ (S ⊎ S')) : a ∈ S
     \elim h
       | byLeft h => h.2
       | byRight h => using h.1 contradiction
 
-  \func elRight {A : \Set} {S S' : Ensemble A} {a : A} (h : (false, a) ∈ (S ⊎ S')) : a ∈ S'
-  \elim h
-    | byLeft h => using h.1 contradiction
-    | byRight h => h.2
-}
+    \func elRight {A : \Set} {S S' : Ensemble A} {a : A} (h : (false, a) ∈ (S ⊎ S')) : a ∈ S'
+    \elim h
+      | byLeft h => using h.1 contradiction
+      | byRight h => h.2
+  }

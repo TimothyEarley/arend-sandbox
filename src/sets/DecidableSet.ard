@@ -8,6 +8,8 @@
 \import Set
 \import sets.Add
 \import sets.MySet
+\import sets.Single
+\import sets.remove
 \import util.So
 \import util.True
 
@@ -23,6 +25,13 @@
         | byRight a=e => n a=e
       })
     }
+
+    \func removeElement {D : DecSet E} (a : E) : DecElementEnsemble E (S without a) \cowith
+      | decElement e => \case e ∈? \this, decideEq a e \with {
+        | yes y, yes e => no (\lam eEl => eEl.2 e)
+        | yes y, no n => yes (y, n)
+        | no n, _ => no (\lam eEl => n eEl.1)
+      }
 } \where {
   \func emptyDec {E : \Set} : DecElementEnsemble E ∅ \cowith
     | decElement => \lam a => no (\lam e => e)
@@ -32,10 +41,12 @@
 
   \func boolSoDec : DecElementEnsemble Bool So \cowith
     | decElement => \case \elim __ \with {
-      | false => no So.absurd
-      | true => yes so
+      | false => no (\lam e => e)
+      | true => yes ()
     }
 }
+
+\func element? \alias \infix 6 ∈? {X : \Set} (e : X) (S : DecElementEnsemble X) : Dec (e ∈ S) => S.decElement e
 
 \func BoolEnsemble (A : \Set) => A -> Bool
   \where {
@@ -46,7 +57,7 @@
     \func decInEnsemble {A : \Set} {b : BoolEnsemble A} (a : A) : Dec (a ∈ asEnsemble b) =>
       cases (b a arg addPath) \with {
         | false, q => no (unfold (∈, BoolEnsemble.asEnsemble) $ rewrite q (\case __))
-        | true, q => yes (unfold (∈, BoolEnsemble.asEnsemble) $ rewrite q so)
+        | true, q => yes (unfold (∈, BoolEnsemble.asEnsemble) $ rewrite q ())
       }
 
     \func asDecEnsemble {A : \Set} (b : BoolEnsemble A) : DecElementEnsemble A \cowith
@@ -61,6 +72,6 @@
           (\lam e => soYes e)
       )
       -- arend does not think decElement {asDecEnsemble b} == decInEnsmble
-      | f_sec y => ext {?}
+      | f_sec y => ext (\lam a => \let goal : decToBool (decElement {asDecEnsemble {A} y} a) = {Bool} y a => {?} \in goal)
     })
   }

@@ -1,18 +1,13 @@
 \import Equiv
 \import Logic
 \import Paths.Meta
-\import sets.Elements
 \import sets.MySet
-\import sets.Complement
-\import sets.Intersect
-\import sets.pow
-\import sets.subset
 \import sets.union
 
 \func Elements {A : \Set} (S : Ensemble A) : \Set => \Sigma (a : A) (a ∈ S)
 
   \where {
-    \func full-eq {A : \Set} : Elements (full {A}) = A => ext (\new QEquiv {
+    \func universal-eq {A : \Set} : Elements (universal {A}) = A => ext (\new QEquiv {
       | f e => e.1
       | ret a => (a, ())
       | ret_f e => \case \elim e \with {

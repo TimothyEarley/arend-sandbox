@@ -4,9 +4,11 @@
 \import Data.Or
 \import Equiv
 \import Function
+\import Function.Meta
 \import Homotopy.Fibration
 \import Logic
 \import Logic.Meta
+\import Meta
 \import Order.LinearOrder
 \import Order.PartialOrder
 \import Paths
@@ -14,7 +16,10 @@
 \import Set.Fin
 \import sets.Add
 \import sets.Elements
+\import sets.FromArray
+\import sets.Image
 \import sets.MySet
+\import sets.Single
 \import sets.finite.Sized
 \import sets.union
 \import util.ArrayUtils
@@ -54,7 +59,7 @@
         }
       })
 
-    \func array-finite {A : \Set} {n : Nat} {l : Array A n} : FiniteS (setOf l) =>
+    \func array-finite {A : \Set} {n : Nat} {l : Array A n} : FiniteS (fromArray l) =>
       inP (n, \new Surjection {
         | f => \lam f => (l !! f, inP (f, idp))
         | isSurj => \lam y => \case \elim y \with {
@@ -144,17 +149,17 @@
 
     \func infinite'-set : \Sigma (A : \Set) (S : Ensemble A) (Not (finite' S)) =>
       (Nat,
-       full,
+       universal,
        \case __ \with {
          | inP (n, p) =>
            \let
             -- repackage the fact Nat is finite
-             | Si : SizedEnsemble Nat full n => \new SizedEnsemble {
+             | Si : SizedEnsemble Nat universal n => \new SizedEnsemble {
                | sizeProof => p
              }
-            \in helper {Elements full} {Nat}
-               full.full=A
-               full
+            \in helper {Elements universal} {Nat}
+               universal.universal=A
+               universal
                (table Si)
                _ idp
                (table-is-complete Si)
@@ -185,7 +190,8 @@
     \elim n, v
       | 0, Prelude.nil => inP (0, \lam i => \case i.1 \with {
       })
-      | suc n, v => \let (m, h) => maxOf v \in inP (suc m, \lam i => helper (h (suc m) i))
+      | suc n, v => \let (m, h) => maxOf v
+                    \in inP (suc m, \lam (i, p) => helper (rewriteF p (h i)))
 
       \where {
         \func helper {a : Nat} (h : suc a <= a) : Empty \elim a
@@ -196,7 +202,7 @@
           | suc a => helper (suc<=suc.conv h)
       }
 
-    \func finSet->finite {A : \Set} (F : FinSet A) : FiniteS (full {A})
+    \func finSet->finite {A : \Set} (F : FinSet A) : FiniteS (universal {A})
     \elim F
-      | (n, inP p) => finite'=>finite {_} {full} (inP (n, full.full=A *> p))
+      | (n, inP p) => finite'=>finite {_} {universal} (inP (n, universal.universal=A *> p))
   }

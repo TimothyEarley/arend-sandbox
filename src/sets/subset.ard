@@ -4,6 +4,7 @@
 \import sets.Elements
 \import sets.Intersect
 \import sets.MySet
+\import sets.Single
 \import sets.remove
 \import sets.union
 
@@ -31,12 +32,6 @@
     \func of-intersection-left \alias of-∩-left {A : \Set} {S S' : Ensemble A} : S ∩ S' ⊆ S
       => \lam {x} e => e.1
 
-    \func refl-is-id {A : \Set} {x : Ensemble A} (s : x ⊆ x) : s = {\Pi {y : A} (y ∈ x) -> y ∈ x} (\lam {y} e => e)
-      => ext
-
-    \func preCompose {A : \Set} {x y : Ensemble A} (s : x ⊆ y) {B : \Type} (f : Elements y -> B) : Elements x -> B
-      => \lam e => f (toFunction s e)
-
     \func singleSubset {A : \Set} {a : A} {as : Ensemble A} (h : a ∈ as) : single a ⊆ as
       => \lam {x} e => rewriteI e h
 
@@ -45,6 +40,8 @@
         | byLeft a => h a
         | byRight b => h' b
       }
+
+    \func removeSubset {A : \Set} {as : Ensemble A} {a : A} : as without a ⊆ as => \lam {x} e => e.1
 
     \func unionSubset' {A : \Set} {as bs cs ds : Ensemble A} (h : as ⊆ cs) (h' : bs ⊆ ds) : (as ∪ bs) ⊆ (cs ∪ ds)
       => \lam {x} e => \case e \with {

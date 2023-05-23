@@ -2,6 +2,7 @@
 \import Arith.Int
 \import Arith.Nat
 \import Data.Array
+\import Data.Fin (fsuc)
 \import Data.List (List)
 \import Data.Maybe
 \import Function.Meta
@@ -15,9 +16,7 @@
 \import Paths.Meta
 \import Relation.Equivalence
 \import Set (Dec, DecSet, no, yes)
-\import Util
 \import identity.DecMaps
-\import identity.FinIdentity
 \open DArray (!!)
 \open ArrayUtils (contains)
 
@@ -58,26 +57,47 @@
 
   \func arrayOf {A : \Type} (val : A) {n : Nat} : Array A n => mkArray (\lam f => val)
 
---  \func set {n : Nat} {A : \Type} (a : Array A n) (i : Fin n) (v : A) : Array A n =>
---    \lam j => \case i fin≟ j \return A \with {
---      | yes e => v
---      | no n => a j
---    }
+  --  \func set {n : Nat} {A : \Type} (a : Array A n) (i : Fin n) (v : A) : Array A n =>
+  --    \lam j => \case i fin≟ j \return A \with {
+  --      | yes e => v
+  --      | no n => a j
+  --    }
 
   -- hopefully faster, even though we eagerly create a new array
   -- this is because otherwise Arend leaves things lazy and ends up doing duplicate work (I think)
+
   \func set {n : Nat} {A : \Type} (a : Array A n) (i : Fin n) (v : A) : Array A n \elim n, a, i
     | suc n, :: a a1, 0 => v :: a1
     | suc n, :: a a1, suc i => a :: set a1 i v
+    \where {
+      \func getAtSet {A : \Type} {n : Nat} {a : Array A n} {i : Fin n} {v : A}
+        : set a i v i = v \elim n, a, i
+        | suc n, a :: a1, 0 => idp
+        | suc n, a :: a1, suc i => getAtSet
 
-  \func maxOf {A : JoinSemilattice} {n : Nat} (l : Array A (suc n)) : \Sigma (m : A) (\Pi (x : A) (Index x l) -> x Order.PartialOrder.<= m)
-  \elim n, l
-    | 0, :: a nil => (a, \lam x (0, p) => rewrite p <=-refl)
-    | suc n, :: a (:: a' l') \as l =>
-      \let (m', h') => maxOf (a' :: l') \in (a ∨ m', \lam x (i : Index x l) => \case \elim x, \elim i \with {
-        | _, (0, idp) => join-left
-        | _, (suc i, idp) => <=-transitive (h' a' (0, idp)) join-right
-      })
+      \func getAtNotSet {A : \Type} {n : Nat} {a : Array A n} {i i' : Fin n} (h : i /= i') {v : A}
+        : set a i v i' = a i' \elim n, a, i, i'
+        | suc n, a :: a1, 0, 0 => contradiction
+        | suc n, a :: a1, 0, suc i' => idp
+        | suc n, a :: a1, suc i, 0 => idp
+        | suc n, a :: a1, suc i, suc i' => getAtNotSet (\lam p => h $ pmap fsuc p)
+    }
+
+  \func maxOf {A : JoinSemilattice} {n : Nat} (l : Array A (suc n))
+    : \Sigma (m : A) (\Pi (i : Fin (suc n)) -> l i Order.PartialOrder.<= m)
+    => maxOfOr l (\case l \with {| a :: _ => a})
+    \where {
+      \func maxOfOr {A : JoinSemilattice} (l : Array A) (else : A)
+        : \Sigma (m : A) (\Pi (i : Fin l.len) -> l i Order.PartialOrder.<= m)
+      \elim l
+        | nil => (else, \case __)
+        | a :: l =>
+          \let (m', h') => maxOfOr l a
+          \in (a ∨ m', \case \elim __ \with {
+            | 0 => join-left
+            | suc i => h' i <=∘ join-right
+          })
+    }
 
   \func All {A : \Type} (v : Array A) (P : A -> \Prop) : \Prop => Big (\lam a r => \Sigma (P a) r) (\Sigma) v
     \where {
@@ -208,8 +228,9 @@
         | (0, aIn), (0, aIn') => ext idp
         | (0, aIn), (suc i', aIn') => absurd (h.1 (i', aIn' *> inv aIn))
         | (suc i, aIn), (0, aIn') => absurd (h.1 (i, aIn *> inv aIn'))
-        | (suc i, aIn), (suc i', aIn') => \let rec => from' h.2 x (i, aIn) (i', aIn')
-                                          \in ext (pmap fsuc (pmap __.1 rec))
+        | (suc i, aIn), (suc i', aIn') =>
+          \let rec => from' h.2 x (i, aIn) (i', aIn')
+          \in ext (pmap fsuc (pmap __.1 rec))
       }
 
     \func remDup {A : DecSet} (l : Array A) : Array A \elim l
@@ -256,40 +277,3 @@
           }
       }
   }
-
-\func ArrayOrder {A : \Set} : Poset (Array A) \cowith
-  | <= => <=
-  | <=-refl => refl
-  | <=-transitive => trans
-  | <=-antisymmetric => antiSym
-  \where {
-    \data \infix 6 <= {A : \Set} (x : Array A) (y : Array A) : \Prop \elim x, y
-      | nil, _ => nil<=_
-      | :: a t, :: a' t' => cons<=cons (a = a') (t <= t')
-
-    \func refl {A : \Set} {x : Array A} : x <= x \elim x
-      | nil => <=.nil<=_
-      | :: a arr => <=.cons<=cons idp refl
-
-    \func trans {A : \Set} {x y z : Array A} (h : x <= y) (h' : y <= z) : x <= z
-    \elim x, y, z, h, h'
-      | nil, _, _, _, _ => <=.nil<=_
-      | :: a t, :: a1 t1, :: a' t', ArrayOrder.cons<=cons p h, cons<=cons p1 h' =>
-        cons<=cons (p *> p1) (trans h h')
-
-    \func antiSym {A : \Set} {x y : Array A} (h : x <= y) (h' : y <= x) : x = y \elim x, y, h, h'
-      | nil, nil, nil<=_, nil<=_ => idp
-      | :: {n} a' t', :: {n'} a t, cons<=cons p h, cons<=cons _ h' => createArray= p (antiSym h h')
-
-    \func <=-prefix {A : \Set} {x y : Array A} (h : x <= y) : \Sigma (z : Array A) (x ++ z = y)
-    \elim x, y, h
-      | nil, y, nil<=_ => (y, idp)
-      | :: a t, :: a' t', cons<=cons p h => \let (z, h') => <=-prefix h
-                                            \in (z, pmap2 {A} {Array A} (__ :: __) p h')
-
-    \func <=-nil {A : \Set} {x : Array A} (h : x <= nil) : x = nil \elim x, h
-      | nil, nil<=_ => idp
-  }
-
-\func createArray= {A : \Type} {a a' : A} {t t' : Array A}
-                   (p : a = a') (q : t = t') : (a :: t) = (a' :: t') => rewrite (p, q) idp

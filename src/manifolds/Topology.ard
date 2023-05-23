@@ -1,0 +1,157 @@
+\import Arith.Nat
+\import Data.Bool
+\import Equiv
+\import Function.Meta ($)
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Order.PartialOrder
+\import Paths
+\import Paths.Meta
+\import Set
+\import Topology.TopSpace
+\import sets.Complement
+\import sets.DecidableSet
+\import sets.Family
+\import sets.FromArray
+\import sets.Intersect
+\import sets.MySet
+\import sets.remove
+\import sets.subset
+\import sets.union
+-- https://github.com/coq-community/topology/blob/master/theories/Topology/TopologicalSpaces.v
+
+\class Topology (X : \Set) (T : Family X) {
+  | totalInT : universal ∈ T
+  | intersectionIn : \Pi (A B : Ensemble X) (A ∈ T) (B ∈ T) -> A ∩ B ∈ T
+  | unionIn : \Pi (F : Family X) (F ⊆ T) -> ⋃ F ∈ T
+
+  \lemma emptyInT : ∅ ∈ T => rewriteI ⋃.emptyBigUnion $ unionIn ∅ (\lam e => absurd e)
+
+  \lemma indexedUnionIn (I : \Set) (A : I -> Ensemble X) (h : \Pi (i : I) -> A i ∈ T) : ⋃i A ∈ T =>
+    rewrite ⋃i.=-bigUnion $
+    unionIn (IndexFamily.toFamily A) (\lam {S} => \case \elim S, \elim __ \with {
+      | _, inP (i, idp, _) => h i
+    })
+
+  \func open (S : Ensemble X) => S ∈ T
+
+  \func Open : \Set => \Sigma (S : Ensemble X) (open S)
+
+  \func OpenNeighbourhood (x : X) : \Set => \Sigma (U : Ensemble X) (open U) (x ∈ U)
+
+  \func closed (S : Ensemble X) => open (complement S)
+
+  \func interior (S : Ensemble X) : Ensemble X => \lam p =>
+      ∃ (U : Ensemble X) (open U) (p ∈ U) (U ⊆ S)
+
+  \func exterior (S : Ensemble X) : Ensemble X => \lam p =>
+      ∃ (U : Ensemble X) (open U) (p ∈ U) (U ⊆ complement S)
+
+  \func boundary (S : Ensemble X) : Ensemble X => \lam p =>
+      \Pi (U : Ensemble X) (open U) (p ∈ U) -> \Sigma (U ∩ S /= ∅) (U ∩ complement S /= ∅)
+
+  \func converges (an : Nat -> X) (a : X) : \Prop =>
+    \Pi (U : Ensemble X) (open U) (a ∈ U) -> ∃ (n : Nat) (\Pi (n' : Nat) (n' >= n) -> an n' ∈ U)
+
+  -- derived set = set of accumulation
+
+  \func derived (S : Ensemble X) : Ensemble X => \lam p =>
+      \Pi (U : Ensemble X) (open U) (p ∈ U) -> (U without p) ∩ S /= ∅
+
+  \func closure (S : Ensemble X) : Ensemble X => S ∪ boundary S
+
+  -- lemma
+
+  \lemma interior-exterior-complement {S : DecElementEnsemble X} : interior S = exterior (complement S) =>
+    extSet
+        (\lam {p} i => unfold exterior (rewrite (complement.complement-complement {X} {S}) i))
+        (\lam {p} (inP (U, U_open, pU, US)) => inP (U, U_open, pU, rewriteF (complement.complement-complement {X} {S}) US))
+
+  \lemma interior-in-S {S : Ensemble X} : interior S ⊆ S => \lam {x} (inP (U, _, xU, US)) => US xU
+
+  \lemma boundary-complement {S : DecElementEnsemble X} : boundary S = boundary (complement S) => extSet
+      (\lam {x} b U o e => \let (h1, h2) => b U o e \in (h2, rewrite (complement.complement-complement {X}) h1))
+      (\lam {x} b U o e => \let (h1, h2) => b U o e \in (rewriteI (complement.complement-complement {X} {S}) h2, h1))
+
+  \lemma not-interior-exterior-implies-boundary {S : DecElementEnsemble X} {x : X}
+                                                (hInt : x ∉ interior S)
+                                                (hExt : x ∉ exterior S)
+    : x ∈ boundary S => \lam U o e =>
+      (
+        \lam p => hExt (inP (U, o, e, \lam {u} uU uS => transport (u ∈ __) p (uU, uS))),
+        \lam p => hInt (inP (U, o, e, \lam {u} uU => \case S.decElement u \with {
+          | yes uS => uS
+          | no n => absurd $ transport (u ∈ __) p (uU, n)
+        }
+        ))
+      )
+
+  \lemma not-interior-exterior-=-boundary {S : DecElementEnsemble X}
+    : (complement $ interior S) ∩ (complement $ exterior S) = boundary S => extSet
+      (\lam {x} (i, i') => not-interior-exterior-implies-boundary i i')
+      (\lam {x} b => (\lam (inP (U, o, e, h)) => (b U o e).2 (extSet-empty (\lam (z, (zU, zNS)) => zNS (h zU))),
+                      \lam (inP (U, o, e, h)) => (b U o e).1 (extSet-empty (\lam (z, (zU, zS)) => (h zU) zS))))
+
+  \lemma interior-exterior-boundary {S : DecElementEnsemble X}
+                                    (decInterior : DecElementEnsemble X (interior S))
+                                    (decExterior : DecElementEnsemble X (exterior S))
+                                    (decBoundary : DecElementEnsemble X (boundary S))
+    : (interior S ∪ exterior S ∪ boundary S) = universal => extSet-universal
+      (\lam {x} _ => \case decInterior.decElement x, decExterior.decElement x, decBoundary.decElement x \with {
+        | yes e, _, _ => byLeft (byLeft e)
+        | _, yes e, _ => byLeft (byRight e)
+        | no n, no n1, _ => byRight (not-interior-exterior-implies-boundary n n1)
+      }
+      )
+
+  \lemma exterior-not-derived {S : Ensemble X} : exterior S ∩ derived S = ∅ => extSet-empty
+      (\lam (x, (inP i, a)) => a i.1 i.2 i.3 (extSet-empty (\lam (x', ((x'U, x'/=x), x'S)) => i.4 x'U x'S)))
+} \where {
+  \func indiscreteTopology {X : \Set} {DX : DecSet (Ensemble X)} : Topology X \cowith
+    | T => fromArray (∅ :: universal {X} :: nil)
+    | totalInT => inP (1, idp)
+    | intersectionIn A B elA elB => \case \elim A, elA \with {
+      | _, (inP (0, idp)) => rewrite ∩.empty-intersecion (inP (0, idp))
+      | _, inP (1, idp) => rewrite ∩.universal-intersection elB
+    }
+    | unionIn F h =>
+      \let
+        -- this is not a given
+        | FSDE : DecElementEnsemble _ F => {?}
+        | bf_p => fromArray.subset-of-fromArray FSDE h
+      \in \case \elim bf_p \with {
+        | (false :: false :: nil, p) => rewrite (p, fromArray.fromNil, ⋃.emptyBigUnion) (inP (0, idp))
+        | (false :: true :: nil, p) => rewrite (p, fromArray.bigUnion-of-fromArray {X} {universal :: nil}) (inP (1, inv ∪.right-empty))
+        | (true :: false :: nil, p) => rewrite (p, fromArray.bigUnion-of-fromArray {X} {∅ :: nil}) (inP (0, inv ∪.right-empty))
+        | (true :: true :: nil, p) => rewrite (p, fromArray.bigUnion-of-fromArray {X} {∅ :: universal :: nil}) (inP (1, inv (∪.left-empty *> ∪.right-empty)))
+      }
+
+  \func discreteTopology {X : \Set} : Topology X \cowith
+    | T => universal
+    | totalInT => ()
+    | intersectionIn _ _ _ _ => ()
+    | unionIn _ _ => ()
+}
+
+\func same-as-std-lib : Topology = TopSpace => ext (\new QEquiv {
+  | f => TopologicalSpace->TopSpace
+  | ret => TopSpace->TopologicalSpace
+  | ret_f ts => idp
+  | f_sec ts => idp
+})
+  \where {
+    \func TopologicalSpace->TopSpace (TS : Topology) : TopSpace \cowith
+      | E => TS.X
+      | topology => TS.T
+      | top-top => TS.totalInT
+      | top-meet {P} {Q} pIn qIn => intersectionIn P Q pIn qIn
+      | top-Join S h => unionIn S (\lam {x} s => h x s)
+
+    \func TopSpace->TopologicalSpace (TS : TopSpace) : Topology \cowith
+      | X => TS.E
+      | T => TS.topology
+      | totalInT => TS.top-top
+      | intersectionIn A B aIn bIn  => TS.top-meet aIn bIn
+      | unionIn F Fsub => TS.top-Join F (\lam P f => Fsub f)
+  }

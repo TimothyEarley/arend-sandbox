@@ -9,15 +9,17 @@
 \import sets.Add
 \import sets.Disjoint
 \import sets.Elements
+\import sets.Family
 \import sets.Intersect
 \import sets.MySet
+\import sets.Single
 \import sets.finite.Card
 \import sets.remove
 \import sets.subset
 \import sets.union
 \open pow (closed-under-union, set-in-pow)
 
-\func pow {A : \Set} (S : Ensemble A) : Ensemble (Ensemble A) => __ ⊆ S
+\func pow {A : \Set} (S : Ensemble A) : Family A => __ ⊆ S
   \where {
     \func empty-in-pow {A : \Set} {S : Ensemble A} : ∅ ∈ pow S => \lam e => \case e \with {
     }

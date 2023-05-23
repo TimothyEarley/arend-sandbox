@@ -1,6 +1,6 @@
 \import Arith.Int
 \import Arith.Nat
-\import Data.Bool (Bool, false, so, true)
+\import Data.Bool (Bool, false, true)
 \import Logic
 \import Logic.Meta
 \import LogicUtil
@@ -94,9 +94,9 @@
           | _, inP (r# (r:= (rNum idp) idp) (r:= (rPlus (rVar idp) (rNum idp) idp) idp)) =>
             inP (r#
                 (r:= (rNum idp) idp)
-                (rwht (rleqt so (rVar substVar.get) (rNum idp) pos0<=pos0)
+                (rwht (rleqt () (rVar substVar.get) (rNum idp) pos0<=pos0)
                     (r:= (rPlus (rVar substVar.get) (rNum idp) idp) idp)
-                    (rwhf (rleqf so (rVar substVar.get) (rNum idp) pos1</=pos0)stateP
+                    (rwhf (rleqf () (rVar substVar.get) (rNum idp) pos1</=pos0)stateP
                     )
                 )
             )
@@ -123,7 +123,7 @@
         })
 
       \where {
-        \func pos0<=pos0 : pos 0 <= pos 0 => pos<=pos zero<=_
+        \lemma pos0<=pos0 : pos 0 <= pos 0 => pos<=pos zero<=_
 
         \func pos1</=pos0 : Not (pos 1 <= pos 0) => \lam h => h idp
 

@@ -1,0 +1,192 @@
+\import Algebra.Domain.Euclidean
+\import Algebra.Group
+\import Algebra.Meta
+\import Algebra.Ordered
+\import Arith.Int
+\import Arith.Nat
+\import Arith.Rat
+\import Function.Meta
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Order.Lattice
+\import Order.LinearOrder
+\import Order.PartialOrder
+\import Order.StrictOrder
+\import Paths
+\import Paths.Meta
+\import Set \hiding (#)
+\import manifolds.Topology
+\import sets.Add
+\import sets.Complement
+\import sets.DecidableSet
+\import sets.Image
+\import sets.Intersect
+\import sets.MySet
+\import sets.subset
+\open RatField (+)
+\open EuclideanSemiringData (reduce)
+
+\func exampleTopology : Topology Rat \cowith
+  | T => Image' openIntervalInfRight with ∅ with universal
+  | totalInT => byRight idp
+  | intersectionIn => \case \elim __, \elim __, \elim __, \elim __ \with {
+    | _, _, byLeft (byLeft (inP (a, idp))), byLeft (byLeft (TruncP.inP (b, idp))) =>
+      \let
+        | max => a ∨ b
+        | h : openIntervalInfRight a ∩ openIntervalInfRight b = openIntervalInfRight max =>
+          extSet
+              (\lam {x} (a<, b<) => LinearOrder.<_join-univ {RatDenseOrder} a< b<)
+              (\lam {x} o => (<-transitive-right join-left o, <-transitive-right join-right o))
+      \in
+        byLeft (byLeft (inP (max, h)))
+    | _, _, byLeft (byRight idp), _ => rewrite ∩.empty-intersecion (byLeft (byRight idp))
+    | _, _, _, byLeft (byRight idp) => rewrite (∩.commutative, ∩.empty-intersecion) (byLeft (byRight idp))
+    | A, _, h, byRight idp => rewrite (∩.commutative, ∩.universal-intersection) h
+    | _, B, byRight idp, h => rewrite ∩.universal-intersection h
+  }
+  | unionIn F Fsub => {?} -- TODO
+  \where {
+    \func openIntervalInfRight (a : Rat) : Ensemble Rat => \lam b => a < b
+
+    \func closedIntervalInfLeft (a : Rat) : Ensemble Rat => \lam b => b <= a
+
+    \lemma complement-of-openIntervalInfRight {x : Rat} : complement (openIntervalInfRight x) = closedIntervalInfLeft x =>
+      extSet
+          (\lam {y} c => \case RatField.trichotomy y x \with {
+            | less y<x => linarith
+            | equals y=x => linarith
+            | greater y>x => absurd $ c y>x
+          })
+          (\lam {x1} c e => linarith)
+
+    \func zero-one : DecElementEnsemble Rat \cowith
+      | S x => \Sigma (0 < x) (x < 1)
+      | decElement x => \case RatField.trichotomy x 0, RatField.trichotomy x 1 \with {
+        | less x<0, _ => no (\lam e => usingOnly (x<0, e.1) linarith)
+        | equals x=0, _ => no (\lam e => usingOnly (x=0, e.1) linarith)
+        | greater x>0, less x<1 => yes (x>0, x<1)
+        | _, equals x=1 => no (\lam e => usingOnly (x=1, e.2) linarith)
+        | _, greater x>1 => no (\lam e => usingOnly (x>1, e.2) linarith)
+      }
+
+    \lemma zero-one-no-int {x : Int} : Not (x ∈ {Rat} zero-one) \elim x
+      | pos (1) => \lam (_, e) => contradiction
+      | pos (suc (suc n)) => \lam (_, e) => contradiction
+      | pos 0 => \lam (e, _) => contradiction
+      | neg 0 => \lam (e, _) => contradiction
+      | neg (suc n) => \lam (e, _) => contradiction
+
+    \lemma interval-not-subset-zero-one {a : Rat} : Not (openIntervalInfRight a ⊆ zero-one) =>
+      \lam (h : openIntervalInfRight a ⊆ zero-one) =>
+          \let
+            | a' => isuc (rat_ceiling a)
+            | a'-in-interval : a' ∈ {Rat} openIntervalInfRight a =>
+              RatField.<-transitive-right rat_ceiling>id (fromInt_< id<isuc)
+            | a'-in-zero-one : a' ∈ {Rat} zero-one => h a'-in-interval
+          \in zero-one-no-int a'-in-zero-one
+
+    \lemma zero-one-not-open : Not (exampleTopology.open zero-one) => \case \elim __ \with {
+      | byLeft (byLeft (inP (a, p))) => interval-not-subset-zero-one (rewrite p ⊆.refl)
+      | byLeft (byRight zero-one=empty) =>
+        transportInv (rat 1 2 (\lam p => contradiction) idp ∈ __) zero-one=empty (idp, idp)
+      | byRight zero-one=universal =>
+        \let two-in-zero-one => transport(2 ∈ {Rat} __) zero-one=universal ()
+        \in contradiction two-in-zero-one.2
+    }
+
+    \lemma zero-one-no-interior : exampleTopology.interior zero-one = ∅ => extSet-empty
+        (\case \elim __ \with {
+          | (_, inP (U, byLeft (byLeft (inP (a, idp))), xU, U-sub)) =>
+            interval-not-subset-zero-one U-sub
+          | (_, inP (U,byLeft (byRight idp),e,s)) => e
+          | (_, inP (_, byRight idp, xU, U-sub)) => usingOnly (U-sub {2} ()).2 contradiction
+        })
+
+    \lemma zero-one-exterior : exampleTopology.exterior zero-one = openIntervalInfRight 1 => extSet
+        (\lam {x} => \case \elim __ \with {
+          | inP (U, byLeft (byLeft (inP (a, idp))), a<x, U-sub) =>
+            \case RatField.trichotomy 1 a \with {
+              | less a>1 => RatField.<-transitive a>1 a<x
+              | equals p => RatField.<-transitive-right (Poset.<=_= p) a<x
+              | greater a<1 => absurd $ \case RatField.trichotomy 0 a \with {
+                | less a>0 =>
+                  -- 0 < a < a' < 1
+                  \case RatDenseOrder.isDense {a} {1} a<1 \with {
+                    | inP (a', a<a', a'<1) => U-sub {a'} a<a' (<-transitive a>0 a<a', a'<1)
+                  }
+                | equals p =>
+                  -- 0 = a < 1/2 < 1
+                  U-sub {ratio 1 2} (<-transitive-right (Poset.<=_= (inv p)) idp) (idp, idp)
+                | greater a<0 =>
+                  -- a < 0 < 1/2 < 1
+                  U-sub {ratio 1 2} (<-transitive a<0 idp) (idp, idp)
+              }
+            }
+          | inP (U, byLeft (byRight idp), xU, U-sub) => absurd xU
+          | inP (U, byRight idp, xU, U-sub) => absurd $ U-sub {ratio 1 2} () (idp, idp)
+        })
+        (\lam {x} o => \case RatDenseOrder.isDense {1} {x} o \with {
+          | inP (z, z>1, z<x) => inP (openIntervalInfRight z,
+                                      byLeft (byLeft (inP (z, idp))),
+                                      z<x,
+                                      \lam {z'} z<z' (_, z'<1) => \let z'>1 : 1 < z' => <-transitive z>1 z<z' \in
+                                        LinearOrder.<_<= z'>1 z'<1)
+        }
+        )
+
+    \lemma zero-one-boundary : exampleTopology.boundary zero-one = closedIntervalInfLeft 1 =>
+      rewrite (
+                inv $ Topology.not-interior-exterior-=-boundary {exampleTopology} {zero-one},
+                zero-one-exterior,
+                zero-one-no-interior,
+                complement-of-openIntervalInfRight,
+                complement.ofEmpty,
+                ∩.universal-intersection
+              ) $
+          idp
+
+    \lemma converges-example-0 : exampleTopology.converges (\lam n => ratio 1 (suc n)) = closedIntervalInfLeft 0 =>
+      extSet
+          (\lam {x} c x>0 => \case denseUnitFraction x>0 <=-refl linarith \with {
+            | inP (m, m'>0, m'<x) => \case c (openIntervalInfRight (ratio 1 ( suc m))) (byLeft $ byLeft $ inP (_, idp)) m'<x \with {
+              | inP (n, h) => \case NatSemiring.trichotomy n m \with {
+                | less n<m =>
+                  \let
+                    | foo : ratio 1 (suc m) < ratio 1 (suc n) => h n <=-refl
+                    | foo' :  isPos (ratio 1 (suc n) + RatField.negative (ratio 1 (suc m))) => foo
+                  \in {?}
+                | equals p => {?}
+                | greater _x => {?}
+              }
+            }
+          })
+          (\lam {x} x<=0 U o e => \case \elim U, \elim o, \elim e \with {
+            | _, byLeft (byLeft (inP (a ,idp))), a<x => \case RatField.trichotomy x 0 \with {
+              | less x<0 => inP (0, \lam n' n'>0 => <-transitive a<x (<-transitive x<0 seq-above-zero))
+              | equals x=0 => inP (0, \lam n' n'>0 => <-transitive a<x (<-transitive-right (rewriteI x=0 <=-refl) seq-above-zero))
+              | greater x>0 => usingOnly (x<=0, x>0) contradiction
+            }
+            | _, byLeft (byRight idp), ()
+            | _, byRight idp, () => inP (0, \lam _ _ => ())
+          })
+      \where {
+        \func denseUnitFraction {a b : Rat} (h : a < b)
+                                (aPos : 0 <= a) (bPos : 0 <= b)
+          : ∃ (c : Nat) (a < ratio 1 (suc c)) (ratio 1 (suc c) < b) => {?}
+
+        \func seq-above-zero {n : Nat} : 0 < ratio 1 (suc n) =>
+          \let
+            | (a, b) => reduce 1 (suc n)
+            | a=1 : a = 1 => pmap __.1 (reduce1 {suc n})
+
+            | nom= : ratNom (ratio 1 (suc n)) = 1 =>
+              pmap (ratNom __) makeRat.simp *> pmap pos a=1
+
+            | goal' : IntRing.isPos (ratNom $ ratio 1 (suc n)) => rewrite nom= idp
+            | goal : RatField.isPos (ratio 1 (suc n) - 0) => rewrite RatField.minus_zro goal'
+          \in goal
+
+        \func reduce1 {n : Nat} : reduce 1 n = (1, n) => {?}
+      }
+  }

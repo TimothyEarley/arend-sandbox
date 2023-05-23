@@ -4,10 +4,13 @@
 \import Paths
 \import Paths.Meta
 \import sets.Elements
+\import sets.Family
+\import sets.Image
 \import sets.MySet
+\import sets.Single
 \import sets.union
 
-\func add {E : \Set} (S : Ensemble E) (e : E) : Ensemble E => S ∪ single e
+\func add \alias \infixl 6 with {E : \Set} (S : Ensemble E) (e : E) : Ensemble E => S ∪ single e
 
   \where {
     \func addMany {E : \Set} (S : Ensemble E) (es : Array E) : Ensemble E \elim es
@@ -89,4 +92,4 @@
         })
   }
 
-\func addToAll {E : \Set} (S : Ensemble (Ensemble E)) (e : E) : Ensemble (Ensemble E) => S smap (\lam x => add x e)
+\func addToAll {E : \Set} (S : Family E) (e : E) : Family E => S smap (\lam x => add x e)

@@ -1,6 +1,7 @@
 \import Data.List
 \import automaton.Language
 \import sets.MySet
+\import sets.Single
 \import sets.union
 
 \data RegularExpression (A : Alphabet)

@@ -1,4 +1,3 @@
-\import Data.Bool
 \import Function
 \import Logic
 \import Logic.Meta
@@ -8,6 +7,7 @@
 \import automaton.NFAeps
 \import automaton.Regular
 \import sets.DecidableSet
+\import sets.MySet
 \open NFAeps (DecidableNFAeps, choice, concatNFAEps, language, makeDecidable, noneNFAeps, singleNFAeps, starEps)
 
 \func regToNFAeps {A : Alphabet} (re : RegularExpression A) : NFAeps { | Action => A } \elim re
@@ -50,8 +50,8 @@
   | none => noneNFAeps
   | alpha a => makeDecidable (singleNFAeps a) (\new DecElementEnsemble {
     | decElement => \case \elim __ \with {
-      | false => no (\case __)
-      | true => yes so
+      -- TODO convince arend that End {singleNFAeps a} = So
+      | false => no (\lam (e : false ∈ End {singleNFAeps a}) => {?})
     }
   }) {?}
   | + a b =>

@@ -1,7 +1,6 @@
 \import Algebra.Meta
 \import Arith.Int
-\import Data.Bool (Bool, false, so, true)
-\import Equiv.Sigma
+\import Data.Bool (Bool, false, true)
 \import Logic
 \import Logic.Meta
 \import Meta
@@ -36,31 +35,31 @@
   | ff, true, _, rfalse (), _
   | ff, _, true, _, rfalse ()
 
-  | eq a b, false, true, reqf so x y p, reqt so x' y' q => absurd (p (aexp_deterministic x x' *> q *> aexp_deterministic y' y))
-  | eq a b, true, false, reqt so x' y' q, reqf so x y p => absurd (p (aexp_deterministic x x' *> q *> aexp_deterministic y' y))
+  | eq a b, false, true, reqf () x y p, reqt () x' y' q => absurd (p (aexp_deterministic x x' *> q *> aexp_deterministic y' y))
+  | eq a b, true, false, reqt () x' y' q, reqf () x y p => absurd (p (aexp_deterministic x x' *> q *> aexp_deterministic y' y))
   | eq a b, true, _, reqf () _ _ _, _
   | eq a b, false, _, reqt () _ _ _, _
   | eq a b, _, true, _, reqf () _ _ _
   | eq a b, _, false, _, reqt () _ _ _
 
-  | leq a1 b1, false, true, rleqf so a a2 n, rleqt so a3 a4 _x => {?}
-  | leq a1 b1, true, false, rleqt so a3 a4 _x, rleqf so a a2 n => {?}
+  | leq a1 b1, false, true, rleqf () a a2 n, rleqt () a3 a4 _x => {?}
+  | leq a1 b1, true, false, rleqt () a3 a4 _x, rleqf () a a2 n => {?}
   | leq a1 b1, false, _, rleqt () _ _ _, _
   | leq a1 b1, true, _, rleqf () _ _ _, _
   | leq a1 b1, _, true, _, rleqf () _ _ _
   | leq a1 b1, _, false, _, rleqt () _ _ _
 
-  | not e, false, true, rnotf so h, rnott so h' => {?}
-  | not e, true, false, rnott so h', rnotf so h => {?}
+  | not e, false, true, rnotf () h, rnott () h' => {?}
+  | not e, true, false, rnott () h', rnotf () h => {?}
   | not e, true, _, rnotf () _, _
   | not e, false, _, rnott () _, _
   | not e, _, true, _, rnotf () _
   | not e, _, false, _, rnott () _
 
-  | and a1 e, true, false, randt so h'1 h'2, randf1 so h => {?}
-  | and a1 e, true, false, randt so h'1 h'2, randf2 so h => {?}
-  | and a1 e, false, true, randf1 so h, randt so h'1 h'2 => {?}
-  | and a1 e, false, true, randf2 so h, randt so h'1 h'2 => {?}
+  | and a1 e, true, false, randt () h'1 h'2, randf1 () h => {?}
+  | and a1 e, true, false, randt () h'1 h'2, randf2 () h => {?}
+  | and a1 e, false, true, randf1 () h, randt () h'1 h'2 => {?}
+  | and a1 e, false, true, randf2 () h, randt () h'1 h'2 => {?}
   | and a1 e, true, _, randf1 () _, _
   | and a1 e, true, _, randf2 () _, _
   | and a1 e, false, _, randt () _ _, _
@@ -68,10 +67,10 @@
   | and a1 e, _, true, _, randf2 () _
   | and a1 e, _, false, _, randt () _ _
 
-  | or a1 e, false, true, rorf so h1 h2, rort1 so h' => {?}
-  | or a1 e, false, true, rorf so h1 h2, rort2 so h' => {?}
-  | or a1 e, true, false, rort1 so h', rorf so h1 h2 => {?}
-  | or a1 e, true, false, rort2 so h', rorf so h1 h2 => {?}
+  | or a1 e, false, true, rorf () h1 h2, rort1 () h' => {?}
+  | or a1 e, false, true, rorf () h1 h2, rort2 () h' => {?}
+  | or a1 e, true, false, rort1 () h', rorf () h1 h2 => {?}
+  | or a1 e, true, false, rort2 () h', rorf () h1 h2 => {?}
   | or a1 e, true, _, rorf () _ _, _
   | or a1 e, false, _, rort1 () _, _
   | or a1 e, false, _, rort2 () _, _

@@ -16,11 +16,14 @@
 \import moses.process.Trace
 \import sets.Add
 \import sets.Elements
+\import sets.Image
 \import sets.MySet
+\import sets.Single
 \import sets.finite.FiniteS
 \import sets.finite.Sized
 \import sets.remove
 \import sets.union
+\import util.ArrayOrder
 \import util.ArrayUtils
 \open Process (TraceOrder, partiality)
 \open SizedEnsemble.removeSized' (inSizedOne, sizedOneIsSingle)
@@ -68,7 +71,7 @@
     \func beforePrefixClosed {E : \Set} (x : E) (ex : ProcessExpression E) : Process.PrefixClosure {E} (traces (x --> ex)) =>
       \lam t t' e h => \case \elim t, \elim t', \elim e, \elim h \with {
         | t, (t', false), byRight idp, (<=nil, _) => rewrite (ArrayOrder.<=-nil <=nil) (byRight idp)
-        | t, (t', true), byRight idp, (<=nil, s) => using (pmap __.2 (s so)) contradiction
+        | t, (t', true), byRight idp, (<=nil, s) => using (pmap __.2 (s ())) contradiction
         | (t, b), (t', b'), byLeft a, h => beforePrefixClosed-lemma {E} {x} {ex} {t} {t'} {b} {b'} a h.1 h.2
       }
 

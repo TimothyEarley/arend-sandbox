@@ -1,0 +1,81 @@
+\import Data.Array
+\import Data.Bool
+\import Function.Meta
+\import Logic
+\import Paths
+\import Paths.Meta
+\import Set \hiding (#)
+\import sets.Add
+\import sets.DecidableSet
+\import sets.MySet
+\import sets.remove
+\import sets.subset
+\import sets.union
+\open fromArray.BoolFilter (applyFilter)
+
+\func fromArray {A : \Set} (l : Array A) : Ensemble A => \lam a => TruncP (Index a l)
+  \where {
+    \func fromNil {A : \Set} : fromArray {A} nil = ∅ => extSet-empty (\lam (_, inP (i, _)) => \case i)
+
+    \lemma fromCons {A : \Set} {as : Array A} {a : A} : fromArray (a :: as) = fromArray as with a => extSet
+        (\case \elim __ \with {
+          | inP (0, p) => byRight p
+          | inP (suc i, p) => byLeft (inP (i, p))
+        })
+        (\case \elim __ \with {
+          | byLeft (inP (i, p)) => inP (suc i, p)
+          | byRight b => inP (0, b)
+        })
+
+    -- to characterize subsets of fromArray sets
+
+    \func BoolFilter {X : \Set} {l : Nat} (xs : Array X l) => Array Bool l
+      \where {
+        \func applyFilter {X : \Set} {l : Nat} (xs : Array X l) (filter : BoolFilter xs) : Array X
+        \elim l, xs, filter
+          | 0, nil, nil => nil
+          | suc l, a :: xs, false :: filter => applyFilter xs filter
+          | suc l, a :: xs, true :: filter => a :: applyFilter xs filter
+      }
+
+    \func subset-of-fromArray {X : DecSet}
+                              {l : Nat} {xs : Array X l}
+                              {S : Ensemble X}
+                              (SDE : DecElementEnsemble X S) (h : S ⊆ fromArray xs)
+      : \Sigma (bf : BoolFilter xs) (S = fromArray (BoolFilter.applyFilter xs bf))
+    \elim l, xs
+      | 0, nil => (nil, extSet h (rewrite fromNil ⊆.∅-is-⊆))
+      | suc l, a :: xs =>
+        \let
+          | sub : SDE.removeElement a ⊆ fromArray xs =>
+            \lam {x} s => \case h s.1 \with {
+              | inP (0, p) => absurd $ s.2 p
+              | inP (suc i, p) => inP (i, p)
+            }
+          | (bf, bf=) => subset-of-fromArray (SDE.removeElement a) sub
+        \in
+          \case a ∈? SDE \with {
+            | yes e => (true :: bf,
+                        S ==< without.addBack' e >==
+                        (S without a) with a ==< pmap (__ with a) bf= >==
+                        fromArray (applyFilter xs bf) with a ==< inv fromCons >==
+                        fromArray (a :: applyFilter xs bf) ==< idp >==
+                        fromArray (applyFilter (a :: xs) (true :: bf)) `qed
+            )
+            | no n => (false :: bf, without.alreadyGone n *> bf=)
+          }
+
+    \func bigUnion-of-fromArray {X : \Set} {xs : Array (Ensemble X)}
+      : ⋃ (fromArray xs) = unionArray xs \elim xs
+      | nil => extSet
+          (rewrite (fromArray.fromNil, ⋃.emptyBigUnion) ⊆.∅-is-⊆)
+          ⊆.∅-is-⊆
+      | a :: l => rewrite (fromCons, ⋃.addToUnion, ∪.comm) (pmap (_ ∪ __) bigUnion-of-fromArray)
+      \where {
+        \func unionArray {X : \Set} (xs : Array (Ensemble X)) : Ensemble X \elim xs
+          | nil => ∅
+          | a :: l => a ∪ unionArray l
+      }
+  }
+
+

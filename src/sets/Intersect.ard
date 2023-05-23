@@ -1,4 +1,16 @@
 \import sets.MySet
 \import sets.Complement
 
-\func intersect \alias \infix 6 ∩ {A : \Set} (a b : Ensemble A) : Ensemble A => \lam x => \Sigma (x ∈ a) (x ∈ b)
+\func intersect \alias \infix 7 ∩ {A : \Set} (a b : Ensemble A) : Ensemble A => \lam x => \Sigma (x ∈ a) (x ∈ b)
+\where {
+
+  \func commutative {X : \Set} {A B : Ensemble X} : A ∩ B = B ∩ A => extSet
+      (\lam {x} (a, b) => (b, a))
+      (\lam {x} (b, a) => (a, b))
+
+  \lemma empty-intersecion {X : \Set} {B : Ensemble X} : ∅ ∩ B = ∅ => extSet (\lam i => \case i.1) (\lam e => \case e)
+
+  \lemma universal-intersection {X : \Set} {B : Ensemble X} : universal ∩ B = B =>
+    extSet (\lam i => i.2) (\lam b => ((), b))
+
+}

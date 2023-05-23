@@ -12,9 +12,6 @@
 \import Util
 \import util.Nat
 
-\func neg<=pos {n m : Nat} : neg n <= pos m
-  => signum.signum_neg/=1 __
-
 \func pos</=neg {n m : Nat} (h : pos n <= neg (suc m)) : Empty
   => h idp
 
@@ -23,19 +20,6 @@
     | 0, m, p => (m, idp)
     | suc n, 0, p => absurd (not<=0 p)
     | suc n, suc m, p => pos_+_neg_is_neg (suc<=suc.conv p)
-
-\func neg<neg {n m : Nat} (p : m < n) : neg n < neg m
-  => \case LinearOrder.trichotomy (neg n) (neg m) \with {
-    | less n<m => n<m
-    | equals n=m => absurd (<-irreflexive (rewriteF (pmap iabs n=m) p))
-    | greater n>m => absurd (signum.signum_neg/=1 (rewrite (neg_iabs (<=-less p)) n>m))
-  }
-
-\lemma neg<=neg {n m : Nat} (p : m <= n) : neg n <= neg m
-  => \lam q => transportInv (signum __ /= 1) (pos_+_neg_is_neg p).2 signum.signum_neg/=1 q
-  \where
-    \lemma conv {n m : Nat} (p : neg n <= neg m) : m <= n
-      => \lam n<m => p (neg<neg n<m)
 
 
 \func coerceToFin (i : Int) {n : Nat} : Fin (suc n) \elim i

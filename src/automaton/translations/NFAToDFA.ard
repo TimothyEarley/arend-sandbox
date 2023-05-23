@@ -9,6 +9,7 @@
 \import sets.DecidableSet
 \import sets.Elements
 \import sets.MySet
+\import sets.Single
 \import sets.finite.Sized
 \open DFA (DecidableDFA)
 \open NFA (DecidableNFA)

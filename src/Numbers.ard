@@ -44,8 +44,8 @@
 
     \func toFraction (q : Q) : Fraction \elim q
       | fraction (0, d) => 0 / (1, contradiction)
-      | fraction (pos (suc n \as nom), d) => \let! (a, b) => reduce nom d.1 \in a / (b, rat.reduce2/=0 nom d.1 d.2)
-      | fraction ((neg (suc n \as nom), d)) => \let! (a, b) => reduce nom d.1 \in neg a / (b, rat.reduce2/=0 nom d.1 d.2)
+      | fraction (pos (suc n \as nom), d) => \let! (a, b) => reduce nom d.1 \in a / (b, {?}) -- rat.reduce2/=0 nom d.1 d.2)
+      | fraction ((neg (suc n \as nom), d)) => \let! (a, b) => reduce nom d.1 \in neg a / (b, {?}) -- rat.reduce2/=0 nom d.1 d.2)
       | rat-equiv x y s i => {?}
 
     \func isRat : Q = Rat => ext (\new Equiv {

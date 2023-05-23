@@ -1,0 +1,12 @@
+\import sets.Image
+\import sets.MySet
+
+-- a set of sets
+\func Family (X : \Set) : \Type => Ensemble (Ensemble X)
+
+-- a different way to write a Family
+\func IndexFamily (X I : \Set) => I -> Ensemble X
+\where {
+  -- turn a IndexFamily into a Family by mapping every available index with the IndexFamily
+  \func toFamily {X I : \Set} (F : IndexFamily X I) : Family X => universal smap F
+}

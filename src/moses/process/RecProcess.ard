@@ -9,7 +9,10 @@
 \import Paths.Meta
 \import moses.process.Process
 \import moses.process.ProcessExpression
+\import sets.FromArray
+\import sets.Image
 \import sets.MySet
+\import sets.Single
 \import sets.subset
 \import sets.union
 \import util.ArrayUtils
@@ -29,7 +32,7 @@
 \func traces {E : \Set} (P : RecProcessExpression E) : Process.Traces E \elim P
   | STOP => single {Process.Trace E} (nil, false)
   | SKIP => single {Process.Trace E} (nil, false) ∪ single {Process.Trace E} (nil, true)
-  | --> x P => traces P smap {_} {Process.Trace E} (\lam t => (x :: t.1, t.2)) ∪ emptyTrace
+  | --> x P => (traces P smap {_} {Process.Trace E} (\lam t => (x :: t.1, t.2))) ∪ emptyTrace
   | ⊓ P Q => traces P ∪ traces Q
   -- | mu P => \lam t => ∃ (X : Process.Traces E) (X = traces (P X)) (t ∈ traces (P X))
   -- This is probably wrong, but I can't proof anything without weakening the equality to subset
@@ -53,7 +56,7 @@
       | (:: tick rest, b), inP (X, p, byLeft (inP (a, p', e))) =>
         \let q : a = (rest, b) => ext (inv $ pmap tail $ pmap __.1 p', inv $ pmap __.2 p')
         \in tickTraces-1 {(rest, b)} (inP (X, p, p (rewriteF q e)))
-      | t, inP (X, p, byRight idp) => so
+      | t, inP (X, p, byRight idp) => ()
 
     \lemma tickTraces-2 {t : Process.Trace Tick} (h : t ∈ tickTracesSet) : t ∈ traces clock =>
       tickTraces-2-n (DArray.len {t.1}) (<=-refl, h)
@@ -81,7 +84,7 @@
   \data Hello | hello
 
   \func traces= : traces finiteMu =
-    setOf {Process.Trace Hello} ((nil, false) :: (hello :: nil, false) :: (hello :: nil, true) :: nil)
+    fromArray {Process.Trace Hello} ((nil, false) :: (hello :: nil, false) :: (hello :: nil, true) :: nil)
     => extSet
         (\lam {x} e => \case \elim x, \elim e \with {
           | _, inP (X, s, byRight idp) => inP (0, idp)

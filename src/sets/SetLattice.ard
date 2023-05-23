@@ -1,0 +1,27 @@
+\import Logic
+\import Order.Lattice
+\import sets.Intersect
+\import sets.MySet
+\import sets.subset
+\import sets.union
+
+\func SetLattice {A : \Set} : DistributiveLattice (Ensemble A) \cowith
+  | <= => ⊆
+  | <=-refl e => e
+  | <=-transitive {x} {y} {z} h h' => ⊆.trans {A} {x} {y} {z} h h'
+  | <=-antisymmetric => ⊆.anti-sym
+  | meet => ∩
+  | meet-left h => h.1
+  | meet-right h => h.2
+  | meet-univ h h' zx => (h zx, h' zx)
+  | join => ∪
+  | join-left h => byLeft h
+  | join-right h => byRight h
+  | join-univ h h' zx => \case \elim zx \with {
+    | byLeft a => h a
+    | byRight b => h' b
+  }
+  | ldistr>= e => \case \elim e \with {
+    | (e1, byLeft e2) => byLeft (e1, e2)
+    | (e1, byRight e2) => byRight (e1, e2)
+  }

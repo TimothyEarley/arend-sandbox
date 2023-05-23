@@ -19,6 +19,7 @@
 \import sets.DecidableSet
 \import sets.Elements
 \import sets.MySet
+\import sets.Single
 \import sets.remove
 \import sets.subset
 \import sets.union

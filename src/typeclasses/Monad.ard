@@ -13,6 +13,7 @@
 \import Paths.Meta
 \import sets.Elements
 \import sets.MySet
+\import sets.Single
 \import typeclasses.Functor
 \import typeclasses.Identity
 \open MonadMonoid (TypeMonoid)

@@ -55,7 +55,7 @@
       | := e a => ComEq.~-reflexive
       | # skip b => \lam s s' =>
           (\lam ev => \case ev \with {
-            | r# (rsk idp) c1 => (correct {S} {b} s s').1 c1
+            | inP (r# (rsk idp) c1) => (correct {S} {b} s s').1 (inP c1)
           },
            \lam ev => \case (correct {S} {b} s s').2 ev \with {
              | inP ev' => inP (r# (rsk idp) ev')

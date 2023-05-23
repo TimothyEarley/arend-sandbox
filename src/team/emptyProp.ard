@@ -2,6 +2,7 @@
 \import Paths
 \import Paths.Meta
 \import sets.MySet
+\import sets.Single
 \import sets.subset
 \import sets.union
 \import team.ClosureProperty

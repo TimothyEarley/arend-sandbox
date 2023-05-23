@@ -1,0 +1,42 @@
+\import Data.Array
+\import Order.PartialOrder
+\import Paths
+\import Paths.Meta
+
+\func ArrayOrder {A : \Set} : Poset (Array A) \cowith
+  | <= => <=
+  | <=-refl => refl
+  | <=-transitive => trans
+  | <=-antisymmetric => antiSym
+  \where {
+    \data \infix 6 <= {A : \Set} (x : Array A) (y : Array A) : \Prop \elim x, y
+      | nil, _ => nil<=_
+      | :: a t, :: a' t' => cons<=cons (a = a') (t <= t')
+
+    \func refl {A : \Set} {x : Array A} : x <= x \elim x
+      | nil => <=.nil<=_
+      | :: a arr => <=.cons<=cons idp refl
+
+    \func trans {A : \Set} {x y z : Array A} (h : x <= y) (h' : y <= z) : x <= z
+    \elim x, y, z, h, h'
+      | nil, _, _, _, _ => <=.nil<=_
+      | :: a t, :: a1 t1, :: a' t', ArrayOrder.cons<=cons p h, cons<=cons p1 h' =>
+        cons<=cons (p *> p1) (trans h h')
+
+    \func antiSym {A : \Set} {x y : Array A} (h : x <= y) (h' : y <= x) : x = y \elim x, y, h, h'
+      | nil, nil, nil<=_, nil<=_ => idp
+      | :: {n} a' t', :: {n'} a t, cons<=cons p h, cons<=cons _ h' => createArray= p (antiSym h h')
+
+    \func <=-prefix {A : \Set} {x y : Array A} (h : x <= y) : \Sigma (z : Array A) (x ++ z = y)
+    \elim x, y, h
+      | nil, y, nil<=_ => (y, idp)
+      | :: a t, :: a' t', cons<=cons p h =>
+        \let (z, h') => <=-prefix h
+        \in (z, pmap2 {A} {Array A} (__ :: __) p h')
+
+    \func <=-nil {A : \Set} {x : Array A} (h : x <= nil) : x = nil \elim x, h
+      | nil, nil<=_ => idp
+
+    \func createArray= {A : \Type} {a a' : A} {t t' : Array A}
+                       (p : a = a') (q : t = t') : (a :: t) = (a' :: t') => rewrite (p, q) idp
+  }

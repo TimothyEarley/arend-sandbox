@@ -9,6 +9,7 @@
 \import Paths
 \import Paths.Meta
 \import moses.process.Transitionsystem
+\import util.ArrayOrder
 \import util.ArrayUtils
 \import util.Or
 \open ArrayUtils (::-)
@@ -17,7 +18,7 @@
 
 \func Trace (TS : Transitionsystem) => Array (Or TS.States TS.Events)
 
-\data Traces (TS : Transitionsystem) (t : Trace TS) : \Set
+\data Traces (TS : Transitionsystem) (t : Trace TS)
   | start (s : TS.States) (TS.Start s) (t = inl s :: nil)
   | seq {s s' : TS.States} {e : TS.Events} (t' : Trace TS)
         (Traces TS (t' ::- inl s))

@@ -5,19 +5,19 @@
 \import Set
 
 \func soYes {P : \Prop} {d : Dec P} (p : P) : So (decToBool d) \elim d
-  | yes e => so
+  | yes e => ()
   | no n => contradiction
 
 \func soNo  {P : \Prop} {d : Dec P} (p : Not P) : So (not (decToBool d)) \elim d
   | yes e => contradiction
-  | no n => so
+  | no n => ()
 
 \func soTrue {b : Bool} (s : So b) : b = true
   | {true}, so => idp
 
 \func soFalse {b : Bool} (n : Not (So b)) : b = false
   | {false}, n => idp
-  | {true}, n => contradiction
+  | {true}, n => absurd (n ())
 
 \func soAnd1 {a b : Bool} (h : So (a and b)) : So a
   | {false}, {false}, ()

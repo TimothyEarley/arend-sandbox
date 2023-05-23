@@ -5,6 +5,7 @@
 \import logik.fol.FOL
 \import logik.fol.Incompleteness
 \import logik.fol.Semantics
+\import sets.FromArray
 \import sets.MySet
 \import util.CantorPair
 \open Semantics (Structure)
@@ -106,7 +107,7 @@
   {?} ::
   -- ∀x1. ∀x0. (x1 < x0 ∨ x1 = x0 ∨ x0 < x1)
   {?} ::
-  nil \in setOf axioms
+  nil \in fromArray axioms
 
 \func NNModel : SystemModel LNN NN \cowith
   | structure => \new Structure {
