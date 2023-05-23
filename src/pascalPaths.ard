@@ -1,0 +1,439 @@
+\import Algebra.Meta
+\import Arith.Nat
+\import Data.Fin (Index, fsuc)
+\import Data.List
+\import Data.Maybe
+\import Equiv
+\import Function
+\import Function.Meta
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Order.StrictOrder
+\import Paths
+\import Paths.Meta
+
+-- https://www.youtube.com/watch?v=wh_SVuCGdPo&t=4s
+
+-- Util
+
+\func lessThaNotEquals {A : StrictPoset} {a b : A} (h : a < b) (p : a = b) : Empty
+\elim p
+  | idp => <-irreflexive h
+
+\data StrictSorted {A : StrictPoset} (l : List A) \elim l
+  | nil => sortedNil
+  | a :: nil => sortedSingle
+  | a :: b :: l => sortedCons (a < b) (StrictSorted (b :: l))
+  \where {
+    \func headLessThanAll
+      {A : StrictPoset} {a : A} {l : List A}
+      (s : StrictSorted (a :: l))
+      (i : Index l)
+      : a < l !! i
+    \elim l, s, i
+      | nil, sortedSingle, ()
+      | b :: l1, sortedCons a<b s, 0 => a<b
+      | b :: l1, sortedCons a<b s, suc i => <-transitive a<b (headLessThanAll s i)
+
+    \func sortedMap {A B : StrictPoset} {f : A -> B} (h : \Pi (a a' : A) (a < a') -> f a < f a')
+                    {l : List A} (s : StrictSorted l)
+      : StrictSorted (map f l)
+    \elim l, s
+      | nil, sortedNil => sortedNil
+      | a :: nil, sortedSingle => sortedSingle
+      | a :: (b :: l1), sortedCons a<b s => sortedCons (h a b a<b) (sortedMap h s)
+
+    \func last {A : \Type} (l : List A) : Maybe A
+    \elim l
+      | nil => nothing
+      | a :: nil => just a
+      | a :: b :: l => last (b :: l)
+
+    \func first {A : \Type} (l : List A) : Maybe A
+    \elim l
+      | nil => nothing
+      | a :: _ => just a
+
+    \func \infix 6 just< {A : StrictPoset} (m m' : Maybe A) : \Prop
+    \elim m, m'
+      | nothing, _ => \Sigma
+      | _, nothing => \Sigma
+      | just a, just a' => a < a'
+
+    \func sorted++ {A : StrictPoset} {l l' : List A}
+                   (h : last l just< first l')
+                   (hl : StrictSorted l)
+                   (hl' : StrictSorted l')
+      : StrictSorted (l ++ l')
+    \elim l, l', hl
+      | nil, _, sortedNil => hl'
+      | a :: nil, nil, sortedSingle => sortedSingle
+      | a :: nil, b :: l', sortedSingle => sortedCons h hl'
+      | a :: (b :: l1), _, sortedCons a<b hl => sortedCons a<b (sorted++ h hl hl')
+
+    \func sorted++' {A : StrictPoset} {l l' : List A}
+                    (h : \Pi (i : Index l) (j : Index l') -> l !! i < l' !! j)
+                    (hl : StrictSorted l)
+                    (hl' : StrictSorted l')
+      : StrictSorted (l ++ l')
+    \elim l, l', hl
+      | nil, _, sortedNil => hl'
+      | a :: nil, nil, sortedSingle => sortedSingle
+      | a :: nil, b :: l', sortedSingle => sortedCons (h 0 0)  hl'
+      | a :: (b :: l1), _, sortedCons a<b hl => sortedCons a<b (sorted++' (\lam i j => h (suc i) j) hl hl')
+  }
+
+\func UniqueList {A : \Type} (l : List A) : \Prop => \Pi (i j : Index l) (l !!  i = l !! j) -> i = j
+  \where {
+    \func uniqueNil {A : \Type} : UniqueList {A} nil => \case __
+
+    \func uniqueSingle {A : \Type} {a : A} : UniqueList {A} (a :: nil) => \case \elim __, \elim __, __ \with {
+      | 0, 0, _ => idp
+    }
+
+    \func uniqueCons {A : \Type} {a : A} {l : List A} (h : \Pi (i : Index l) -> a /= l !! i) (hl : UniqueList l)
+      : UniqueList (a :: l) => \case \elim __, \elim __, __ \with {
+      | 0, 0, p => idp
+      | 0, suc j, p => absurd $ h j p
+      | suc i, 0, p => absurd $ h i (inv p)
+      | suc i, suc j, p => pmap fsuc (hl i j p)
+    }
+
+    \func fromSorted {A : StrictPoset} {l : List A} (h : StrictSorted l) : UniqueList l
+    \elim l, h
+      | nil, sortedNil => uniqueNil
+      | a :: nil, sortedSingle => uniqueSingle
+      | a :: (b :: l), sortedCons a<b h \as s =>
+        uniqueCons {A} {a} {b :: l}
+            (\lam i p => lessThaNotEquals (StrictSorted.headLessThanAll s i) p)
+            (fromSorted h)
+  }
+
+-- zero zero is top right
+
+\record Point {
+  | x : Nat
+  | y : Nat
+}
+
+\data Move (p : Point) \elim p
+  | (x, suc y) => Up
+  | (suc x, y) => Right
+
+\func move (p : Point) (m : Move p) : Point  \elim p, m
+  | (x,suc y), Up => \new Point x y
+  | (suc x,y), Right => \new Point x y
+
+\func exampleMove : move (\new Point 2 3) Right = \new Point 1 3 => idp
+
+\data PathToOrigin (from : Point) \elim from
+  | from => pathMove (m : Move from) (PathToOrigin (move from m))
+  | (0, 0) => pathDone
+  \where {
+    \func Code {p : Point} (po po' : PathToOrigin p) : \Prop
+      | {(0, 0)}, pathMove () po, _
+      | {(x, suc y)}, pathMove Up po, pathMove Up po' => Code po po'
+      | {(suc x, y)}, pathMove Right po, pathMove Right po' => Code po po'
+      | {(suc x, suc y)}, pathMove Up po, pathMove Right po' => Empty
+      | {(suc x, suc y)}, pathMove Right po, pathMove Up po' => Empty
+      | {(0,0)}, pathDone, pathMove m po' => Empty
+      | {(0,0)}, pathDone, pathDone => \Sigma
+
+    \func refl {p : Point} (po : PathToOrigin p) : Code po po \elim p, po
+      | (0,0), pathMove m po => contradiction
+      | (0, suc y), pathMove Up po => refl po
+      | (suc x, 0), pathMove Right po => refl po
+      | (suc x, suc y), pathMove Up po => refl po
+      | (suc x, suc y), pathMove Right po => refl po
+      | (0,0), pathDone => ()
+
+    \func encode {p : Point} {po po' : PathToOrigin p} (h : po = po') : Code po po' \elim h
+      | idp => refl po
+
+    \func decode {p : Point} {po po' : PathToOrigin p} (c : Code po po') : po = po'
+      | {(0, 0)}, {pathMove () po}, {_}, c
+      | {(0, suc y)}, {pathMove Up po}, {pathMove Up po'}, c => pmap (pathMove Up) (decode c)
+      | {(suc x, 0)}, {pathMove Right po}, {pathMove Right po'}, c => pmap (pathMove Right) (decode c)
+      | {(suc x, suc y)}, {pathMove Up po}, {pathMove Up po'}, c => pmap (pathMove Up) (decode c)
+      | {(suc x, suc y)}, {pathMove Up po}, {pathMove Right po'}, ()
+      | {(suc x, suc y)}, {pathMove Right po}, {pathMove Up po'}, ()
+      | {(suc x, suc y)}, {pathMove Right po}, {pathMove Right po'}, c => pmap (pathMove Right) (decode c)
+      | {(0,0)}, {pathDone}, {pathDone}, c => idp
+
+    \func pathMoveInj {p : Point} {m : Move p} {po po' : PathToOrigin (move p m)}
+                      (h : pathMove m po = pathMove m po') : po = po'
+    \elim p, m
+      | (0,suc y), Up => decode $ encode h
+      | (suc x,suc y), Up => decode $ encode h
+      | (suc x, 0), Right => decode $ encode h
+      | (suc x, suc y), Right => decode $ encode h
+  }
+
+\func allPathsToOrigin (p : Point) : List (PathToOrigin p)
+  | (0, 0) => pathDone :: nil
+  | (0, suc y) => map (pathMove Up) (allPathsToOrigin (\new Point 0 y))
+  | (suc x, 0) => map (pathMove Right) (allPathsToOrigin (\new Point x 0))
+  | (suc x, suc y) =>
+    map (pathMove Up) (allPathsToOrigin (\new Point (suc x) y)) ++
+    map (pathMove Right) (allPathsToOrigin (\new Point x (suc y)))
+  \where {
+    \func examplePaths : Data.List.length (allPathsToOrigin (\new Point 1 1)) = 2 => idp
+
+    \func examplePaths2 : Data.List.length (allPathsToOrigin (\new Point 2 2)) = 6 => idp
+
+    \func PathOrder {p : Point} : StrictPoset (PathToOrigin p)
+    \cowith
+      | < => Path<
+      | <-irreflexive => path<-irreflxiv
+      | <-transitive => path<-transitive
+
+      \where {
+        -- Up is less than Right
+
+        \func Path< {p p' : Point} (a : PathToOrigin p) (b : PathToOrigin p') : \Prop
+        \elim p, p', a, b
+          | (0, 0), (_, _), pathMove () a, _
+          | (_, _), (0,0), _, pathMove () b
+
+          | (0, suc y), (0,suc y'), pathMove Up a, pathMove Up b => Path< a b
+          | (0, suc y), (suc x', 0), pathMove Up a, pathMove Right b => \Sigma
+          | (0, suc y), (suc x',suc y'), pathMove Up a, pathMove Up b => Path< a b
+          | (0, suc y), (suc x',suc y'), pathMove Up a, pathMove Right b => \Sigma
+          | (suc x, 0), (0,suc y'), pathMove Right a, pathMove Up b => Empty
+          | (suc x, 0), (suc x',0), pathMove Right a, pathMove Right b => Path< a b
+          | (suc x, 0), (suc x',suc y'), pathMove Right a, pathMove Up b => Empty
+          | (suc x, 0), (suc x',suc y'), pathMove Right a, pathMove Right b => Path< a b
+          | (suc x, suc y), (0,suc y'), pathMove Up a, pathMove Up b => Path< a b
+          | (suc x, suc y), (0,suc y'), pathMove Right a, pathMove Up b => Empty
+          | (suc x, suc y), (suc x',0), pathMove Up a, pathMove Right b => \Sigma
+          | (suc x, suc y), (suc x',0), pathMove Right a, pathMove Right b => Path< a b
+          | (suc x, suc y), (suc x',suc y'), pathMove Up a, pathMove Up b => Path< a b
+          | (suc x, suc y), (suc x',suc y'), pathMove Up a, pathMove Right b => \Sigma
+          | (suc x, suc y), (suc x',suc y'), pathMove Right a, pathMove Up b => Empty
+          | (suc x, suc y), (suc x',suc y'), pathMove Right a, pathMove Right b => Path< a b
+
+          | p1, (0,0), pathMove m a, pathDone => Empty
+          | (0,0), p', pathDone, pathMove m b => \Sigma
+          | (0,0), (0,0), pathDone, pathDone => Empty
+
+        \func path<-irreflxiv {p : Point} {a : PathToOrigin p} : Not (Path< a a)
+        \elim p, a
+          | (0, 0), pathMove () a
+          | (0, suc y), pathMove Up a => path<-irreflxiv
+          | (suc x, 0), pathMove Right a => path<-irreflxiv
+          | (suc x, suc y), pathMove Up a => path<-irreflxiv
+          | (suc x, suc y), pathMove Right a => path<-irreflxiv
+          | (0,0), pathDone => id
+
+        \func path<-transitive {p p' p'' : Point} {a : PathToOrigin p} {b : PathToOrigin p'} {c : PathToOrigin p''}
+                               (h : Path< a b) (h' : Path< b c) : Path< a c
+        \elim p, p', p'', a, b, c, h, h'
+
+          -- basic impossible cases
+
+          | (0,0), _, _, pathMove () a, _, _, _, _
+          | _, (0,0), _, _, pathMove () b, _, _, _
+          | _, _, (0,0), _, _, pathMove () c, _, _
+
+          -- impossble b < c
+
+          | _, (0,suc y'), (0,0), _, pathMove Up b, pathDone, _, ()
+          | _, (suc x',0), (0,0), _, pathMove Right b, pathDone, _, ()
+          | _, (suc x',suc y'), (0,0), _, pathMove m b, pathDone, _, ()
+          | _, (suc x',0), (0,suc y''), _, pathMove Right b, pathMove Up c, _, ()
+          | _, (suc x',suc y'), (0,suc y''), _, pathMove Right b, pathMove Up c, _, ()
+          | _, (suc x',0), (suc x'',suc y''), _, pathMove Right b, pathMove Up c, _, ()
+          | _, (suc x',suc y'), (suc x'',suc y''), _, pathMove Right b, pathMove Up c, _, ()
+
+          -- impossible a < b
+
+          | (0, 0), (0,0), _, pathDone, pathDone, _, (), _
+          | (suc x, 0), (0,0), _, pathMove m a, pathDone, _, (), _
+          | (0, suc y), (0,0), _, pathMove m a, pathDone, _, (), _
+          | (suc x, suc y), (0,0), _, pathMove m a, pathDone, _, (), _
+          | (suc x,0), (0,suc y'), _, pathMove Right a, pathMove Up b, _, (), _
+          | (suc x,suc y), (0,suc y'), _, pathMove Right a, pathMove Up b, _, (), _
+          | (suc x,0), (suc x',suc y'), _, pathMove Right a, pathMove Up b, _, (), _
+          | (suc x,suc y), (suc x',suc y'), _, pathMove Right a, pathMove Up b, _, (), _
+
+          -- valid cases
+
+          | (0,0), _, (0,suc y''), pathDone, _, pathMove Up c, _, h' => ()
+          | (0,0), _, (suc x',suc y''), pathDone, _, pathMove Up c, _, h' => ()
+          | (0,0), _, (suc x',suc y''), pathDone, _, pathMove Right c, _, h' => ()
+          | (0,0), _, (suc x',0), pathDone, _, pathMove Right c, _, h' => ()
+
+          | (0,suc y), _, (suc x'',0), pathMove Up a, _, pathMove Right c, h, h' => ()
+          | (0,suc y), _, (suc x'',suc y''), pathMove Up a, _, pathMove Right c, h, h' => ()
+          | (suc x,suc y), _, (suc x'',0), pathMove Up a, _, pathMove Right c, h, h' => ()
+          | (suc x,suc y), _, (suc x'',suc y''), pathMove Up a, _, pathMove Right c, h, h' => ()
+
+          | (0,suc y), (0,suc y'), (0,suc y''), pathMove Up a, pathMove Up b, pathMove Up c, h, h' => path<-transitive h h'
+          | (suc x,suc y), (0,suc y'), (0,suc y''), pathMove Up a, pathMove Up b, pathMove Up c, h, h' => path<-transitive h h'
+          | (0,suc y), (suc x',suc y'), (0,suc y''), pathMove Up a, pathMove Up b, pathMove Up c, h, h' => path<-transitive h h'
+          | (suc x,suc y), (suc x',suc y'), (0,suc y''), pathMove Up a, pathMove Up b, pathMove Up c, h, h' => path<-transitive h h'
+          | (0,suc y), (0,suc y'), (suc x'',suc y''), pathMove Up a, pathMove Up b, pathMove Up c, h, h' => path<-transitive h h'
+          | (0,suc y), (suc x',suc y'), (suc x'',suc y''), pathMove Up a, pathMove Up b, pathMove Up c, h, h' => path<-transitive h h'
+          | (suc x,0), (suc x',0), (suc x'',0), pathMove Right a, pathMove Right b, pathMove Right c, h, h' => path<-transitive h h'
+          | (suc x,0), (suc x',0), (suc x'',suc y''), pathMove Right a, pathMove Right b, pathMove Right c, h, h' => path<-transitive h h'
+          | (suc x,0), (suc x',suc y'), (suc x'',0), pathMove Right a, pathMove Right b, pathMove Right c, h, h' => path<-transitive h h'
+          | (suc x,0), (suc x',suc y'), (suc x'',suc y''), pathMove Right a, pathMove Right b, pathMove Right c, h, h' => path<-transitive h h'
+          | (suc x,suc y), (0,suc y'), (suc x'',suc y''), pathMove Up a, pathMove Up b, pathMove Up c, h, h' => path<-transitive h h'
+          | (suc x,suc y), (suc x',0), (suc x'',0), pathMove Right a, pathMove Right b, pathMove Right c, h, h' => path<-transitive h h'
+          | (suc x,suc y), (suc x',0), (suc x'',suc y''), pathMove Right a, pathMove Right b, pathMove Right c, h, h' => path<-transitive h h'
+          | (suc x,suc y), (suc x',suc y'), (suc x'',suc y''), pathMove Up a, pathMove Up b, pathMove Up c, h, h' => path<-transitive h h'
+          | (suc x,suc y), (suc x',suc y'), (suc x'',0), pathMove Right a, pathMove Right b, pathMove Right c, h, h' => path<-transitive h h'
+          | (suc x,suc y), (suc x',suc y'), (suc x'',suc y''), pathMove Right a, pathMove Right b, pathMove Right c, h, h' => path<-transitive h h'
+      }
+
+    \func sortedPaths (p : Point) : StrictSorted {PathOrder {p}} (allPathsToOrigin p)
+    \elim p
+      | (0, 0) => sortedSingle
+      | (0, suc y) => StrictSorted.sortedMap (\lam a a' a<a' => a<a') (sortedPaths (\new Point 0 y))
+      | (suc x, 0) => StrictSorted.sortedMap (\lam a a' a<a' => a<a') (sortedPaths (\new Point x 0))
+      | (suc x, suc y) => StrictSorted.sorted++'
+          (\lam i j => sortedPaths-lemma i j)
+          (StrictSorted.sortedMap (\lam a a' a<a' => a<a') $ sortedPaths (\new Point (suc x) y))
+          (StrictSorted.sortedMap (\lam a a' a<a' => a<a') $ sortedPaths (\new Point x (suc y)))
+      \where {
+        \func sortedPaths-lemma {x : Nat} {y : Nat}
+                                {l : List (PathToOrigin (\new Point (suc x) y))}
+                                {l' : List (PathToOrigin (\new Point x (suc y)))}
+                                (i : Index (map (pathMove (Up {suc x} {y})) l))
+                                (j : Index (map (pathMove (Right {x} {suc y})) l'))
+          : map (pathMove Up) l !! i PathOrder.< map (pathMove Right) l' !! j
+        \elim x, y, l, l', i, j
+          | x, y, a :: _, b :: _, 0, 0 => ()
+
+          | x, y, a :: l, b :: l', suc i, 0 => sortedPaths-lemma {x} {y} {l} {b :: l'} i 0
+          | x, y, a :: l, b :: l', suc i, suc j => sortedPaths-lemma i j
+          | x, y, a :: l, b :: l', 0, suc j => sortedPaths-lemma {x} {y} {a :: l} 0 j
+      }
+
+    \func uniquePaths (p : Point) : UniqueList (allPathsToOrigin p) => UniqueList.fromSorted (sortedPaths p)
+  }
+
+\func InList {A : \Type} (a : A) (l : List A) => \Sigma (i : Index l) (l !! i = a)
+
+\func ElementOfList {A : \Type} (l : List A) => \Sigma (a : A) (InList a l)
+  \where {
+    \func isFinLength {A : \Type} {l : List A} : ElementOfList l = Fin (length l) => ext (\new QEquiv {
+      | f (a, (i, p)) => i
+      | ret i => (l !! i, (i, idp))
+      | ret_f => \case \elim __ \with {
+        | (_, (i, idp)) => idp
+      }
+      | f_sec i => idp
+    })
+  }
+
+\func pathsAreAllPaths {p : Point} : PathToOrigin p = ElementOfList (allPathsToOrigin p) => ext (\new QEquiv {
+  | f po => (po, findInList po)
+  | ret (po, i) => po
+  | ret_f po => idp
+  | f_sec e => ext (idp, findInListUnique)
+})
+  \where {
+    \func index-map {A B : \Type} {f : A -> B} {a : A}
+                    {l : List A} (i : InList a l) : InList (f a) (map f l)
+    \elim l, i
+      | nil, ((), p)
+      | _ :: l, (0, idp) => (0, idp)
+      | _ :: l, (suc i, idp) => \let r => index-map (i, idp) \in (suc r.1, r.2)
+
+    \func index-left {A : \Type} {a : A} {l l' : List A} (i : InList a l) : InList a (l ++ l')
+    \elim l, i
+      | nil, ((),_)
+      | b :: l, (0,idp) => (0, idp)
+      | b :: l, (suc i,idp) => \let r => index-left (i, idp) \in (suc r.1, r.2)
+
+    \func index-right {A : \Type} {a : A} {l l' : List A} (i : InList a l') : InList a (l ++ l')
+    \elim l, i
+      | nil, i => i
+      | _ :: l, i => \let r => index-right i \in (suc r.1, r.2)
+
+    \func findInList {p : Point} (po : PathToOrigin p) : InList po (allPathsToOrigin p)
+      | {(0,0)}, pathDone => (zero, idp)
+      | {(0,0)}, pathMove () x
+      | {(suc x, 0)}, pathMove Right po => index-map (findInList po)
+      | {(0, suc y)}, pathMove Up po => index-map (findInList po)
+      | {(suc x, suc y)}, pathMove Up po => index-left
+          {_}
+          {_}
+          {map (pathMove Up) _}
+          (index-map (findInList po))
+      | {(suc x, suc y)}, pathMove Right po => index-right
+          {_}
+          {_}
+          {_}
+          {map (pathMove Right) _}
+          (index-map (findInList po))
+
+    \func findInListUnique {p : Point} {po : PathToOrigin p} {i : InList po (allPathsToOrigin p)} : findInList po = i =>
+      ext $ allPathsToOrigin.uniquePaths p (findInList po).1 i.1 ((findInList po).2 *> inv i.2)
+  }
+
+\func pascalNumber (n k : Nat) : Nat \elim n, k
+  | _, 0 => 1 -- left edge (including top middle)
+  | 0, suc k => 0 -- beyond to the right
+  | suc n, suc k => pascalNumber n k Nat.+ pascalNumber n (suc k)
+
+  \where {
+    \func beyondRightEdge {n m : Nat} (h : n NatSemiring.< m) : pascalNumber n m = 0
+    \elim n, m, h
+      | 0, suc m, h => idp
+      | suc n, suc m, h => pmap2 (Nat.+) (beyondRightEdge linarith) (beyondRightEdge linarith)
+
+    \func rightEdge {n : Nat} : pascalNumber n n = 1 \elim n
+      | 0 => idp
+      | suc n => pmap2 (Nat.+) rightEdge (beyondRightEdge linarith)
+
+    \func example1 : pascalNumber 1 1 = 1 => idp
+
+    \func example2 : pascalNumber 5 0 = 1 => idp
+
+    \func example3 : pascalNumber 5 1 = 5 => idp
+
+    \func example4 : pascalNumber 5 2 = 10 => idp
+
+    \func example5 : pascalNumber 5 3 = 10 => idp
+
+    \func example6 : pascalNumber 5 4 = 5 => idp
+
+    \func example7 : pascalNumber 5 5 = 1 => idp
+  }
+
+\func solution (p : Point) => pascalNumber (p.x Nat.+ p.y) p.x -- p.x or p.y works because of symmetry
+
+\func lengthOfAllPaths {p : Point} : length (allPathsToOrigin p) = solution p
+\elim p
+  | (0, 0) => idp
+  | (0, suc y) => length_map _ _ *> lengthOfAllPaths *> cases y idp
+  | (suc x, 0) => length_map _ _ *> lengthOfAllPaths *> run {
+    unfold solution,
+    rewrite pascalNumber.rightEdge,
+    rewrite (pascalNumber.beyondRightEdge linarith),
+    idp
+  }
+  | (suc x, suc y) =>
+    length_++ *>
+    pmap2 (Nat.+) (length_map _ _ *> lengthOfAllPaths) (length_map _ _ *> lengthOfAllPaths) *>
+    linarith -- just some reordering
+
+  \where {
+    \func example1 : length (allPathsToOrigin (\new Point 1 1)) = solution (\new Point 1 1) => idp
+
+    \func example2 : length (allPathsToOrigin (\new Point 2 2)) = solution (\new Point 2 2) => idp
+
+    \func example3 : length (allPathsToOrigin (\new Point 3 3)) = solution (\new Point 3 3) => idp
+
+    \func example4 : length (allPathsToOrigin (\new Point 4 4)) = solution (\new Point 4 4) => idp
+
+    \func example5 : length (allPathsToOrigin (\new Point 3 4)) = solution (\new Point 3 4) => idp
+
+    \func example6 : length (allPathsToOrigin (\new Point 4 3)) = solution (\new Point 4 3) => idp
+  }
+
+\func numberOfPaths {p : Point} : PathToOrigin p = Fin (solution p) =>
+  pathsAreAllPaths *> ElementOfList.isFinLength *> pmap Fin lengthOfAllPaths
