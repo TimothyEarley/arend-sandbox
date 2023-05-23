@@ -1,0 +1,618 @@
+\import Algebra.Domain.Euclidean
+\import Algebra.Group
+\import Algebra.Meta
+\import Algebra.Monoid
+\import Algebra.Ordered
+\import Arith.Int
+\import Arith.Nat
+\import Arith.Rat
+\import Arith.Real
+\import Data.Array
+\import Data.Bool
+\import Data.Or
+\import Equiv
+\import Function.Meta
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Order.Lattice
+\import Order.LinearOrder
+\import Order.PartialOrder
+\import Order.StrictOrder
+\import Paths
+\import Paths.Meta
+\import Relation.Equivalence
+\import Set \hiding (#)
+\import Topology.TopSpace
+\open Sets (Family, Set, complement, extSet, extSet-empty, extSet-universal, universal, with, without, ∅, ∈, ∉, ∪, ∪i, ⊆, ⋂, ⋃)
+\open EuclideanSemiringData (reduce)
+
+-- https://github.com/coq-community/topology/blob/master/theories/Topology/TopologicalSpaces.v
+
+\module Sets
+  \where {
+    \func Set (X : \Set) : \Set => X -> \Prop
+
+    \func Family (X : \Set) => Set (Set X)
+
+    \func IndexFamily (X I : \Set) => I -> Set X
+
+    \func Image {A B : \Set} (S : Set A) (f : A -> B) : Set B => \lam b => ∃ (a : A) (b = f a) (a ∈ S)
+
+    \func PreImage {A B : \Set} (S : Set B) (f : A -> B) : Set A => \lam a => f a ∈ S
+
+    -- image from universal
+
+    \func Image' {A B : \Set} (f : A -> B) : Set B => \lam b => ∃ (a : A) (b = f a)
+
+    \func ImageFamily {X I : \Set} (F : IndexFamily X I) : Family X => Image (universal I) F
+
+    \func subset \alias \infix 6 ⊆ {X : \Set} (A B : Set X) : \Prop => \Pi {x : X} (A x) -> B x
+
+    \func element \alias \infix 6 ∈ {X : \Set} (e : X) (S : Set X) : \Prop => S e
+
+    \func notElement \alias \infix 6 ∉ {X : \Set} (e : X) (S : Set X) : \Prop => Not (S e)
+
+    \class SetDecElement (X : \Set) (\classifying S : Set X) {
+      | decElement (x : X) : Dec (x ∈ S)
+    } \where {
+      \func \infix 7 without' {X : DecSet} (S : SetDecElement X) (x : X) : SetDecElement X \cowith
+        | S => S without x
+        | decElement e => \case e ∈? S, decideEq e x \with {
+          | _, yes e => no (\lam e1 => e1.2 e)
+          | yes e1, no n => yes (e1, n)
+          | no n, _ => no (\lam e1 => n e1.1)
+        }
+    }
+
+    \func element? \alias \infix 6 ∈? {X : \Set} (e : X) (S : SetDecElement X) : Dec (e ∈ S) => S.decElement e
+
+    \func empty \alias ∅ {X : \Set} : Set X => \lam x => Empty
+
+    \func universal (X : \Set) : Set X => \lam x => \Sigma
+
+    \func intersection \alias \infix 7 ⋂ {X : \Set} (A B : Set X) : Set X => \lam x => \Sigma (A x) (B x)
+
+    \func union \alias \infixl 7 ⋃ {X : \Set} (A B : Set X) : Set X => \lam x => A x || B x
+
+    \func bigUnion \alias ∪ {X : \Set} (A : Family X) : Set X => \lam x => ∃ (S : Set X) (S ∈ A) (x ∈ S)
+
+    \func bigUnionIndexed \alias ∪i {X : \Set} {I : \Set} (A : IndexFamily X I) : Set X =>
+      \lam x => ∃ (i : I) (x ∈ A i)
+
+    \func pow {X : \Set} (S : Set X) : Family X => \lam s => s ⊆ S
+
+    \func fromArray {X : \Set} (xs : Array X) : Set X =>
+      \lam x => TruncP (Index x xs)
+
+    \func complement {X : \Set} (A : Set X) : Set X => \lam x => Not (x ∈ A)
+
+    \func \infixl 7 with {X : \Set} (S : Set X) (x : X) : Set X =>
+      \lam e => (e ∈ S) || (e = x)
+
+    \func \infix 7 without {X : \Set} (S : Set X) (x : X) : Set X =>
+      \lam e => \Sigma (e ∈ S) (e /= x)
+
+    -- lemmas
+
+    \lemma extSet {X : \Set} {A B : Set X}
+                  (h1 : A ⊆ B) (h2 : B ⊆ A)
+      : A = B => ext (\lam x => ext (h1, h2))
+
+    \lemma extSet-empty {X : \Set} {A : Set X}
+                        (h1 : A ⊆ ∅)
+      : A = ∅ => ext (\lam x => ext (h1, empty-subset {X} {A} {x}))
+
+    \lemma extSet-universal {X : \Set} {A : Set X} (h1 : universal X ⊆ A) : A = universal X => extSet
+        (\lam {x} a => ())
+        h1
+
+    \lemma intersection-commutative {X : \Set} {A B : Set X} : A ⋂ B = B ⋂ A => extSet
+        (\lam {x} (a, b) => (b, a))
+        (\lam {x} (b, a) => (a, b))
+
+    \lemma empty-intersecion {X : \Set} {B : Set X} : ∅ ⋂ B = ∅ => extSet (\lam i => \case i.1) (\lam e => \case e)
+
+    \lemma universal-intersection {X : \Set} {B : Set X} : universal X ⋂ B = B =>
+      extSet (\lam i => i.2) (\lam b => ((), b))
+
+    \lemma indexed-to-family-union {X I : \Set} {A : IndexFamily X I}
+      : ∪i A = ∪ (ImageFamily A) => extSet
+        (\case \elim __ \with {
+          | inP (i, el) => inP (A i, inP (i, idp, ()), el)
+        })
+        (\case \elim __ \with {
+          | inP (_, inP (i, idp, _), el2) => inP (i, el2)
+        })
+
+    \lemma empty-union {X : \Set} {S : Set X} : S ⋃ ∅ = S => extSet
+        (\case \elim __ \with {
+          | byLeft a => a
+          | byRight b => absurd b
+        })
+        (\lam {x} => byLeft)
+
+    \lemma empty-union' {X : \Set} {S : Set X} : ∅ ⋃ S = S => extSet
+        (\case \elim __ \with {
+          | byLeft a => absurd a
+          | byRight b => b
+        })
+        (\lam {x} => byRight)
+
+    \lemma empty-big-union {X : \Set} : ∪ ∅ = {Set X} ∅ => extSet
+        (\lam b => \case \elim b \with {
+          | inP (S,e,e1) => e
+        })
+        (\lam e => absurd e)
+
+    \lemma empty-subset {X : \Set} {S : Set X} : ∅ ⊆ S => \lam e => absurd e
+
+    \lemma fromArray-nil {X : \Set} : fromArray nil = {Set X} ∅ => extSet
+        (\lam f => \case f \with {
+          | inP ((),p)
+        })
+        empty-subset
+
+    \lemma subset-empty {X : \Set} {S : Set X} (h : S ⊆ ∅) : S = ∅ => extSet h empty-subset
+
+    \func BoolFilter {X : \Set} {l : Nat} (xs : Array X l) => Array Bool l
+
+    \func subArray {X : \Set} {l : Nat} (xs : Array X l) (filter : BoolFilter xs) : Array X
+    \elim l, xs, filter
+      | 0, nil, nil => nil
+      | suc l, a :: xs, false :: filter => subArray xs filter
+      | suc l, a :: xs, true :: filter => a :: subArray xs filter
+
+    \func subset-trans \alias \infixl 5 ⊆-trans {X : \Set} {S S' S'' : Set X} (h1 : S ⊆ S') (h2 : S' ⊆ S'') : S ⊆ S'' =>
+      \lam s => h2 (h1 s)
+
+    \lemma without-subset {X : \Set} {S : Set X} {x : X} : S without x ⊆ S => __.1
+
+    \lemma without-already-out {X : \Set} {S : Set X} {x : X} (h : x ∉ S) : S without x = S => extSet
+        without-subset
+        (\lam {x1} s => (s, \lam p => h (rewriteI p s)))
+
+    \lemma re-add {X : DecSet} {S : Set X} {x : X} (h : x ∈ S) : (S without x) with x = S => extSet
+        (\case \elim __ \with {
+          | byLeft (xS, _) => xS
+          | byRight p => rewrite p h
+        })
+        (\lam {e} s => \case decideEq e x \with {
+          | yes p => byRight p
+          | no n => byLeft (s, n)
+        })
+
+    \lemma fromArray-cons-with {X : \Set} {xs : Array X} {a : X} : fromArray (a :: xs) = fromArray xs with a => extSet
+        (\case \elim __ \with {
+          | inP (0, p) => byRight (inv p)
+          | inP ((suc i, p)) => byLeft (inP (i, p))
+        })
+        (\case \elim __ \with {
+          | byLeft (inP (i, p)) => inP (suc i, p)
+          | byRight p => inP (0, inv p)
+        })
+
+    \func subset-of-fromArray {X : DecSet}
+                              {l : Nat} {xs : Array X l}
+                              {S : Set X}
+                              (SDE : SetDecElement X S) (h : S ⊆ fromArray xs)
+      : \Sigma (bf : BoolFilter xs) (S = fromArray (subArray xs bf))
+    \elim l, xs
+      | 0, nil => (nil, extSet h (rewrite fromArray-nil empty-subset))
+      | suc l, a :: xs =>
+        \let
+          | sub : SDE SetDecElement.without' a ⊆ fromArray xs =>
+            \lam {x} s => \case h s.1 \with {
+              | inP (0, p) => absurd $ s.2 (inv p)
+              | inP (suc i, p) => inP (i, p)
+            }
+          | (bf, bf=) => subset-of-fromArray (SDE SetDecElement.without' a) sub
+        \in
+          \case a ∈? SDE \with {
+            | yes e => (true :: bf,
+                        S ==< inv (re-add e) >==
+                        (S without a) with a ==< pmap (__ with a) bf= >==
+                        fromArray (subArray xs bf) with a ==< inv fromArray-cons-with >==
+                        fromArray (a :: subArray xs bf) ==< idp >==
+                        fromArray (subArray (a :: xs) (true :: bf)) `qed
+            )
+            | no n => (false :: bf, inv (without-already-out n) *> bf=)
+          }
+
+    \lemma bigUnion-with {X : \Set} {A : Family X} {S : Set X} : ∪ (A with S) = ∪ A ⋃ S => extSet
+        (\case \elim __ \with {
+          | inP (S', el1, el2) => \case \elim S, el1 \with {
+            | _, byLeft a => byLeft (inP (S', a, el2))
+            | _, byRight idp => byRight el2
+          }
+        })
+        (\case \elim __ \with {
+          | byLeft (inP (S', el1, el2)) => inP (S', byLeft el1, el2)
+          | byRight b => inP (S, byRight idp, b)
+        })
+
+    \lemma union-eq-X {X : \Set} {A B C D : Set X} (h1 : A = D) (h2 : B = C) : A ⋃ B = C ⋃ D => extSet
+        (\case \elim __ \with {
+          | byLeft a => byRight $ rewriteI h1 a
+          | byRight b => byLeft $ rewriteI h2 b
+        })
+        (\case \elim __ \with {
+          | byLeft c => byRight $ rewrite h2 c
+          | byRight d => byLeft $ rewrite h1 d
+        })
+
+    \func bigUnion-of-fromArray {X : \Set} {xs : Array (Set X)}
+      : ∪ (fromArray xs) = unionList xs \elim xs
+      | nil => extSet
+          (rewrite (fromArray-nil, empty-big-union) empty-subset)
+          empty-subset
+      | a :: l => rewrite (fromArray-cons-with, bigUnion-with) $ union-eq-X bigUnion-of-fromArray idp
+      \where {
+        \func unionList {X : \Set} (xs : Array (Set X)) : Set X \elim xs
+          | nil => ∅
+          | a :: l => a ⋃ unionList l
+      }
+
+    \lemma complement-empty {X : \Set} : complement ∅ = universal X => extSet-universal (\lam {x} u e => e)
+
+    \lemma complement-complement {X : \Set} {S : SetDecElement X} : complement (complement S) = S => extSet
+        (\lam {x} c => \case S.decElement x \with {
+          | yes e => e
+          | no n => absurd (c n)
+        })
+        (\lam {x} s e => e s)
+
+    \lemma subset-from-equal {X : \Set} {A B : Set X} (p : A = B) : A ⊆ B \elim p
+      | idp => \lam {x} a => a
+
+    \lemma subset-from-equal' {X : \Set} {A B : Set X} (p : A = B) : B ⊆ A \elim p
+      | idp => \lam {x} b => b
+
+    \lemma universal-pre-image {A B : \Set} {f : A -> B} : PreImage (universal B) f = universal A => idp
+  }
+
+\class Topology (X : \Set) (T : Family X) {
+  | totalInT : universal X ∈ T
+  | intersectionIn : \Pi (A B : Set X) (A ∈ T) (B ∈ T) -> A ⋂ B ∈ T
+  | unionIn : \Pi (F : Family X) (F ⊆ T) -> ∪ F ∈ T
+
+  \lemma emptyInT : ∅ ∈ T => rewriteI Sets.empty-big-union $ unionIn ∅ (\lam e => absurd e)
+
+  \lemma indexedUnionIn (I : \Set) (A : I -> Set X) (h : \Pi (i : I) -> A i ∈ T) : ∪i A ∈ T =>
+    rewrite Sets.indexed-to-family-union $
+    unionIn (Sets.ImageFamily A) (\lam {S} => \case \elim S, \elim __ \with {
+      | _, inP (i, idp, _) => h i
+    })
+
+  \func open (S : Set X) => S ∈ T
+
+  \func Open : \Set => \Sigma (S : Set X) (open S)
+
+  \func OpenNeighbourhood (x : X) : \Set => \Sigma (U : Set X) (open U) (x ∈ U)
+
+  \func closed (S : Set X) => open (complement S)
+
+  \func interior (S : Set X) : Set X => \lam p =>
+      ∃ (U : Set X) (open U) (p ∈ U) (U ⊆ S)
+
+  \func exterior (S : Set X) : Set X => \lam p =>
+      ∃ (U : Set X) (open U) (p ∈ U) (U ⊆ Sets.complement S)
+
+  \func boundary (S : Set X) : Set X => \lam p =>
+      \Pi (U : Set X) (open U) (p ∈ U) -> \Sigma (U ⋂ S /= ∅) (U ⋂ complement S /= ∅)
+
+  \func converges (an : Nat -> X) (a : X) : \Prop =>
+    \Pi (U : Set X) (open U) (a ∈ U) -> ∃ (n : Nat) (\Pi (n' : Nat) (n' >= n) -> an n' ∈ U)
+
+  -- derived set = set of accumulation
+
+  \func derived (S : Set X) : Set X => \lam p =>
+      \Pi (U : Set X) (open U) (p ∈ U) -> (U without p) ⋂ S /= ∅
+
+  \func closure (S : Set X) : Set X => S ⋃ boundary S
+
+  -- lemma
+
+  \lemma interior-exterior-complement {S : Sets.SetDecElement X} : interior S = exterior (Sets.complement S) =>
+    extSet
+        (\lam {p} i => unfold exterior (rewrite (Sets.complement-complement {X} {S}) i))
+        (\lam {p} (inP (U, U_open, pU, US)) => inP (U, U_open, pU, rewriteF (Sets.complement-complement {X} {S}) US))
+
+  \lemma interior-in-S {S : Set X} : interior S ⊆ S => \lam {x} (inP (U, _, xU, US)) => US xU
+
+  \lemma boundary-complement {S : Sets.SetDecElement X} : boundary S = boundary (complement S) => extSet
+      (\lam {x} b U o e => \let (h1, h2) => b U o e \in (h2, rewrite (Sets.complement-complement {X}) h1))
+      (\lam {x} b U o e => \let (h1, h2) => b U o e \in (rewriteI (Sets.complement-complement {X} {S}) h2, h1))
+
+  \lemma not-interior-exterior-implies-boundary {S : Sets.SetDecElement X} {x : X}
+                                                (hInt : x ∉ interior S)
+                                                (hExt : x ∉ exterior S)
+    : x ∈ boundary S => \lam U o e =>
+      (
+        \lam p => hExt (inP (U, o, e, \lam {u} uU uS => transport (u ∈ __) p (uU, uS))),
+        \lam p => hInt (inP (U, o, e, \lam {u} uU => \case S.decElement u \with {
+          | yes uS => uS
+          | no n => absurd $ transport (u ∈ __) p (uU, n)
+        }
+        ))
+      )
+
+  \lemma not-interior-exterior-=-boundary {S : Sets.SetDecElement X}
+    : (complement $ interior S) ⋂ (complement $ exterior S) = boundary S => extSet
+      (\lam {x} (i, i') => not-interior-exterior-implies-boundary i i')
+      (\lam {x} b => (\lam (inP (U, o, e, h)) => (b U o e).2 (extSet-empty (\lam {z} (zU, zNS) => zNS (h zU))),
+                      \lam (inP (U, o, e, h)) => (b U o e).1 (extSet-empty (\lam {z} (zU, zS) => (h zU) zS))))
+
+  \lemma interior-exterior-boundary {S : Sets.SetDecElement X}
+                                    (decInterior : Sets.SetDecElement X (interior S))
+                                    (decExterior : Sets.SetDecElement X (exterior S))
+                                    (decBoundary : Sets.SetDecElement X (boundary S))
+    : (interior S ⋃ exterior S ⋃ boundary S) = universal X => extSet-universal
+      (\lam {x} _ => \case decInterior.decElement x, decExterior.decElement x, decBoundary.decElement x \with {
+        | yes e, _, _ => byLeft (byLeft e)
+        | _, yes e, _ => byLeft (byRight e)
+        | no n, no n1, _ => byRight (not-interior-exterior-implies-boundary n n1)
+      }
+      )
+
+  \lemma exterior-not-derived {S : Set X} : exterior S ⋂ derived S = ∅ => extSet-empty
+      (\lam {x} (inP i, a) => a i.1 i.2 i.3 (extSet-empty (\lam {x'} ((x'U, x'/=x), x'S) => i.4 x'U x'S)))
+}
+  \where {
+    \func indiscreteTopology {X : \Set} {DX : DecSet (Set X)} : Topology X \cowith
+      | T => Sets.fromArray (∅ :: universal X :: nil)
+      | totalInT => inP (1, idp)
+      | intersectionIn A B elA elB => \case \elim A, elA \with {
+        | _, inP (0, idp) => rewrite Sets.empty-intersecion (inP (0, idp))
+        | _, inP (1, idp) => rewrite Sets.universal-intersection elB
+      }
+      | unionIn F h =>
+        \let
+          -- this is not a given
+          | FSDE : Sets.SetDecElement _ F => {?}
+          | bf_p => Sets.subset-of-fromArray FSDE h
+        \in \case \elim bf_p \with {
+          | (false :: false :: nil, p) =>
+            rewrite (p, Sets.fromArray-nil, Sets.empty-big-union) (inP (0, idp))
+          | (false :: true :: nil, p) =>
+            rewrite (p, Sets.bigUnion-of-fromArray {X} {universal X :: nil}) (inP (1, inv Sets.empty-union))
+          | (true :: false :: nil, p) =>
+            rewrite (p, Sets.bigUnion-of-fromArray {X} {∅ :: nil}) (inP (0, inv Sets.empty-union))
+          | (true :: true :: nil, p) =>
+            rewrite (p, Sets.bigUnion-of-fromArray {X} {∅ :: universal X :: nil}) (inP (1, inv (Sets.empty-union' *> Sets.empty-union)))
+        }
+
+    \func discreteTopology {X : \Set} : Topology X \cowith
+      | T => universal _
+      | totalInT => ()
+      | intersectionIn _ _ _ _ => ()
+      | unionIn _ _ => ()
+  }
+
+\func exampleTopology : Topology Rat \cowith
+  | T => Sets.Image' openIntervalInfRight with ∅ with universal Rat
+  | totalInT => byRight idp
+  | intersectionIn => \case \elim __, \elim __, \elim __, \elim __ \with {
+    | _, _, byLeft (byLeft (inP (a, idp))), byLeft (byLeft (inP (b, idp))) =>
+      \let
+        | max => a ∨ b
+        | h : openIntervalInfRight a ⋂ openIntervalInfRight b = openIntervalInfRight max =>
+          extSet
+              (\lam {x} (a<, b<) => LinearOrder.<_join-univ {RatDenseOrder} a< b<)
+              (\lam {x} o => (<-transitive-right join-left o, <-transitive-right join-right o))
+      \in
+        byLeft (byLeft (inP (max, h)))
+    | _, _, byLeft (byRight idp), _ => rewrite Sets.empty-intersecion (byLeft (byRight idp))
+    | _, _, _, byLeft (byRight idp) => rewrite (Sets.intersection-commutative, Sets.empty-intersecion) (byLeft (byRight idp))
+    | A, _, h, byRight idp => rewrite (Sets.intersection-commutative, Sets.universal-intersection) h
+    | _, B, byRight idp, h => rewrite Sets.universal-intersection h
+  }
+  | unionIn F Fsub => {?}
+  \where {
+    \func openIntervalInfRight (a : Rat) : Set Rat => \lam b => a < b
+
+    \func closedIntervalInfLeft (a : Rat) : Set Rat => \lam b => b <= a
+
+    \lemma complement-of-openIntervalInfRight {x : Rat} : complement (openIntervalInfRight x) = closedIntervalInfLeft x =>
+      extSet
+          (\lam {y} c => \case RatField.trichotomy y x \with {
+            | less y<x => linarith
+            | equals y=x => linarith
+            | greater y>x => absurd $ c y>x
+          })
+          (\lam {x1} c e => linarith)
+
+    \func zero-one : Sets.SetDecElement Rat \cowith
+      | S x => \Sigma (0 < x) (x < 1)
+      | decElement x => \case RatField.trichotomy x 0, RatField.trichotomy x 1 \with {
+        | less x<0, _ => no (\lam e => usingOnly (x<0, e.1) linarith)
+        | equals x=0, _ => no (\lam e => usingOnly (x=0, e.1) linarith)
+        | greater x>0, less x<1 => yes (x>0, x<1)
+        | _, equals x=1 => no (\lam e => usingOnly (x=1, e.2) linarith)
+        | _, greater x>1 => no (\lam e => usingOnly (x>1, e.2) linarith)
+      }
+
+    \lemma zero-one-no-int {x : Int} : Not (x ∈ {Rat} zero-one) \elim x
+      | pos (1) => \lam (_, e) => contradiction
+      | pos (suc (suc n)) => \lam (_, e) => contradiction
+      | pos 0 => \lam (e, _) => contradiction
+      | neg 0 => \lam (e, _) => contradiction
+      | neg (suc n) => \lam (e, _) => contradiction
+
+    \lemma interval-not-subset-zero-one {a : Rat} : Not (openIntervalInfRight a ⊆ zero-one) =>
+      \lam h =>
+          \let
+            | a' => isuc (rat_ceiling a)
+            | a'-in-interval : a' ∈ {Rat} openIntervalInfRight a =>
+              RatField.<-transitive-right rat_ceiling>id (fromInt_< id<isuc)
+            | a'-in-zero-one : a' ∈ {Rat} zero-one => h a'-in-interval
+          \in zero-one-no-int a'-in-zero-one
+
+    \lemma zero-one-not-open : Not (exampleTopology.open zero-one) => \case \elim __ \with {
+      | byLeft (byLeft (inP (a, p))) => interval-not-subset-zero-one (Sets.subset-from-equal' p)
+      | byLeft (byRight zero-one=empty) =>
+        transport (rat 1 2 (\lam p => contradiction) idp ∈ __) zero-one=empty (idp, idp)
+      | byRight zero-one=universal =>
+        \let two-in-zero-one => transportInv (2 ∈ {Rat} __) zero-one=universal ()
+        \in contradiction two-in-zero-one.2
+    }
+
+    \lemma zero-one-no-interior : exampleTopology.interior zero-one = ∅ => extSet-empty
+        (\case \elim __ \with {
+          | inP (U, byLeft (byLeft (inP (a, idp))), xU, U-sub) =>
+            interval-not-subset-zero-one U-sub
+          | inP (U,byLeft (byRight idp),e,s) => e
+          | inP (_, byRight idp, xU, U-sub) => usingOnly (U-sub {2} ()).2 contradiction
+        })
+
+    \lemma zero-one-exterior : exampleTopology.exterior zero-one = openIntervalInfRight 1 => extSet
+        (\lam {x} => \case \elim __ \with {
+          | inP (U, byLeft (byLeft (inP (a, idp))), a<x, U-sub) =>
+            \case RatField.trichotomy 1 a \with {
+              | less a>1 => RatField.<-transitive a>1 a<x
+              | equals p => RatField.<-transitive-right (Poset.<=_= p) a<x
+              | greater a<1 => absurd $ \case RatField.trichotomy 0 a \with {
+                | less a>0 =>
+                  -- 0 < a < a' < 1
+                  \case RatDenseOrder.isDense {a} {1} a<1 \with {
+                    | inP (a', a<a', a'<1) => U-sub {a'} a<a' (<-transitive a>0 a<a', a'<1)
+                  }
+                | equals p =>
+                  -- 0 = a < 1/2 < 1
+                  U-sub {ratio 1 2} (<-transitive-right (Poset.<=_= (inv p)) idp) (idp, idp)
+                | greater a<0 =>
+                  -- a < 0 < 1/2 < 1
+                  U-sub {ratio 1 2} (<-transitive a<0 idp) (idp, idp)
+              }
+            }
+          | inP (U, byLeft (byRight idp), xU, U-sub) => absurd xU
+          | inP (U, byRight idp, xU, U-sub) => absurd $ U-sub {ratio 1 2} () (idp, idp)
+        })
+        (\lam {x} o => \case RatDenseOrder.isDense {1} {x} o \with {
+          | inP (z, z>1, z<x) => inP (openIntervalInfRight z,
+                                      byLeft (byLeft (inP (z, idp))),
+                                      z<x,
+                                      \lam {z'} z<z' (_, z'<1) => \let z'>1 : 1 < z' => <-transitive z>1 z<z' \in
+                                        LinearOrder.<_<= z'>1 z'<1)
+        }
+        )
+
+    \lemma zero-one-boundary : exampleTopology.boundary zero-one = closedIntervalInfLeft 1 =>
+      rewrite (
+        inv $ Topology.not-interior-exterior-=-boundary {exampleTopology} {zero-one},
+        zero-one-exterior,
+        zero-one-no-interior,
+        complement-of-openIntervalInfRight,
+        Sets.complement-empty,
+        Sets.universal-intersection
+      ) $
+      idp
+
+    \lemma converges-example-0 : exampleTopology.converges (\lam n => ratio 1 (suc n)) = closedIntervalInfLeft 0 =>
+      extSet
+          (\lam {x} c x>0 => \case denseUnitFraction x>0 <=-refl linarith \with {
+            | inP (m, m'>0, m'<x) => \case c (openIntervalInfRight (ratio 1 ( suc m))) (byLeft $ byLeft $ inP (_, idp)) m'<x \with {
+              | inP (n, h) => \case NatSemiring.trichotomy n m \with {
+                | less n<m =>
+                  \let
+                    | foo : ratio 1 (suc m) < ratio 1 (suc n) => h n <=-refl
+                    | foo' :  isPos (ratio 1 (suc n) + RatField.negative (ratio 1 (suc m))) => foo
+                  \in {?}
+                | equals p => {?}
+                | greater _x => {?}
+              }
+            }
+          })
+          (\lam {x} x<=0 U o e => \case \elim U, \elim o, \elim e \with {
+            | _, byLeft (byLeft (inP (a ,idp))), a<x => \case RatField.trichotomy x 0 \with {
+              | less x<0 => inP (0, \lam n' n'>0 => <-transitive a<x (<-transitive x<0 seq-above-zero))
+              | equals x=0 => inP (0, \lam n' n'>0 => <-transitive a<x (<-transitive-right (rewriteI x=0 <=-refl) seq-above-zero))
+              | greater x>0 => usingOnly (x<=0, x>0) contradiction
+            }
+            | _, byLeft (byRight idp), ()
+            | _, byRight idp, () => inP (0, \lam _ _ => ())
+          })
+      \where {
+        \func denseUnitFraction {a b : Rat} (h : a < b)
+                                (aPos : 0 <= a) (bPos : 0 <= b)
+          : ∃ (c : Nat) (a < ratio 1 (suc c)) (ratio 1 (suc c) < b) => {?}
+
+        \func seq-above-zero {n : Nat} : 0 < ratio 1 (suc n) =>
+          \let
+            | (a, b) => reduce 1 (suc n)
+            | a=1 : a = 1 => pmap __.1 (reduce1 {suc n})
+
+            | nom= : ratNom (ratio 1 (suc n)) = 1 =>
+              pmap (ratNom __) makeRat.simp *> pmap pos a=1
+
+            | goal' : IntRing.isPos (ratNom $ ratio 1 (suc n)) => rewrite nom= idp
+            | goal : RatField.isPos (ratio 1 (suc n) - 0) => rewrite RatField.minus_zro goal'
+          \in goal
+
+        \func reduce1 {n : Nat} : reduce 1 n = (1, n) => {?}
+      }
+  }
+
+\class Hausdorff \extends Topology
+  | separable : \Pi (x y : X) (x /= y) -> ∃ (Ux : OpenNeighbourhood x) (Uy : OpenNeighbourhood y) (Ux.1 ⋂ Uy.1 = ∅)
+
+\func quotientTopology (Top : Topology) (E : Equivalence Top.X) : Topology \cowith
+  | X => Quotient {Top.X} (E.~)
+  | T U => Top.open $ Sets.PreImage U in~
+  | totalInT => Top.totalInT
+  | intersectionIn A B hA hB => Top.intersectionIn _ _ hA hB
+  | unionIn => {?}
+
+\func Vec (X : \Type) (n : Nat) => DArray {n} (\lam _ => X)
+
+\func euclideanNorm2 {n : Nat} (v : Vec Real n) : Real => fold {Real} {Real} (RealField.+) 0 (map (\lam z => z * z) v)
+
+\func Sphere (n : Nat) : \Set => \Sigma (v : Vec Real (suc n)) (euclideanNorm2 v = {Real} 1)
+  \where {
+    \func negative {n : Nat} (x : Sphere n) : Sphere n =>
+      (
+        map RealField.negative x.1,
+        \let goal : fold {Real} {Real} (RealField.+) 0 (map (\lam z => RealField.negative z * RealField.negative z) x.1) = {Real} 1 => {?}
+        \in goal
+      )
+  }
+
+\func SphereTopology (n : Nat) : Topology (Sphere n) \cowith
+  | T => {?}
+  | totalInT => {?}
+  | intersectionIn => {?}
+  | unionIn => {?}
+
+\func ProjectiveSpace (n : Nat) : Topology => quotientTopology (SphereTopology n) sphere-equiv
+  \where {
+    \func sphere-equiv {n : Nat} : Equivalence (Sphere n) \cowith
+      | ~ x y => (x = y) || (x = Sphere.negative y)
+      | ~-reflexive => byLeft idp
+      | ~-symmetric e => \case e \with {
+        | byLeft a => byLeft (inv a)
+        | byRight b => byRight {?}
+      }
+      | ~-transitive => {?}
+  }
+
+\func same-as-std-lib : Topology = TopSpace => ext (\new QEquiv {
+  | f => TopologicalSpace->TopSpace
+  | ret => TopSpace->TopologicalSpace
+  | ret_f ts => idp
+  | f_sec ts => idp
+})
+  \where {
+    \func TopologicalSpace->TopSpace (TS : Topology) : TopSpace \cowith
+      | E => TS.X
+      | topology => TS.T
+      | top-top => TS.totalInT
+      | top-meet {P} {Q} pIn qIn => intersectionIn P Q pIn qIn
+      | top-Join S h => unionIn S (\lam {x} s => h x s)
+
+    \func TopSpace->TopologicalSpace (TS : TopSpace) : Topology \cowith
+      | X => TS.E
+      | T => TS.topology
+      | totalInT => TS.top-top
+      | intersectionIn A B aIn bIn  => TS.top-meet aIn bIn
+      | unionIn F Fsub => TS.top-Join F (\lam P f => Fsub f)
+  }
