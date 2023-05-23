@@ -5,7 +5,10 @@
 \import lambda.unityped.Reduction
 \import lambda.unityped.Substitute
 
+-- I
 \func uniId {ctx : UniContext} : ctx u⊢ * => lam (var #0)
+-- K
+\func uniConst {ctx : UniContext} : ctx u⊢ * => lam (lam (var #1))
 
 \func uniTrue {ctx : UniContext} : ctx u⊢ * => lam $ lam $ var #1
   \where {

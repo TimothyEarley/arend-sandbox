@@ -1,0 +1,283 @@
+\import Function.Meta
+\import Logic
+\import Logic.Meta
+\import Paths
+\import Paths.Meta
+\import Relation.Equivalence
+\import lambda.GeneralContext
+\import lambda.unityped.Examples
+\import lambda.unityped.FreeVars
+\import lambda.unityped.Lambda
+\import lambda.unityped.Substitute
+\open RelType ([, ], promotionRelation)
+\open BetaEtaReduction (BetaEtaReductions)
+\open Examples (constRight, internalizedTypingRight)
+\open BetaEtaEquiv (betaEtaReduces, betaEtaReduces')
+
+-- https://arxiv.org/pdf/2101.09655.pdf
+
+\data BetaEtaReduction {ctx : UniContext} (t : ctx u⊢ *) : \Set \elim t
+  | ⋅ (lam f) arg => Beta
+  | lam (⋅ f (var (Z p))) => Eta (NotFreeIn (Z p) f)
+  | ⋅ f arg => App-1 (BetaEtaReduction f)
+  | ⋅ f arg => App-2 (BetaEtaReduction arg)
+  \where {
+    \func reduce {ctx : UniContext} {t : ctx u⊢ *} (r : BetaEtaReduction t) : ctx u⊢ * \elim t, r
+      | ⋅ (lam f) arg, Beta => sub f arg
+      | lam (⋅ f (var (Z p))), Eta free => removeNotFree f free
+      | ⋅ f arg, App-1 r => reduce r ⋅ arg
+      | ⋅ f arg, App-2 r => f ⋅ reduce r
+
+    \func reduceApp1 {ctx : UniContext} {f arg : ctx u⊢ *} {r : BetaEtaReduction f} : reduce {_} {f ⋅ arg} (App-1 r) = reduce r ⋅ arg
+    \elim f
+      | var l => idp
+      | lam f => idp
+      | ⋅ f f1 => idp
+
+    \func reduceApp2 {ctx : UniContext} {f arg : ctx u⊢ *} {r : BetaEtaReduction arg} : reduce {_} {f ⋅ arg} (App-2 r) = f ⋅ reduce r
+    \elim f
+      | var l => idp
+      | lam f => idp
+      | ⋅ f f1 => idp
+
+    \data BetaEtaReductions {ctx : UniContext} (t : ctx u⊢ *)
+      | noReduction
+      | stepReduction (r : BetaEtaReduction t) (BetaEtaReductions (reduce r))
+
+    \func reduces {ctx : UniContext} {t : ctx u⊢ *} (r : BetaEtaReductions t) : ctx u⊢ * \elim r
+      | noReduction => t
+      | stepReduction r r1 => reduces {ctx} {reduce r} r1
+  }
+
+\instance BetaEtaEquiv : Equivalence (∅ u⊢ *)
+  | ~ t t' => betaEtaEqual t t'
+  | ~-reflexive => equal idp
+  | ~-symmetric => betaEtaSym
+  | ~-transitive => betaEtaTrans
+  \where {
+    \truncated \data betaEtaEqual {ctx : UniContext} (t t' : ctx u⊢ *) : \Prop
+      | equal (t = t')
+      | stepLeft (r : BetaEtaReduction t) (betaEtaEqual (BetaEtaReduction.reduce r) t')
+      | stepRight (r : BetaEtaReduction t') (betaEtaEqual t (BetaEtaReduction.reduce r))
+
+    \func betaEtaSym {t t' : ∅ u⊢ *} (h : betaEtaEqual t t') : betaEtaEqual t' t
+    \elim h
+      | equal p => equal (inv p)
+      | stepLeft r h => stepRight r (betaEtaSym h)
+      | stepRight r h => stepLeft r (betaEtaSym h)
+
+    \func liftOverApp {f f' a a' : ∅ u⊢ *} (h : betaEtaEqual f f') (h' : betaEtaEqual a a') : betaEtaEqual (f ⋅ a) (f' ⋅ a')
+    \elim h, h'
+      | equal idp, equal idp => equal idp
+
+      | stepLeft r h, h2 => stepLeft (App-1 r) (rewrite BetaEtaReduction.reduceApp1 $ liftOverApp h h2)
+      | stepRight r h, h2 => stepRight (App-1 r) (rewrite BetaEtaReduction.reduceApp1 $ liftOverApp h h2)
+
+      | h, stepLeft r h' => stepLeft (App-2 r) (rewrite BetaEtaReduction.reduceApp2 $ liftOverApp h h')
+      | h, stepRight r h' => stepRight (App-2 r) (rewrite BetaEtaReduction.reduceApp2 $ liftOverApp h h')
+
+    \func liftOverAppLeft {f f' a : ∅ u⊢ *} (h : betaEtaEqual f f') : betaEtaEqual (f ⋅ a) (f' ⋅ a) =>
+      liftOverApp h (equal idp)
+
+    \func liftOverAppRight {f a a' : ∅ u⊢ *} (h : betaEtaEqual a a') : betaEtaEqual (f ⋅ a) (f ⋅ a') =>
+      liftOverApp (equal idp) h
+
+    \func betaEtaReduce {t : ∅ u⊢ *} {r : BetaEtaReduction t} : betaEtaEqual (BetaEtaReduction.reduce r) t =>
+      stepRight r (equal idp)
+
+    \func betaEtaReduces {t : ∅ u⊢ *} (r : BetaEtaReductions t) : betaEtaEqual (BetaEtaReduction.reduces r) t \elim r
+      | BetaEtaReduction.noReduction => equal idp
+      | BetaEtaReduction.stepReduction r r1 => stepRight r (betaEtaReduces r1)
+
+    \func betaEtaReduces' {t t' : ∅ u⊢ *} (r : BetaEtaReductions t) (p : BetaEtaReduction.reduces r = t') : betaEtaEqual t' t =>
+      rewriteI p $ betaEtaReduces r
+
+    \func betaEtaTrans {t t' t'' : ∅ u⊢ *} (h1 : betaEtaEqual t t') (h2 : betaEtaEqual t' t'') : betaEtaEqual t t''
+    \elim t', h1, h2
+      | t', equal idp, h2 => h2
+      | t', h1, equal idp => h1
+      | t', stepLeft r h1, h2 => stepLeft r (betaEtaTrans h1 h2)
+      | t', h1, stepRight r1 h2 => stepRight r1 (betaEtaTrans h1 h2)
+
+      | ⋅ (lam t1) t2, stepRight Beta h1, stepLeft Beta h2 => betaEtaTrans h1 h2
+      | lam (⋅ t1 (var (Z p))), stepRight (Eta n) h1, stepLeft (Eta n') h2 => betaEtaTrans h1 h2
+
+      | ⋅ f arg, stepRight (App-1 r) h1, stepLeft (App-1 r1) h2 =>
+        \let foo : betaEtaEqual (BetaEtaReduction.reduce r) (BetaEtaReduction.reduce r1) => {?}
+        \in {?}
+
+      --  t   (f' ⋅ arg)
+      --  (f'' ⋅ arg) t''
+      --
+      --
+      --
+      --
+
+
+      | ⋅ f arg, stepRight (App-2 r) h1, stepLeft r1 h2 => {?}
+
+      | ⋅ (lam t') t'1, stepRight Beta h1, stepLeft (App-1 b) h2 => {?}
+
+      | ⋅ (lam t') t'1, stepRight Beta h1, stepLeft (App-2 b) h2 => {?}
+
+
+      | ⋅ (var l) t', stepRight (App-1 b) h1, stepLeft (App-2 b1) h2 => {?}
+      | ⋅ (lam t') t'1, stepRight (App-1 b) h1, stepLeft Beta h2 => {?}
+      | ⋅ (lam t') t'1, stepRight (App-1 b) h1, stepLeft (App-2 b1) h2 => {?}
+      | ⋅ (⋅ t' t'1) t'2, stepRight (App-1 b) h1, stepLeft (App-2 b1) h2 => {?}
+
+      -- if Arend were a little smarter it woul realise this
+      | var l, stepRight () _, _
+      | lam (var l), stepRight () _, _
+      | lam (lam t'), stepRight () _, _
+      | lam (⋅ t' (var (S l))), stepRight () _, _
+      | lam (⋅ t' (lam t'1)), stepRight () _, _
+      | lam (⋅ t' (⋅ t'1 t'2)), stepRight () _, _
+  }
+
+\class BetaEtaRelation
+  | \classifying R \alias \infix 6 ~~ : ∅ u⊢ * -> ∅ u⊢ * -> \Prop
+  | respectsBetaEta : \Pi {t1 t1' t2 t2' : ∅ u⊢ *} (R t1 t2) (t1 BetaEtaEquiv.~ t1') (t2 BetaEtaEquiv.~ t2') -> R t1' t2'
+
+  \where {
+    \func union (Over : \Type) (relations : Over -> BetaEtaRelation) : BetaEtaRelation \cowith
+      | R t t' => \Pi (over : Over) -> t ~~ {relations over} t'
+      | respectsBetaEta r e1 e2 over => respectsBetaEta {relations over} (r over) e1 e2
+
+    \func converse (b : BetaEtaRelation) : BetaEtaRelation \cowith
+      | R t t' => t' ~~ t
+      | respectsBetaEta r e1 e2 => b.respectsBetaEta r e2 e1
+
+    \func compose (a b : BetaEtaRelation) : BetaEtaRelation \cowith
+      | R t t' => ∃ (t'' : ∅ u⊢ *) (t ~~ {a} t'') (t'' ~~ {b} t')
+      | respectsBetaEta r e1 e2 => \case \elim r \with {
+        | inP (t'', h1, h2) => inP (t'', a.respectsBetaEta h1 e1 ~-reflexive, b.respectsBetaEta h2 ~-reflexive e2)
+      }
+  }
+
+\func RelContext => Context (\Sigma)
+
+\func RelEnv (ctx : RelContext) => \Pi (l : ctx ∋ ()) -> BetaEtaRelation
+  \where {
+    \func extend {ctx : RelContext} (env : RelEnv ctx) (with : BetaEtaRelation) : RelEnv (ctx ∕ ()) =>
+      \case __ \with {
+        | Z p => with
+        | S l => env l
+      }
+
+    \func empty : RelEnv ∅ => \case __
+  }
+
+\data RelType (ctx : RelContext)
+  | Var (L : ctx ∋ ())
+  | Arrow \alias \infix 6 --> (R R' : RelType ctx)
+  | ForAll (R : RelType (ctx ∕ ()))
+  | Converse (R : RelType ctx)
+  | Composition \alias \infix 6 ⊙ (R R' : RelType ctx)
+  | Promotion (t : ∅ u⊢ *)
+  \where {
+    \func semantics {ctx : RelContext} (R : RelType ctx) (gamma : RelEnv ctx) : BetaEtaRelation \elim R
+      | Var L => gamma L
+      | Arrow R R' => \new BetaEtaRelation {
+        | R t t' => \Pi (a a' : ∅ u⊢ *) -> (semantics R gamma a a') -> (semantics R' gamma (t ⋅ a) (t' ⋅ a'))
+        | respectsBetaEta {t1} {t1'} {t2} {t2'} h e1 e2 a a' r =>
+          respectsBetaEta {semantics R' gamma} {t1 ⋅ a} {t1' ⋅ a} {t2 ⋅ a'} {t2' ⋅ a'} (h a a' r) (BetaEtaEquiv.liftOverAppLeft e1) (BetaEtaEquiv.liftOverAppLeft e2)
+      }
+      | ForAll R => BetaEtaRelation.union BetaEtaRelation (\lam r => semantics R (RelEnv.extend gamma r))
+      | Converse R => BetaEtaRelation.converse (semantics R gamma)
+      | ⊙ R R' => BetaEtaRelation.compose (semantics R gamma) (semantics R' gamma)
+      | Promotion f => promotionRelation f
+
+    \func promotionRelation (f : ∅ u⊢ *) : BetaEtaRelation \cowith
+      | R t t' => f ⋅ t ~ t'
+      | respectsBetaEta r e1 e2 => ~-transitive (BetaEtaEquiv.liftOverAppRight (~-symmetric e1)) (~-transitive r e2)
+
+    \func [ {ctx : RelContext} (R : RelType ctx) => R
+
+    \func \infix 4 ] {ctx : RelContext} (R : RelType ctx) (gamma : RelEnv ctx) => semantics R gamma
+  }
+
+\module Examples \where {
+  \func idType {ctx : RelContext} {gamma : RelEnv ctx} {X : ctx ∋ ()}
+    : uniId ~~ {[ (Var X --> Var X) ] gamma} uniId => \lam a a' r => respectsBetaEta {gamma X} r
+      (BetaEtaEquiv.stepRight BetaEtaReduction.Beta (BetaEtaEquiv.equal idp))
+      (BetaEtaEquiv.stepRight BetaEtaReduction.Beta (BetaEtaEquiv.equal idp))
+
+  \func constLeft {ctx : RelContext} (t : ∅ u⊢ *) (R : RelType ctx) : RelType ctx => Promotion (uniConst ⋅ t) ⊙ R
+
+  \func constRight {ctx : RelContext} (R : RelType ctx) (t : ∅ u⊢ *) : RelType ctx =>
+    R ⊙ (Converse $ Promotion (uniConst ⋅ t))
+
+  \lemma internalizedTypingLeft {ctx : RelContext} {t : ∅ u⊢ *} {R : RelType ctx} {t1 t2 : ∅ u⊢ *} {gamma : RelEnv ctx}
+    : t1 ~~ {[ (constLeft t R) ] gamma} t2 = t ~~ {[ R ] gamma} t2 =>
+    (t1 ~~ {[ (constLeft t R) ] gamma} t2 ) ==< idp >==
+    (t1 ~~ {[ (Promotion (uniConst ⋅ t) ⊙ R) ] gamma} t2 ) ==< idp >==
+    (t1 ~~ {BetaEtaRelation.compose (promotionRelation (uniConst ⋅ t)) ([ R ] gamma)} t2 ) ==< idp >==
+    ∃ (t' : ∅ u⊢ *) (t1 ~~ {promotionRelation $ uniConst ⋅ t} t') (t' ~~ {[ R ] gamma} t2) ==< idp >==
+    ∃ (t' : ∅ u⊢ *) (uniConst ⋅ t ⋅ t1 ~ t') (t' ~~ {[ R ] gamma} t2)
+      ==<
+    ext (\lam (inP (t', h, h')) =>
+             \let
+               | reduction : BetaEtaReductions (uniConst ⋅ t ⋅ t1) =>  BetaEtaReduction.stepReduction (App-1 Beta) (BetaEtaReduction.stepReduction Beta BetaEtaReduction.noReduction)
+               | t~apps : t ~ uniConst ⋅ t ⋅ t1 => betaEtaReduces' reduction (subst-no-effect (\lam _ => idp))
+               | t~t' : t ~ t' => ~-transitive t~apps h
+             \in respectsBetaEta {[ R ] gamma} h' (~-symmetric t~t') ~-reflexive,
+         \lam r => inP (t,
+                        BetaEtaEquiv.stepLeft (App-1 Beta)
+                            (BetaEtaEquiv.stepLeft Beta (BetaEtaEquiv.equal $ subst-no-effect (\lam l => idp))),
+                        r))
+      >==
+    (t ~~ {[ R ] gamma} t2) ==< idp >==
+    t ~~ {[ R ] gamma} t2 `qed
+
+  \lemma internalizedTypingRight {ctx : RelContext} {t : ∅ u⊢ *} {R : RelType ctx} {t1 t2 : ∅ u⊢ *} {gamma : RelEnv ctx}
+    : t1 ~~ {[ (constRight R t) ] gamma} t2 = t1 ~~ {[ R ] gamma} t => ext
+      (\lam (inP (t', h, h')) =>
+           \let
+             | t~t' : t ~ t' => ~-transitive
+                 (betaEtaReduces'
+                     (BetaEtaReduction.stepReduction (App-1 Beta)
+                         (BetaEtaReduction.stepReduction Beta
+                             BetaEtaReduction.noReduction))
+                     (subst-no-effect (\lam _ => idp)))
+                 h'
+           \in respectsBetaEta {[ R ] gamma} h ~-reflexive (~-symmetric t~t'),
+       \lam r => inP (t,
+                      r,
+                      BetaEtaEquiv.stepLeft (App-1 Beta)
+                          (BetaEtaEquiv.stepLeft Beta
+                              (BetaEtaEquiv.equal (subst-no-effect (\lam _ => idp))))))
+    \where {
+      \func expand {ctx : RelContext} {t : ∅ u⊢ *} (R : RelType ctx) {t1 t2 : ∅ u⊢ *} (gamma : RelEnv ctx)
+                   (h : t1 ~~ {[ R ] gamma} t) : t1 ~~ {[ (constRight R t) ] gamma} t2
+        => rewrite internalizedTypingRight h
+      \func contract {ctx : RelContext} {t : ∅ u⊢ *} (R : RelType ctx) {t1 t2 : ∅ u⊢ *} (gamma : RelEnv ctx)
+                     (h : t1 ~~ {[ (constRight R t) ] gamma} t2) : t1 ~~ {[ R ] gamma} t
+        => rewriteI internalizedTypingRight h
+    }
+}
+
+\module Lemmas \where {
+  \func symmetryProperty1 {ctx : RelContext} {gamma : RelEnv ctx} {R : RelType (ctx ∕ ())}
+    : [ (Converse (ForAll R)) ] gamma = [ (ForAll (Converse R)) ] gamma =>
+    idp -- How does arend manage this???
+
+  -- TODO
+
+  \func etaUnit {t t' : ∅ u⊢ *}
+                {ctx : RelContext} {gamma : RelEnv ctx}
+                (t~~t' : t ~~ {[ (ForAll (Var #0 --> Var #0)) ] gamma} t')
+    : t ~~ {[ (ForAll (Var #0 --> Var #0)) ] gamma} uniId => \lam r y y' (y~~y' : y ~~ { r } y') =>
+      \let
+        | cry' => constRight {ctx ∕ ()} (Var #0) y'
+        | subsRelation => [ cry' ] RelEnv.extend gamma r
+        | step1 : t ~~ {[ (Var #0 --> Var #0) ] RelEnv.extend gamma subsRelation} t' => t~~t' subsRelation
+        | step2 : t ~~ {[ cry' --> cry' ] RelEnv.extend gamma r} t' => step1
+        | step3 : y ~~ {subsRelation} y' => internalizedTypingRight.expand (Var #0) (RelEnv.extend gamma r) y~~y'
+        | step4 : (t ⋅ y) ~~ { subsRelation } (t' ⋅ y') => step2 y y' step3
+        | step5 : (t ⋅ y) ~~ { r } y' => internalizedTypingRight.contract (Var #0) (RelEnv.extend gamma r) step4
+        | step6 : (t ⋅ y) ~~ { r } (uniId ⋅ y') =>  respectsBetaEta step5
+            ~-reflexive
+            (betaEtaReduces (BetaEtaReduction.stepReduction Beta BetaEtaReduction.noReduction))
+      \in step6
+}

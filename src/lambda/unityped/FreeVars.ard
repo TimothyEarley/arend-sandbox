@@ -1,0 +1,50 @@
+\import Logic
+\import Paths.Meta
+\import lambda.GeneralContext
+\import lambda.unityped.Lambda
+\import lambda.unityped.Substitute
+
+\func FreeIn {ctx : UniContext} {A B : UniType} (x : ctx ∋ A) (t : ctx u⊢ B) : \Prop \elim A, B, t
+  | *, *, var l => x = l
+  | *, *, lam t => FreeIn (S x) t
+  | *, *, ⋅ f arg => FreeIn x f || FreeIn x arg
+
+\func NotFreeIn {ctx : UniContext} {A B : UniType} (x : ctx ∋ A) (t : ctx u⊢ B) => Not (FreeIn x t)
+
+\func SubstOnlyFree (gamma delta : UniContext) {T : UniType} (t : gamma u⊢ T) =>
+  \Pi {A : UniType} (l : gamma ∋ A) (FreeIn l t) -> delta u⊢ A
+\where {
+  \func extends {gamma delta : UniContext} {t : gamma ∕ * u⊢ *}
+                (s : SubstOnlyFree gamma delta {*} (lam t))
+    : SubstOnlyFree (gamma ∕ *) (delta ∕ *) t
+    => \lam {A} l f => \case \elim A, \elim l, \elim f \with {
+      | _, Z p, _ => var (Z p)
+      | *, S l, f => rename S (s l f)
+    }
+
+  \func splitAppLeft {gamma delta : UniContext} {f arg : gamma u⊢ *}
+                     (s : SubstOnlyFree gamma delta {*} (f ⋅ arg))
+                     : SubstOnlyFree gamma delta f
+                     => \lam {A} l free => \case \elim A, \elim l, \elim free \with {
+                       | *, l, free => s l (byLeft free)
+                     }
+
+  \func splitAppRight {gamma delta : UniContext} {f arg : gamma u⊢ *}
+                     (s : SubstOnlyFree gamma delta {*} (f ⋅ arg))
+    : SubstOnlyFree gamma delta arg
+    => \lam {A} l free => \case \elim A, \elim l, \elim free \with {
+      | *, l, free => s l (byRight free)
+    }
+}
+
+\func substWithFree {gamma delta : UniContext} {A : UniType} (h : gamma u⊢ A)  (s : SubstOnlyFree gamma delta h) : delta u⊢ A
+\elim A, h
+  | *, var l => s l idp
+  | *, lam body => lam (substWithFree body (SubstOnlyFree.extends s))
+  | *, ⋅ f arg => substWithFree f (SubstOnlyFree.splitAppLeft s) ⋅ substWithFree arg (SubstOnlyFree.splitAppRight s)
+
+\func removeNotFree {ctx : UniContext} (t : ctx ∕ * u⊢ *) {p' : * = *} (nf : NotFreeIn (Z p') t) : ctx u⊢ *
+  => substWithFree t (\lam {A} l f => \case \elim A, \elim l, \elim f \with {
+    | *, Z p, f => \let p_idp : p = p' => ext \in absurd (nf (rewriteI p_idp f))
+    | A, S l, f => var l
+  })
