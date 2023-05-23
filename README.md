@@ -1,0 +1,1 @@
+Playing around with https://arend-lang.github.io/
