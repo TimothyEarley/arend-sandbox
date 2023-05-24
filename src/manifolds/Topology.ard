@@ -98,7 +98,7 @@
                                     (decExterior : DecElementEnsemble X (exterior S))
                                     (decBoundary : DecElementEnsemble X (boundary S))
     : (interior S ∪ exterior S ∪ boundary S) = universal => extSet-universal
-      (\lam {x} _ => \case decInterior.decElement x, decExterior.decElement x, decBoundary.decElement x \with {
+      (\lam x => \case decInterior.decElement x, decExterior.decElement x, decBoundary.decElement x \with {
         | yes e, _, _ => byLeft (byLeft e)
         | _, yes e, _ => byLeft (byRight e)
         | no n, no n1, _ => byRight (not-interior-exterior-implies-boundary n n1)

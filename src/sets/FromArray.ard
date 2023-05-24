@@ -1,18 +1,16 @@
 \import Data.Array
-\import Data.Bool
 \import Function.Meta
 \import Logic
 \import Paths
 \import Paths.Meta
 \import Set \hiding (#)
-\import lambda.natVar.Lambda
 \import sets.Add
 \import sets.DecidableSet
+\import sets.Image
 \import sets.MySet
 \import sets.subset
 \import sets.union
 \import util.So
-\open FreeIn (dec)
 
 \func fromArray {A : \Set} (l : Array A) : Ensemble A => \lam a => TruncP (Index a l)
   \where {
@@ -49,6 +47,12 @@
           | nil => ∅
           | a :: l => a ∪ unionArray l
       }
+
+    \func fromArrayImage {A B : \Set} {f : A -> B} {l : Array A}
+      : fromArray l smap f = fromArray (map f l)
+      => extSet
+          (\lam {_} (inP (_, idp, inP (i, idp))) => inP (i, idp))
+          (\lam {_} (inP (i, idp)) => inP (l i, idp, inP (i, idp)))
   }
 
 

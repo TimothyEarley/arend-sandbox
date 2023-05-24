@@ -6,7 +6,7 @@
 \func complement {A : \Set} (S : Ensemble A) : Ensemble A => __ ∉ S
 \where {
   \lemma ofEmpty {A : \Set} : complement (∅ {A}) = universal
-    => extSet-universal (\lam {x} e e1 => e1)
+    => extSet-universal (\lam x e1 => e1)
 
   \lemma complement-complement {X : \Set} {S : DecElementEnsemble X} : complement (complement S) = S => extSet
       (\lam {x} c => \case S.decElement x \with {

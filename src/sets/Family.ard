@@ -1,8 +1,16 @@
+\import Relation.Equivalence
 \import sets.Image
 \import sets.MySet
 
 -- a set of sets
 \func Family (X : \Set) : \Type => Ensemble (Ensemble X)
+\where {
+
+  -- TODO what am I doing here
+  \func ofQuotientUnpack {X : \Set} {R : X -> X -> \Prop} (F : Family (Quotient R))
+    : Family X
+    => F smap (\lam fEl x => in~ x ∈ fEl)
+}
 
 -- a different way to write a Family
 \func IndexFamily (X I : \Set) => I -> Ensemble X

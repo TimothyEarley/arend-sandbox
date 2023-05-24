@@ -65,9 +65,9 @@
     })
   }
 
-\lemma extSet-universal {X : \Set} {A : Ensemble X} (h1 : universal ⊆ A) : A = universal => extSet
+\lemma extSet-universal {X : \Set} {A : Ensemble X} (h : \Pi (a : X) -> a ∈ A) : A = universal => extSet
     (\lam {x} a => ())
-    h1
+    (\lam {x} e => h x)
 
 \func universal/=empty {A : \Set} (witness : A) : Not (universal {A} = ∅) => \lam p => (coerce p (witness, ())).2
 

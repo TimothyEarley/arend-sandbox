@@ -7,9 +7,11 @@
 \import Paths
 \import Relation.Equivalence
 \import manifolds.Topology
+\import sets.Family
 \import sets.Image
 \import sets.Intersect
 \import sets.MySet
+\import sets.union
 
 \class Hausdorff \extends Topology
   | separable : \Pi (x y : X) (x /= y) -> ∃ (Ux : OpenNeighbourhood x) (Uy : OpenNeighbourhood y) (Ux.1 ∩ Uy.1 = ∅)
@@ -19,7 +21,19 @@
   | T U => Top.open $ PreImage U in~
   | totalInT => Top.totalInT
   | intersectionIn A B hA hB => Top.intersectionIn _ _ hA hB
-  | unionIn => {?}
+  | unionIn F h =>
+    \let
+      -- TODO understand why this is so simple (aka what did I actually do here?)
+      | unionInTop : ⋃ (Family.ofQuotientUnpack F) ∈ Top.T => Top.unionIn (Family.ofQuotientUnpack F)
+          (\lam {_} (inP (a, idp, e : a ∈ F)) => h e)
+      | q : ⋃ (\lam b => ∃ (\Sigma (a : Quotient (E.~) -> \Prop) (b = (\lam (x : Top) => in~ x ∈ a)) (a ∈ F)))
+        = {Ensemble Top.X}
+      (\lam (a : Top) => in~ a ∈ ⋃ F)
+      => extSet
+            (\lam {x} (inP (_, inP (f, idp, fF), el)) => inP (f, fF, el))
+            (\lam {x} (inP (f, fF, inX)) => inP (\lam (x : Top) => in~ x ∈ f, inP (f, idp, fF), inX))
+      | goal : (\lam a => in~ a ∈ ⋃ F) ∈ Top.T  => transport (__ ∈ Top.T) q unionInTop
+    \in goal
 
 \func Vec (X : \Type) (n : Nat) => DArray {n} (\lam _ => X)
 
