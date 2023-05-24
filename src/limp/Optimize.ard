@@ -1,6 +1,5 @@
 \import Arith.Int
 \import Logic
-\import NatLike
 \import Paths
 \import Paths.Meta
 \import limp.LIMP

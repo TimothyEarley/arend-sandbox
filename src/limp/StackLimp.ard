@@ -2,16 +2,14 @@
 \import Algebra.Monoid
 \import Arith.Int
 \import Data.Array
-\import Data.Bool (Bool, false, if, true, not \as bnot)
+\import Data.Bool (Bool, false, if, true)
 \import Data.Maybe
-\import LeipnizEquality
 \import Logic.Meta
 \import Order.LinearOrder
 \import Star
 \import limp.LIMP
 \import util.ArrayUtils
 \open ArrayUtils (??)
-\open LeipnizIsEqual (i)
 
 \data Instruction {S : Signature}
   | LOADI Num
