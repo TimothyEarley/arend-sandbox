@@ -1,5 +1,5 @@
 \import Arith.Nat
-\import Data.Bool
+\import Data.Array
 \import Equiv
 \import Function.Meta ($)
 \import Logic
@@ -109,23 +109,29 @@
       (\lam (x, (inP i, a)) => a i.1 i.2 i.3 (extSet-empty (\lam (x', ((x'U, x'/=x), x'S)) => i.4 x'U x'S)))
 } \where {
   \func indiscreteTopology {X : \Set} {DX : DecSet (Ensemble X)} : Topology X \cowith
-    | T => fromArray (∅ :: universal {X} :: nil)
+    | T => T
     | totalInT => inP (1, idp)
     | intersectionIn A B elA elB => \case \elim A, elA \with {
       | _, (inP (0, idp)) => rewrite ∩.empty-intersecion (inP (0, idp))
       | _, inP (1, idp) => rewrite ∩.universal-intersection elB
     }
-    | unionIn F h =>
-      \let
-        -- this is not a given
-        | FSDE : DecElementEnsemble _ F => {?}
-        | bf_p => fromArray.subset-of-fromArray FSDE h
-      \in \case \elim bf_p \with {
-        | (false :: false :: nil, p) => rewrite (p, fromArray.fromNil, ⋃.emptyBigUnion) (inP (0, idp))
-        | (false :: true :: nil, p) => rewrite (p, fromArray.bigUnion-of-fromArray {X} {universal :: nil}) (inP (1, inv ∪.right-empty))
-        | (true :: false :: nil, p) => rewrite (p, fromArray.bigUnion-of-fromArray {X} {∅ :: nil}) (inP (0, inv ∪.right-empty))
-        | (true :: true :: nil, p) => rewrite (p, fromArray.bigUnion-of-fromArray {X} {∅ :: universal :: nil}) (inP (1, inv (∪.left-empty *> ∪.right-empty)))
-      }
+    | unionIn => unionOfIndescrete
+    \where {
+      \func T => fromArray (∅ :: universal {X} :: nil)
+
+      \func unionOfIndescrete (F : Family X) (hs : F ⊆ T) : ⋃ F ∈ T =>
+        \let
+          | ass : DecElementEnsemble (Ensemble X) F => {?}
+          | arr : F = fromArray (filter (\lam z => decToBool (ass.decElement z)) (∅ {X} :: universal {X} :: nil)) => fromArray.subset-of-fromArray ass hs
+          | goal : fromArray.bigUnion-of-fromArray.unionArray
+              (filter (\lam z => decToBool (ass.decElement z)) (∅ {X} :: universal {X} :: nil)) ∈ T
+          => cases (ass.decElement (∅ {Ensemble X}), ass.decElement (universal {Ensemble X})) \with {
+              -- ????
+              | yes _, _ => inP (1, inv (rewrite (∪.left-empty, ∪.right-empty) idp))
+              | no n, _ => inP (0, idp)
+            }
+        \in transportInv (⋃ __ ∈ T) arr $ rewrite fromArray.bigUnion-of-fromArray goal
+    }
 
   \func discreteTopology {X : \Set} : Topology X \cowith
     | T => universal

@@ -12,6 +12,12 @@
   | yes e => contradiction
   | no n => ()
 
+\func soDec {P : \Prop} {d : Dec P} (h : So (decToBool d)) : P \elim d, h
+  | yes e, h => e
+
+\func trueDec {P : \Prop} {d : Dec P} (h : decToBool d = true) : P \elim d, h
+  | yes e, h => e
+
 \func soTrue {b : Bool} (s : So b) : b = true
   | {true}, so => idp
 
