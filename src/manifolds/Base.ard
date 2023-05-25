@@ -1,0 +1,32 @@
+\import Logic
+\import Logic.Meta
+\import Paths
+\import manifolds.Topology
+\import sets.Countable
+\import sets.Family
+\import sets.MySet (Ensemble, universal, ∈)
+\import sets.Single
+\import sets.subset
+\import sets.union (⋃)
+
+\record Base (T : Topology)
+  | B : Family T.X
+  | BsubT : B ⊆ T
+  | covers : \Pi (U : Ensemble T.X) (T.open U) -> ∃ (B' : Family T.X) (B' ⊆ B) (⋃ B' = U)
+
+\where {
+
+  \func wholeTopologyIsBase {T : Topology} : Base T T \cowith
+    | BsubT e => e
+    | covers U Uopen => inP (single U, ⊆.singleSubset Uopen, ⋃.singleBigUnion)
+
+  \func discreteBase {X : \Set} : Base (Topology.discreteTopology {X}) \cowith
+    | B => single.splitIntoSingles universal
+    | BsubT e => ()
+    | covers U _ => inP (single.splitIntoSingles U,
+                         single.splitIntoSingles.subsetSplits (\lam _ => ()),
+                         single.splitIntoSingles.bigUnionUnsplit)
+}
+
+\func SecondCountable (T : Topology) : \Type
+  => \Sigma (B : Base T) (Countable _ B.B)

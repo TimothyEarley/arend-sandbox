@@ -17,4 +17,7 @@
 \where {
   -- turn a IndexFamily into a Family by mapping every available index with the IndexFamily
   \func toFamily {X I : \Set} (F : IndexFamily X I) : Family X => universal smap F
+
+  \func fromFamily {X : \Set} (F : Family X) : IndexFamily X (X -> Ensemble X)
+    => \lam i x => F (i x)
 }

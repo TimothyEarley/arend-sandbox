@@ -1,0 +1,5 @@
+\import sets.Elements
+\import sets.MySet
+
+\class Countable \extends BaseEnsemble
+  | countable : Elements S = {\Set} Nat -- maybe trunc as this already implies Dec?

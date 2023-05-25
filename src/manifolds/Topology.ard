@@ -21,7 +21,7 @@
 \import sets.union
 -- https://github.com/coq-community/topology/blob/master/theories/Topology/TopologicalSpaces.v
 
-\class Topology (X : \Set) (T : Family X) {
+\class Topology (X : \Set) (\classifying T : Family X) {
   | totalInT : universal ∈ T
   | intersectionIn : \Pi (A B : Ensemble X) (A ∈ T) (B ∈ T) -> A ∩ B ∈ T
   | unionIn : \Pi (F : Family X) (F ⊆ T) -> ⋃ F ∈ T

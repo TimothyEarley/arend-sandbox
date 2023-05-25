@@ -5,6 +5,7 @@
 \import sets.Add
 \import sets.Family
 \import sets.MySet
+\import sets.subset
 \import sets.union
 
 \func single {A : \Set} (a : A) : Ensemble A => \lam a' => a = a'
@@ -50,5 +51,11 @@
         \func bigUnionUnsplit {A : \Set} {S : Ensemble A} : ⋃ (splitIntoSingles S) = S => extSet
             (\lam {x} (inP (S', inP (a, aS, idp), idp)) => aS)
             (\lam {x} xS => inP (single x, inP (x, xS, idp), idp))
+
+        \func subsetSplits {A : \Set}
+                          {S S' : Ensemble A}
+                          (h : S ⊆ S')
+          : splitIntoSingles S ⊆ splitIntoSingles S'
+          => \lam {x} (inP (a, e, idp)) => inP (a, h e, idp)
       }
   }

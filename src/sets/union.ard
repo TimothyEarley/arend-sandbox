@@ -9,6 +9,7 @@
 \import sets.Family
 \import sets.Image
 \import sets.MySet
+\import sets.Single
 \import sets.subset
 \import util.TruncOrUtils
 
@@ -90,6 +91,11 @@
         | inP ((Sub', Sub'In), subset) => inP (Sub', Sub'In, subset xSub)
       }
     }
+
+    \func singleBigUnion {A : \Set} {a : Ensemble A} : ⋃ (single a) = a
+      => extSet
+          (\lam {x} (inP (_, idp, el)) => el)
+          (\lam {x} e => inP (a, idp, e))
   }
 
 \func bigUnionIndexed \alias ⋃i {X I : \Set} (A : IndexFamily X I) : Ensemble X =>
