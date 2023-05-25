@@ -1,0 +1,54 @@
+\import Algebra.Ring
+\import Arith.Rat
+\import Arith.Real
+\import Data.Array
+\import Logic
+\import Paths
+\import Paths.Meta
+\import Relation.Equivalence
+\import manifolds.QuotientTopology
+\import manifolds.Topology
+\open RealField (*)
+
+\func euclideanNorm2 (v : Array Real) : Real => fold {Real} {Real} (RealField.+) 0 (map (\lam z => z * z) v)
+
+\func Sphere (n : Nat) : \Set => \Sigma (v : Array Real (suc n)) (euclideanNorm2 v = {Real} 1)
+  \where {
+    \func negative {n : Nat} (x : Sphere n) : Sphere n  \elim x
+      | (v, p) =>
+        (map RealField.negative v,
+         euclideanNorm2 (map RealField.negative v) ==< idp >==
+         fold {Real} {Real} (RealField.+) 0 (map (\lam z => z * z) (map RealField.negative v)) ==< idp >==
+         fold {Real} {Real} (RealField.+) 0 (map (\lam z => RealField.negative z * RealField.negative z) v) ==<
+         pmap (\lam f => fold {Real} {Real} (RealField.+) 0 (map f v))
+             {\lam z => RealField.negative z * RealField.negative z}
+             {\lam z => z * z}
+             (ext (\lam z => Ring.negative_*))
+           >==
+         fold {Real} {Real} (RealField.+) 0 (map (\lam z => z * z) v) ==< idp >==
+         euclideanNorm2 v ==<  p >==
+         (Real.fromRat (Rat.fromInt (Int.pos 1))) `qed )
+  }
+
+\func SphereTopology (n : Nat) : Topology (Sphere n) \cowith
+  | T => {?}
+  | totalInT => {?}
+  | intersectionIn => {?}
+  | unionIn => {?}
+
+\func ProjectiveSpace (n : Nat) : Topology => quotientTopology (SphereTopology n) sphere-equiv
+  \where {
+    \func sphere-equiv {n : Nat} : Equivalence (Sphere n) \cowith
+      | ~ x y => (x = y) || (x = Sphere.negative y)
+      | ~-reflexive => byLeft idp
+      | ~-symmetric {x} {y} e => \case \elim x, \elim e \with {
+        | _, byLeft a => byLeft (inv a)
+        | _, byRight idp =>
+          \let
+            | r' : y.1 = {Array Real} map RealField.negative (map RealField.negative y.1) =>
+              ext (idp, ext (\lam j => inv RealField.negative-isInv))
+            | r : y = {Sphere n} Sphere.negative (Sphere.negative y) => ext {?}
+          \in byRight r
+      }
+      | ~-transitive => {?}
+  }
