@@ -1,0 +1,9 @@
+\import manifolds.Topology
+\import sets.Image
+\import sets.MySet
+
+\func continous {T T' : Topology} (f : T.X -> T'.X) : \Type
+  => \Pi (U : Ensemble T'.X) (T'.open U) -> T.open (PreImage U f)
+
+\func homeomorphism {T T' : Topology} (f : T.X -> T'.X) : \Type
+  => {?} -- bijective, continous and inverse is continous
