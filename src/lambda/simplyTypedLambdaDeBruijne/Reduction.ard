@@ -7,7 +7,7 @@
 \import Star
 \import lambda.GeneralContext
 \import lambda.simplyTypedLambdaDeBruijne.Lambda
-\import lambda.simplyTypedLambdaDeBruijne.Substitute (SimpleSubstOperaions, rename)
+\import lambda.simplyTypedLambdaDeBruijne.Substitute (SimpleSubst, SimpleSubstOperaions)
 \open lambda.simplyTypedLambdaDeBruijne.Substitute.rename (renameApp)
 
 \data Value {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A) : \Prop \elim A, t
@@ -34,6 +34,14 @@
     \elim A, t, h
       | Natural, zero, V-zero => V-zero
       | Natural, succ t, V-Succ h => V-Succ (afterRename h)
+      | --> A A1, lam t, V-lam => V-lam
+
+    \func afterSubst {gamma delta : SimpleContext} {A : Type} {t : gamma ⊢ A} (h : Value t)
+                     (s : SimpleSubst gamma delta)
+      : Value (subst s t)
+    \elim A, t, h
+      | Natural, zero, V-zero => V-zero
+      | Natural, succ t, V-Succ h => V-Succ (afterSubst h s)
       | --> A A1, lam t, V-lam => V-lam
   }
 
@@ -151,7 +159,7 @@
       | A, var l, ((),p)
       | --> A A1, lam t, ((),p)
       | A, ⋅ (lam body) arg, (R-Beta v, idp) =>
-        rewrite rename.renameApp
+        rewrite renameApp
             (R-Beta (Value.afterRename v),
              rewrite (reduce.beta, reduce.beta) (underRename-sub r))
       | A, ⋅ f t2, (R-App1 st,p) =>
@@ -199,7 +207,20 @@
       | refl p => refl (pmap f p)
       | ~> r s => u r ~> under {_} {_} {f} u s
 
-    \func underSucc {gamma : SimpleContext} => under {gamma} {Natural} {succ} (\lam r => (R-Succ r.1, pmap succ r.2))
+    \func underSucc {gamma : SimpleContext} : \Pi {t t' : gamma ⊢ Natural} (t ->* t') -> succ t ->* succ t'
+      => under {gamma} {Natural} {succ} (\lam r => (R-Succ r.1, pmap succ r.2))
+
+    \func underApp {gamma : SimpleContext}
+                   {A B : Type} {f f' : gamma ⊢ A --> B}
+                   {arg arg' : gamma ⊢ A}
+                   (fh : f ->* f')
+                   (argh : arg ->* arg')
+                   (vf' : Value f')
+      : f ⋅ arg ->* f' ⋅ arg'
+      \elim fh, argh
+        | refl idp, refl idp => refl idp
+        | refl idp, ~> r argh => (R-App2 r.1 vf', reduce.app2 *> pmap _ r.2) ~> underApp (refl idp) argh vf'
+        | ~> r s, argh => (R-App1 r.1, reduce.app1 *> pmap _ r.2) ~> underApp s argh vf'
   }
 
 \func eval (fuel : Nat) {A : Type} (t : ∅ ⊢ A) : ∅ ⊢ A
@@ -225,11 +246,11 @@
 
 \func Normal {c : SimpleContext} {T : Type} (t : c ⊢ T) : \Prop => Not (Reduction t)
   \where {
-    \func value {c : SimpleContext} {T : Type} {t : c ⊢ T} (v : Value t) : Normal t
+    \func fromValue {c : SimpleContext} {T : Type} {t : c ⊢ T} (v : Value t) : Normal t
     \elim T, t, v
       | Natural, zero, V-zero => \lam r => \case r
       | Natural, succ c1, V-Succ v => \lam r => \case r \with {
-        | R-Succ r1 => value v r1
+        | R-Succ r1 => fromValue v r1
       }
       | --> A B, lam t, V-lam => \lam r => \case r
   }
@@ -240,4 +261,11 @@
 \case Reduction.decide t \with {
   | inl a => inr (reduce a, idpStep)
   | inr b => inl b
+}
+
+\func Terminates {A : Type} {C : SimpleContext} (t : C ⊢ A) : \Set
+  => \Sigma  (v : C ⊢ A) (Value v) (t ->* v)
+\where {
+  \func fromValue {C : SimpleContext} {T : Type} {t : C ⊢ T} (v : Value t) : Terminates t
+    => (t, v, refl idp)
 }

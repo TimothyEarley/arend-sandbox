@@ -45,7 +45,7 @@
       : StronglyNormalizing t \elim snt
       | sn h => sn (\lam t' ->t' => beforeRename r (h (rename r t') (->1.underRename r ->t')))
 
-    \func eval {A : Type} (t : Context.∅ ⊢ A) (sn : StronglyNormalizing t) : \Sigma (t' : Context.∅ ⊢ A) (Value t') (t ->* t')
+    \func eval {A : Type} (t : Context.∅ ⊢ A) (sn : StronglyNormalizing t) : Terminates t
       \elim sn
       | sn n => \case Reduction.decide t \with {
         | inl red => \let (t', v, s) => eval (reduce red) (n (reduce red) (red, idp)) \in (t', v, (red, idp) ~> s)

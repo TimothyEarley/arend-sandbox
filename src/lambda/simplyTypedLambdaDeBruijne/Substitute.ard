@@ -1,9 +1,9 @@
-\import Function
 \import Function.Meta
 \import Meta
 \import Paths
 \import Paths.Meta
 \import lambda.GeneralContext
+\import lambda.SubstAlgebra
 \import lambda.simplyTypedLambdaDeBruijne.Lambda
 
 \func SimpleSubst => Subst {_} {⊢}
@@ -76,7 +76,7 @@
       | A, ⋅ t1 t2 => rewrite (renameApp, renameApp, renameApp) (pmap2 (⋅) uncompose uncompose)
 
     \func renameId' {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} {r : Rename gamma gamma}
-      (h : \Pi {B : Type} (l : gamma ∋ B) -> r l = l)
+                    (h : \Pi {B : Type} (l : gamma ∋ B) -> r l = l)
       : rename r t = t \elim A, t
       | Natural, zero => idp
       | Natural, succ t => pmap succ (renameId' h)
@@ -87,8 +87,8 @@
       }))
       | A, ⋅ t1 t2 => rewrite renameApp (pmap2 (⋅) (renameId' h) (renameId' h))
 
-    \func renameId {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} : rename Rename.id t = t
-      => renameId' (\lam _ => idp)
+    \func renameId {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} : rename Rename.id t = t =>
+      renameId' (\lam _ => idp)
   }
 
 \func extends {gamma delta : SimpleContext} (h : Subst {_} {⊢} gamma delta) {B : Type} : Subst {_} {⊢} (gamma ∕ B) (delta ∕ B) =>
@@ -105,8 +105,33 @@
   | Natural, zero => zero
   | Natural, succ h => succ (subst s h)
 
-\instance SimpleSubstOperaions : SubstOperations Term
+\instance SimpleSubstOperaions : SubstAlgebra Term
   | rename => rename
   | subst => subst
-  | s-var l => var l
+  | s-var => var
+  | subst-var s {T} l => cases (T, l) idp
   | extends => extends
+  \where {
+    \func extends-ids {gamma : SimpleContext} {A : Type} : extends {gamma} var {A} = var
+      => ext (\case \elim __ \with {
+        | Z p => idp
+        | S p0 => rename.renameVar _
+      })
+
+    \func subst-ids {gamma : Context Type} {T : Type} {t : Term gamma T} : subst var t = t
+      \elim T, t
+        | Natural, zero => idp
+        | Natural, succ t => pmap succ subst-ids
+        | T, var l => cases (T, l) idp
+        | T --> T1, lam t => pmap lam $ transportInv
+            (\lam (s : SimpleSubst (gamma ∕ T) (gamma ∕ T)) => subst s t = t)
+            extends-ids subst-ids
+        | T, ⋅ t1 t2 => rewrite substApp $ pmap2 (⋅) subst-ids subst-ids
+
+    \func substApp {gamma delta : SimpleContext} {s : Subst  {_} {⊢} gamma delta} {A B : Type} {e1 : gamma ⊢ A --> B} {e2 : gamma ⊢ A}
+      : subst s (e1 ⋅ e2) = subst s e1 ⋅ subst s e2
+    \elim B
+      | Natural => idp
+      | EmptyT => idp
+      | A --> A1 => idp
+  }

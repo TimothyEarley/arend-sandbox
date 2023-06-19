@@ -10,7 +10,7 @@
   | rename r t => {?}
   | extends => {?}
   | subst => {?}
-\where {
+  \where {
   \func TermIn {L : Language} (c : Context (\Sigma)) : \Set => Term (length (Context.toList c))
 
   \func rename {L : Language} {gamma delta : Context (\Sigma)} (r : Rename gamma delta) (t : TermIn gamma) : TermIn delta

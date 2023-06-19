@@ -4,6 +4,7 @@
 \import Order.PartialOrder
 \import Paths
 \import Paths.Meta
+\import lambda.unityped.Substitute
 \import util.FinUtil
 
 \data Context (Type : \Set)
@@ -98,14 +99,19 @@
   | S h2 => S (h h2)
 }
 
-\class SubstOperations \noclassifying {Type : \Set} (Term : Context Type -> Type -> \Set)
+\class LC \noclassifying {Type : \Set} (Term : Context Type -> Type -> \Set) {
   | s-var {c : Context Type} {A : Type} (l : c ∋ A) : Term c A
+}
+
+\class SubstOperations \extends LC {
   | rename {gamma delta : Context Type} (h : Rename gamma delta)
            {A : Type} (t : Term gamma A) : Term delta A
   -- TODO maybe this can be auto derived
+
   | extends {gamma delta : Context Type} (h : Subst {_} {Term} gamma delta)
             {B : Type} : Subst {_} {Term} (gamma ∕ B) (delta ∕ B)
   | subst {gamma delta : Context Type} (s : Subst  {_} {Term} gamma delta) {A : Type} (h : Term gamma A) : Term delta A
+}
 
 \func sub {Type : \Set} {Term : Context Type -> Type -> \Set} {SO : SubstOperations Term}
           {gamma : Context Type} {A B : Type}
