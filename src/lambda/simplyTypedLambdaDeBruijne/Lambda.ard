@@ -15,6 +15,7 @@
 
 \data Term \alias \infix 5 ⊢ (c : SimpleContext) (T : Type)
   \elim T
+  | Base B => base B
   | Natural => zero
   | Natural => succ (c ⊢ Natural)
   | T => var (c ∋ T)

@@ -11,6 +11,7 @@
 \open lambda.simplyTypedLambdaDeBruijne.Substitute.rename (renameApp)
 
 \data Value {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A) : \Prop \elim A, t
+  | Base B, base b => V-base
   | Natural, zero => V-zero
   | Natural, succ c => V-Succ (Value c)
   | --> A B, lam t => V-lam
@@ -27,6 +28,7 @@
       | T, var l => no (\lam v => \case v)
       | --> A B, lam t => yes V-lam
       | B, ⋅ t1 t2 => no (\lam v => \case v)
+      | Base B, base b => yes V-base
 
     \func afterRename {gamma delta : SimpleContext} {A : Type} {t : gamma ⊢ A} (h : Value t)
                       {r : Rename gamma delta}
@@ -35,6 +37,7 @@
       | Natural, zero, V-zero => V-zero
       | Natural, succ t, V-Succ h => V-Succ (afterRename h)
       | --> A A1, lam t, V-lam => V-lam
+      | Base B, base b, V-base => {?}
 
     \func afterSubst {gamma delta : SimpleContext} {A : Type} {t : gamma ⊢ A} (h : Value t)
                      (s : SimpleSubst gamma delta)
@@ -43,6 +46,7 @@
       | Natural, zero, V-zero => V-zero
       | Natural, succ t, V-Succ h => V-Succ (afterSubst h s)
       | --> A A1, lam t, V-lam => V-lam
+      | Base B, base b, V-base => V-base
   }
 
 \data Reduction {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A)
@@ -60,6 +64,7 @@
       | Natural, succ t, V-Succ v => \lam r => \case r \with {
         | R-Succ r1 => valueNoReduction v r1
       }
+      | Base B, base b, V-base => \lam r => \case r
 
     \func deterministic {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} (r r' : Reduction t) : r = r'
     \elim A, t, r, r'
@@ -92,6 +97,7 @@
         | inl a => inl (R-Succ a)
         | inr b => inr (V-Succ b)
       }
+      | Base B, base b => inr V-base
 
     \func appCanReduce{T T' : Type} {f : ∅ ⊢ T --> T'} {arg : ∅ ⊢ T} : Reduction (f ⋅ arg) =>
     \case decide f, decide arg \with {
@@ -177,6 +183,7 @@
              | p' => rewriteF reduce.app2 p
         \in rewrite renameApp (R-App2 next (Value.afterRename v),
                                reduce.app2 *> pmap (_ ⋅ __) nextP *> inv renameApp *> pmap (rename r) p')
+      | Base B, base b, ((),p)
       \where {
         \func underRename-sub
           {gamma delta : SimpleContext} (r : Rename gamma delta)
@@ -199,6 +206,7 @@
       | Base B, var l, ((),p)
       | --> A A1, lam t, ((),p)
       | A, ⋅ t1 t2, (r,p) => \let r' => rewrite renameApp r \in {?}
+      | Base B, base b, ((),p)
   }
 
 \func idpStep {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} {r : Reduction t} : t ->1 reduce r => (r, idp)
@@ -260,6 +268,7 @@
         | R-Succ r1 => fromValue v r1
       }
       | --> A B, lam t, V-lam => \lam r => \case r
+      | Base B, base b, V-base => \lam r => \case r
   }
 
 \func Stuck {c : SimpleContext} {T : Type} (t : c ⊢ T) => \Sigma (Normal t) (Not (Value t))

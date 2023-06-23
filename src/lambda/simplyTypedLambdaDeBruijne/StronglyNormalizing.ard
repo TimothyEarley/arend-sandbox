@@ -110,6 +110,7 @@
           | A, var l => rewrite rename.renameVar varNeutral
           | --> A A1, lam t => n
           | A, ⋅ t1 t2 => rewrite rename.renameApp appNeutral
+          | Base B, base b => ()
       }
 
     \func fundamentalTheorem {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A)
@@ -117,6 +118,7 @@
     \elim A, t
       | Natural, zero => StronglyNormalizing.fromValue V-zero
       | Natural, succ t => {?}
+      | Base B, base b => StronglyNormalizing.fromValue V-base
       | Natural, var l => h l
       | EmptyT, var l => h l
       | --> A A1, var l => h l
@@ -206,6 +208,7 @@
              (s : SimpleSubst gamma Context.∅)
              (hs : \Pi {T' : Type} (l : gamma ∋ T') -> s l ∈ R T')
   : R T (subst s t) \elim T, t
+  | Base B, base b => StronglyNormalizing.fromValue V-base
   | Natural, zero => StronglyNormalizing.fromValue V-zero
   | Natural, succ t => {?}
 
@@ -233,6 +236,7 @@
       | Base B, ⋅ t1 t2 => pmap2 (⋅) substId substId
       | Natural, zero => idp
       | Natural, succ h => pmap succ substId
+      | Base B, base b => idp
 
     \func substId-lemma {gamma : SimpleContext} {A : Type} {A' : Type} (l : gamma ∕ A ∋ A') : var l = {(gamma ∕ A) ⊢ A'} extends var l \elim A', l
       | _, Z p => idp

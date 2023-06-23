@@ -82,6 +82,7 @@
                             (sh : SubSatsContext s)
           : SN T (subst s e)
         \elim T, e
+          | Base B, base b => Terminates.fromValue V-base
           | Natural, zero => Terminates.fromValue V-zero
           | Natural, succ e => \let e' => typedIsSNSubs e s sh \in
             (succ e'.1, V-Succ e'.2, ->*.underSucc e'.3)

@@ -38,6 +38,7 @@
       | EmptyT, ⋅ t1 t2 => pmap2 (⋅) useSubst useSubst
       | --> A A1, ⋅ t1 t2 => pmap2 (⋅) useSubst useSubst
       | Base B, ⋅ t1 t2 => pmap2 (⋅) useSubst useSubst
+      | Base B, base b => idp
   }
 
 \func rename {gamma delta : SimpleContext} (h : Rename gamma delta) {A : Type} (t : gamma ⊢ A) : delta ⊢ A
@@ -47,6 +48,7 @@
   | B, ⋅ t1 t2 => rename h t1 ⋅ rename h t2
   | Natural, zero => zero
   | Natural, succ t => succ (rename h t)
+  | Base B, base b => base b
   \where {
     \func renameVar {gamma delta : SimpleContext} (h : Rename gamma delta) {A : Type} {l : gamma ∋ A} : rename h (var l) = var (h l)
     \elim A
@@ -79,6 +81,7 @@
              | q' : rename (extend (Rename.compose r1 r2)) t = rename (extend r2) (rename (extend r1) t) => rewrite Rename.extendCompose q
         \in pmap lam q'
       | A, ⋅ t1 t2 => rewrite (renameApp, renameApp, renameApp) (pmap2 (⋅) uncompose uncompose)
+      | Base B, base b => idp
 
     \func renameId' {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} {r : Rename gamma gamma}
                     (h : \Pi {B : Type} (l : gamma ∋ B) -> r l = l)
@@ -91,6 +94,7 @@
         | S l => pmap S (h l)
       }))
       | A, ⋅ t1 t2 => rewrite renameApp (pmap2 (⋅) (renameId' h) (renameId' h))
+      | Base B, base b => idp
 
     \func renameId {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} : rename Rename.id t = t =>
       renameId' (\lam _ => idp)
@@ -109,6 +113,7 @@
   | B, ⋅ h1 h2 => subst s h1 ⋅ subst s h2
   | Natural, zero => zero
   | Natural, succ h => succ (subst s h)
+  | Base B, base b => base b
 
 \instance SimpleSubstOperations : SubstAlgebra Term
   | rename => rename
@@ -132,6 +137,7 @@
             (\lam (s : SimpleSubst (gamma ∕ T) (gamma ∕ T)) => subst s t = t)
             extends-ids subst-ids
         | T, ⋅ t1 t2 => rewrite substApp $ pmap2 (⋅) subst-ids subst-ids
+        | Base B, base b => idp
 
     \func substApp {gamma delta : SimpleContext} {s : Subst  {_} {⊢} gamma delta} {A B : Type} {e1 : gamma ⊢ A --> B} {e2 : gamma ⊢ A}
       : subst s (e1 ⋅ e2) = subst s e1 ⋅ subst s e2

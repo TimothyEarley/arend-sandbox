@@ -51,6 +51,9 @@
 
       | (clo ctx Natural e zero,s) => no (\lam r => \case r)
       | (clo ctx Natural e (succ t),s) => no (\lam r => \case r)
+
+      | (clo ∅ (Base B) e (base b),s) => no (\lam r => \case r)
+      | (clo (∕ c1 t) (Base B) e (base b),s) => no (\lam r => \case r)
   }
 
 \func reduce {c : Configuration} (r : Reduction c) : Configuration

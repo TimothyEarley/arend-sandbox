@@ -27,6 +27,7 @@
     | T, var l => env l
     | --> A B, lam t => \lam r => realiseCtx (RealisedContext.extend env r) t
     | B, ⋅ t1 t2 => (realiseCtx env t1) (realiseCtx env t2)
+    | Base B, base b => b
 
 \func realise {A : Type} (t : ∅ ⊢ A) : realiseType A
   => realiseCtx {∅} RealisedContext.empty t
