@@ -25,21 +25,15 @@
   \where {
     \func SNP (T : Type) {C : SimpleContext} (e : C ⊢ T) : \1-Type (\suc \lp) \elim T
       | Base B => Terminates e
-      | Natural => Terminates e
-      | EmptyT => Terminates e
       | A --> B => \Sigma (Terminates e) (\Pi (e' : C ⊢ A) (SNP A e') -> SNP B (e ⋅ e'))
 
     \func SNisTerminating {T : Type} {C : SimpleContext} {e : C ⊢ T} (h : SN T e) : Terminates e
     \elim T
-      | Natural => h
-      | EmptyT => h
       | Base B => h
       | A --> T => h.1
 
     \func SNacceptsTerm {T : Type} {C : SimpleContext} (e : C ⊢ T) (terminates : Terminates e) (h : \Pi (r : Reduction e) -> SNP T (reduce r)) : SNP T e
     \elim T, terminates
-      | Natural, (_, vv, refl idp) => (e, vv, refl idp)
-      | EmptyT, (_, vv, refl idp) => (e, vv, refl idp)
       | Base B, (_, vv, refl idp) => (e, vv, refl idp)
       | A --> T, (var l, (), _)
       | A --> T, (⋅ v1 v2, (), _)
@@ -83,12 +77,7 @@
           : SN T (subst s e)
         \elim T, e
           | Base B, base b => Terminates.fromValue V-base
-          | Natural, zero => Terminates.fromValue V-zero
-          | Natural, succ e => \let e' => typedIsSNSubs e s sh \in
-            (succ e'.1, V-Succ e'.2, ->*.underSucc e'.3)
           | T1, var l => \case \elim T1, \elim l \with {
-            | Natural, l => sh l
-            | EmptyT, l => sh l
             | A --> T1, l => sh l
             | Base B, l => sh l
           }

@@ -5,8 +5,6 @@
 
 \func realiseType (T : Type) : \Set
   | Base B => B
-  | Natural => Nat
-  | EmptyT => Empty
   | --> A B => (realiseType A) -> (realiseType B)
 
 \func RealisedContext (c : SimpleContext) => \Pi {A : Type} (c ∋ A) -> realiseType A
@@ -22,8 +20,6 @@
 
 \func realiseCtx {gamma : SimpleContext} {A : Type} (env : RealisedContext gamma) (t : gamma ⊢ A) : realiseType A
   \elim A, t
-    | Natural, zero => Nat.zero
-    | Natural, succ t => suc (realiseCtx env t)
     | T, var l => env l
     | --> A B, lam t => \lam r => realiseCtx (RealisedContext.extend env r) t
     | B, ⋅ t1 t2 => (realiseCtx env t1) (realiseCtx env t2)
@@ -32,7 +28,7 @@
 \func realise {A : Type} (t : ∅ ⊢ A) : realiseType A
   => realiseCtx {∅} RealisedContext.empty t
 
-\func cannotTypeEmpty : Not (∃ (∅ ⊢ EmptyT))
+\func cannotTypeEmpty : Not (∃ (∅ ⊢ Base Empty))
   => \case __ \with {
     | inP a => realise a
   }

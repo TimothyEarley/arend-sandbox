@@ -12,19 +12,10 @@
 
 \data Value {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A) : \Prop \elim A, t
   | Base B, base b => V-base
-  | Natural, zero => V-zero
-  | Natural, succ c => V-Succ (Value c)
   | --> A B, lam t => V-lam
   \where {
     \func isValue {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A) : Dec (Value t)
     \elim A, t
-      | Natural, zero => yes V-zero
-      | Natural, succ t => \case isValue t \with {
-        | yes e => yes (V-Succ e)
-        | no n => no (\lam v => \case v \with {
-          | V-Succ v1 => n v1
-        })
-      }
       | T, var l => no (\lam v => \case v)
       | --> A B, lam t => yes V-lam
       | B, ⋅ t1 t2 => no (\lam v => \case v)
@@ -34,8 +25,6 @@
                       {r : Rename gamma delta}
       : Value (rename r t)
     \elim A, t, h
-      | Natural, zero, V-zero => V-zero
-      | Natural, succ t, V-Succ h => V-Succ (afterRename h)
       | --> A A1, lam t, V-lam => V-lam
       | Base B, base b, V-base => {?}
 
@@ -43,35 +32,29 @@
                      (s : SimpleSubst gamma delta)
       : Value (subst s t)
     \elim A, t, h
-      | Natural, zero, V-zero => V-zero
-      | Natural, succ t, V-Succ h => V-Succ (afterSubst h s)
       | --> A A1, lam t, V-lam => V-lam
       | Base B, base b, V-base => V-base
   }
 
 \data Reduction {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A)
-\elim A, t
-  | A, ⋅ f arg => R-App1 (Reduction f)
-  | A, ⋅ f arg => R-App2 (Reduction arg) (Value f)
-  | A, ⋅ (lam body) arg => R-Beta (Value arg)
-  | Natural, succ t => R-Succ (Reduction t)
+\elim t
+  | ⋅ f arg => R-App1 (Reduction f)
+  | ⋅ f arg => R-App2 (Reduction arg) (Value f)
+  | ⋅ (lam body) arg => R-Beta (Value arg)
 
   \where {
     \func valueNoReduction {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} (v : Value t) : Not (Reduction t)
     \elim A, t, v
       | --> A B, lam t, V-lam => \lam r => \case r
-      | Natural, zero, V-zero => \lam r => \case r
-      | Natural, succ t, V-Succ v => \lam r => \case r \with {
-        | R-Succ r1 => valueNoReduction v r1
-      }
       | Base B, base b, V-base => \lam r => \case r
 
     \func deterministic {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} (r r' : Reduction t) : r = r'
     \elim A, t, r, r'
-      | A, ⋅ (lam body) arg, R-Beta v, R-Beta v1 => pmap R-Beta ext
+      | --> A A', ⋅ (lam body) arg, R-Beta v, R-Beta v1 => pmap R-Beta ext
+      | Base B, ⋅ (lam body) arg, R-Beta v, R-Beta v1 => pmap R-Beta ext
+
       | A, ⋅ f arg, R-App1 r, R-App1 r' => pmap R-App1 (deterministic r r')
       | A, ⋅ f arg, R-App2 r v, R-App2 r' v1 => pmap2 R-App2 (deterministic r r') ext
-      | Natural, succ t, R-Succ r, R-Succ r' => pmap R-Succ (deterministic r r')
 
       | A, ⋅ f arg, R-App2 r v, R-App1 r' => absurd (valueNoReduction v r')
       | A, ⋅ (lam body) arg, R-Beta v, R-App2 r' v1 => absurd (valueNoReduction v r')
@@ -92,11 +75,6 @@
           | lam t, V-lam => inl (R-Beta b1)
         }
       }
-      | Natural, zero => inr V-zero
-      | Natural, succ t => \case decide t \with {
-        | inl a => inl (R-Succ a)
-        | inr b => inr (V-Succ b)
-      }
       | Base B, base b => inr V-base
 
     \func appCanReduce{T T' : Type} {f : ∅ ⊢ T --> T'} {arg : ∅ ⊢ T} : Reduction (f ⋅ arg) =>
@@ -111,31 +89,15 @@
 
 \func reduce {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} (r : Reduction t) : gamma ⊢ A
 \elim A, t, r
-  | Natural, succ t, R-Succ r => succ (reduce r)
-
-  | --> A B, ⋅ {T} (lam body) arg, R-Beta _ => sub body arg
-  | Natural, ⋅ {T} (lam body) arg, R-Beta v => sub body arg
-  | EmptyT, ⋅ {T} (lam body) arg, R-Beta v => sub body arg
-  | Base B, ⋅ {T} (lam body ) arg, R-Beta v => sub body arg
-
-  | --> A B, ⋅ f arg, R-App1 r => reduce r ⋅ arg
-  | Natural, ⋅ f arg, R-App1 r => reduce r ⋅ arg
-  | EmptyT, ⋅ f arg, R-App1 r => reduce r ⋅ arg
-  | Base B, ⋅ f arg, R-App1 r => reduce r ⋅ arg
-
-  | --> A B, ⋅ f arg, R-App2 r v => f ⋅ reduce r
-  | Natural, ⋅ f arg, R-App2 r v => f ⋅ reduce r
-  | EmptyT, ⋅ f arg, R-App2 r v => f ⋅ reduce r
-  | Base B, ⋅ f arg, R-App2 r v => f ⋅ reduce r
+  | --> _ _, ⋅ {T} (lam body) arg, R-Beta _ => sub body arg
+  | Base _, ⋅ {T} (lam body) arg, R-Beta _ => sub body arg
+  | _, ⋅ f arg, R-App1 r => reduce r ⋅ arg
+  | _, ⋅ f arg, R-App2 r v => f ⋅ reduce r
   \where {
     \func app1 {c : SimpleContext} {T T' : Type} {f : c ⊢ T --> T'} {arg : c ⊢ T}
                {r : Reduction f} : reduce (R-App1 {_} {_} {_} {_} {arg} r) = reduce r ⋅ arg
     \elim T', f
-      | Natural, lam f => idp
-      | EmptyT, lam f => idp
       | --> A T', lam f => idp
-      | Natural, ⋅ f1 f2 => idp
-      | EmptyT, ⋅ f1 f2 => idp
       | --> T' T'1, ⋅ f1 f2 => idp
       | Base B, lam f => idp
       | Base B, ⋅ f1 f2 => idp
@@ -143,8 +105,6 @@
     \func app2 {c : SimpleContext} {T T' : Type} {f : c ⊢ T --> T'} {vf : Value f} {arg : c ⊢ T}
                {r : Reduction arg} : reduce (R-App2 r vf) = f ⋅ reduce r
     \elim T', f
-      | Natural, lam f => idp
-      | EmptyT, lam f => idp
       | --> A B, lam f => idp
       | Base B, lam f => idp
 
@@ -152,8 +112,6 @@
                {body : c ∕ T ⊢ T'} {arg : c ⊢ T} {v : Value arg}
       : reduce (R-Beta {_} {_} {_} {body} v) = {c ⊢ T'} sub body arg
       \elim T'
-        | Natural => idp
-        | EmptyT => idp
         | --> A T' => idp
         | Base B => idp
   }
@@ -164,10 +122,6 @@
     \func underRename {gamma delta : SimpleContext} {A : Type} (r : Rename gamma delta)
                       {t t' : gamma ⊢ A} (st : t ->1 t') : rename r t ->1 rename r t'
     \elim A, t, st
-      | Natural, zero, ((),p)
-      | Natural, succ t, (R-Succ st,p) =>
-        \let (nextR, nextP) => underRename r (st, idp)
-        \in (R-Succ nextR, pmap succ nextP *> pmap (rename r) p)
       | A, var l, ((),p)
       | --> A A1, lam t, ((),p)
       | A, ⋅ (lam body) arg, (R-Beta v, idp) =>
@@ -195,13 +149,6 @@
     \func fromRename {gamma delta : SimpleContext} {A : Type} {re : Rename gamma delta}
                      {t : gamma ⊢ A} {t' : delta ⊢ A}
       (st : rename re t ->1 t') : \Sigma (t'' : gamma ⊢ A) (t ->1 t'') (rename re t'' = t') \elim A, t, st
-      | Natural, zero, ((), _)
-      | Natural, succ t, (R-Succ r, idp) =>
-        \let (t'', st', p) => fromRename (r, idp)
-        \in (succ t'', (R-Succ st'.1, pmap succ st'.2),
-             pmap succ p)
-      | Natural, var l, ((), p)
-      | EmptyT, var l, ((), p)
       | --> A A1, var l, ((), p)
       | Base B, var l, ((),p)
       | --> A A1, lam t, ((),p)
@@ -221,9 +168,6 @@
     \elim h
       | refl p => refl (pmap f p)
       | ~> r s => u r ~> under {_} {_} {f} u s
-
-    \func underSucc {gamma : SimpleContext} : \Pi {t t' : gamma ⊢ Natural} (t ->* t') -> succ t ->* succ t'
-      => under {gamma} {Natural} {succ} (\lam r => (R-Succ r.1, pmap succ r.2))
 
     \func underApp {gamma : SimpleContext}
                    {A B : Type} {f f' : gamma ⊢ A --> B}
@@ -263,10 +207,6 @@
   \where {
     \func fromValue {c : SimpleContext} {T : Type} {t : c ⊢ T} (v : Value t) : Normal t
     \elim T, t, v
-      | Natural, zero, V-zero => \lam r => \case r
-      | Natural, succ c1, V-Succ v => \lam r => \case r \with {
-        | R-Succ r1 => fromValue v r1
-      }
       | --> A B, lam t, V-lam => \lam r => \case r
       | Base B, base b, V-base => \lam r => \case r
   }

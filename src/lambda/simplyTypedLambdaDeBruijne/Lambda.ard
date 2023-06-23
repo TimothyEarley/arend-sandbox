@@ -6,8 +6,6 @@
 
 \data Type
   | Base (B : \Set)
-  | Natural
-  | EmptyT
   | \infixr 6 --> (A B : Type)
 
 \func SimpleContext => Context Type
@@ -16,8 +14,6 @@
 \data Term \alias \infix 5 ⊢ (c : SimpleContext) (T : Type)
   \elim T
   | Base B => base B
-  | Natural => zero
-  | Natural => succ (c ⊢ Natural)
   | T => var (c ∋ T)
   | --> A B => lam (c ∕ A ⊢ B)
   | B => app \alias \infixl 6 ⋅ {A : Type} (c ⊢ A --> B) (c ⊢ A)

@@ -1,6 +1,7 @@
 \import Data.Maybe
 \import Logic.Meta
 \import Meta
+\import NatLike
 \import Paths
 \import Paths.Meta
 \import Set
@@ -49,28 +50,13 @@
       | (clo (∕ ctx c) T e (var (S l)),s) => yes skip
       | (clo ∅ T e (var ()),s)
 
-      | (clo ctx Natural e zero,s) => no (\lam r => \case r)
-      | (clo ctx Natural e (succ t),s) => no (\lam r => \case r)
-
       | (clo ∅ (Base B) e (base b),s) => no (\lam r => \case r)
       | (clo (∕ c1 t) (Base B) e (base b),s) => no (\lam r => \case r)
   }
 
 \func reduce {c : Configuration} (r : Reduction c) : Configuration
 \elim c, r
-  | (clo (∕ ctx c) Natural (cons env cl) (var (Z p)),st), grab => \new Configuration {
-    | closure => cl
-    | stack => st
-  }
-  | (clo (∕ ctx c) (Base B) (cons env cl) (var (Z p)), st), grab => \new Configuration {
-    | closure => cl
-    | stack => st
-  }
-  | (clo (∕ ctx c) (EmptyT) (cons env cl) (var (Z p)), st), grab => \new Configuration {
-    | closure => cl
-    | stack => st
-  }
-  | (clo (∕ ctx c) (--> A B) (cons env cl) (var (Z p)),st), grab => \new Configuration {
+  | (clo (∕ ctx c) T (cons env cl) (var (Z p)),st), grab => \new Configuration {
     | closure => cl
     | stack => st
   }
@@ -78,20 +64,8 @@
     | closure => clo ctx T env (var l)
     | stack => st
   }
-  | (clo ctx Natural env (⋅ {T'} f arg), st), push => \new Configuration {
-    | closure => clo ctx (T' --> Natural) env f
-    | stack => clo ctx T' env arg # st
-  }
-  | (clo ctx (Base B) env (⋅ {T'} f arg), st), push => \new Configuration {
-    | closure => clo ctx (T' --> Base B) env f
-    | stack => clo ctx T' env arg # st
-  }
-  | (clo ctx EmptyT env (⋅ {T'} f arg), st), push => \new Configuration {
-    | closure => clo ctx (T' --> EmptyT) env f
-    | stack => clo ctx T' env arg # st
-  }
-  | (clo ctx (--> A B) env (⋅ {T'} f arg), st), push => \new Configuration {
-    | closure => clo ctx (T' --> (A --> B)) env f
+  | (clo ctx T env (⋅ {T'} f arg), st), push => \new Configuration {
+    | closure => clo ctx (T' --> T) env f
     | stack => clo ctx T' env arg # st
   }
   | (clo ctx (--> A B) env (lam body), # c st), pop => \new Configuration {
@@ -136,13 +110,13 @@
 
   \open Examples
 
-  \func example : initial (lamID ⋅ succ zero) ->*_KAM initial (succ zero)
+  \func example : initial (lamID ⋅ base 1) ->*_KAM initial (base 1)
       => (push, idp) ~> (pop, idp) ~> (grab, idp) ~> refl idp
 
-  \func example' : initial (lamID ⋅ succ zero) ->*_KAM initial (succ zero)
+  \func example' : initial (lamID ⋅ base 1) ->*_KAM initial (base 1)
     => ->1_KAM.autoCorrect idp ~> ->1_KAM.autoCorrect idp ~> ->1_KAM.autoCorrect idp ~> refl idp
 
-  \func example'' : initial (lamID ⋅ succ zero) ->*_KAM initial (succ zero)
+  \func example'' : initial (lamID ⋅ base 1) ->*_KAM initial (base 1)
     => run_correct 3 (unfold idp)
   }
 

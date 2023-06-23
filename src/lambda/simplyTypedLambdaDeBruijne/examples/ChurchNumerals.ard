@@ -1,11 +1,7 @@
-\import Star
 \import lambda.GeneralContext
 \import lambda.simplyTypedLambdaDeBruijne.Lambda
-\import lambda.simplyTypedLambdaDeBruijne.Reduction
 
 \module Church \where {
-  \func natSuc {gamma : SimpleContext} : gamma ⊢ Natural --> Natural => lam (succ (var #0))
-
   \func ChurchNat (N : Type) : Type => (N --> N) --> N --> N
 
   \func c_zero {gamma : SimpleContext} {N : Type} : gamma ⊢ ChurchNat N => lam (lam (var #0))
@@ -20,16 +16,8 @@
   \func plus {gamma : SimpleContext} {N : Type} : gamma ⊢ ChurchNat N --> ChurchNat N --> ChurchNat N =>
     lam (lam (lam (lam (var #3 ⋅ var #1 ⋅ (var #2 ⋅ var #1 ⋅ var #0)))))
 
-  \func churchToNatural {gamma : SimpleContext} : gamma ⊢ ChurchNat Natural --> Natural
-    => lam (var #0 ⋅ natSuc ⋅ zero)
 
-  \func twosuczero : two ⋅ natSuc ⋅ zero ->* {∅} succ (succ zero) =>
-    two ⋅ natSuc ⋅ zero ~~< (R-App1 (R-Beta V-lam), idp) >~>
-    lam (natSuc ⋅ (natSuc ⋅ var #0)) ⋅ zero ~~< (R-Beta V-zero, idp) >~>
-    natSuc ⋅ (natSuc ⋅ zero) ~~< (R-App2 (R-Beta V-zero) V-lam, idp) >~>
-    natSuc ⋅ succ zero ~~< (R-Beta (V-Succ V-zero), idp) >~>
-    succ (succ zero) `stop
-
-  \func twosuczero' : two ⋅ natSuc ⋅ zero ->* {∅} succ (succ zero)
-    => eval.correct {4}
+  \func churchFromNat {gamma : SimpleContext} {N : Type} (n : Nat) : gamma ⊢ ChurchNat N \elim n
+    | 0 => c_zero
+    | suc n => c_succ ⋅ churchFromNat n
 }
