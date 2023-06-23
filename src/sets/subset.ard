@@ -8,13 +8,13 @@
 \import sets.remove
 \import sets.union
 
-\func subset \alias \infix 5 ⊆ {A : \Set} (a b : Ensemble A) : \Prop => \Pi {x : A} (x ∈ a) -> x ∈ b
+\func subset \alias \infix 5 ⊆ {A : \Type} (a b : Ensemble A) : \Prop => \Pi {x : A} (x ∈ a) -> x ∈ b
 
   \where {
     \func empty-is-subset \alias ∅-is-⊆ {A : \Set} {S : Ensemble A} : ∅ ⊆ S => \lam e => \case e \with {
     }
 
-    \func refl {A : \Set} {x : Ensemble A} : x ⊆ x => \lam e => e
+    \func refl {A : \Type} {x : Ensemble A} : x ⊆ x => \lam e => e
 
     \func trans {A : \Set} {a b c : Ensemble A} (h : a ⊆ b) (h' : b ⊆ c) : a ⊆ c => \lam ax => h' (h ax)
 

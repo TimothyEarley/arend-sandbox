@@ -29,6 +29,7 @@
       | Natural, var l => idp
       | EmptyT, var l => idp
       | --> A A1, var l => idp
+      | Base B, var l => idp
       | --> A A1, lam t =>
         \let p : subst (extends idSubst) t = subst idSubst t => pmap (subst __ t) useExtends
         \in pmap lam (p *> useSubst)
@@ -36,6 +37,7 @@
       | Natural, ⋅ t1 t2 => pmap2 (⋅) useSubst useSubst
       | EmptyT, ⋅ t1 t2 => pmap2 (⋅) useSubst useSubst
       | --> A A1, ⋅ t1 t2 => pmap2 (⋅) useSubst useSubst
+      | Base B, ⋅ t1 t2 => pmap2 (⋅) useSubst useSubst
   }
 
 \func rename {gamma delta : SimpleContext} (h : Rename gamma delta) {A : Type} (t : gamma ⊢ A) : delta ⊢ A
@@ -51,6 +53,7 @@
       | Natural => idp
       | --> A B => idp
       | EmptyT => idp
+      | Base B => idp
 
     \func renameApp {gamma delta : SimpleContext} {h : Rename gamma delta} {A B : Type}
                     {f : gamma ⊢ A --> B} {arg : gamma ⊢ A}
@@ -58,6 +61,7 @@
       | Natural => idp
       | EmptyT => idp
       | --> A1 B => idp
+      | Base B => idp
 
     \func uncompose {gamma delta epsilon : SimpleContext}
                     {r1 : Rename gamma delta} {r2 : Rename delta epsilon}
@@ -68,6 +72,7 @@
       | Natural, succ t => pmap succ uncompose
       | Natural, var l => idp
       | EmptyT, var l => idp
+      | Base B, var l => idp
       | --> A A1, var l => idp
       | --> A A1, lam t =>
         \let q => uncompose {gamma ∕ A} {delta ∕ A} {epsilon ∕ A} {extend r1} {extend r2} {A1} {t}
@@ -105,7 +110,7 @@
   | Natural, zero => zero
   | Natural, succ h => succ (subst s h)
 
-\instance SimpleSubstOperaions : SubstAlgebra Term
+\instance SimpleSubstOperations : SubstAlgebra Term
   | rename => rename
   | subst => subst
   | s-var => var
@@ -134,4 +139,5 @@
       | Natural => idp
       | EmptyT => idp
       | A --> A1 => idp
+      | Base B => idp
   }

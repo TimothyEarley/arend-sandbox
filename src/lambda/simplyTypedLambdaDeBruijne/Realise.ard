@@ -4,6 +4,7 @@
 \import lambda.simplyTypedLambdaDeBruijne.Lambda
 
 \func realiseType (T : Type) : \Set
+  | Base B => B
   | Natural => Nat
   | EmptyT => Empty
   | --> A B => (realiseType A) -> (realiseType B)

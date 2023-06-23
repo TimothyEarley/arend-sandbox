@@ -6,24 +6,25 @@
 \import lambda.SubstAlgebra
 \import lambda.simplyTypedLambdaDeBruijne.Lambda
 \import lambda.simplyTypedLambdaDeBruijne.Reduction
-\import lambda.simplyTypedLambdaDeBruijne.Substitute (SimpleSubst, SimpleSubstOperaions)
+\import lambda.simplyTypedLambdaDeBruijne.Substitute (SimpleSubst, SimpleSubstOperations)
 \open SubstAlgebra (⋅⋅)
 
 -- https://www.cs.uoregon.edu/research/summerschool/summer16/notes/AhmedLR.pdf
 
-\class LogicalPredicate (underlying : \Pi {T : Type} {C : SimpleContext} (C ⊢ T) -> \Type)
-  | \classifying P : \Pi (T : Type) {C : SimpleContext} (e : C ⊢ T) -> \Type
+\class LogicalPredicate (underlying : \Pi {T : Type} {C : SimpleContext} (C ⊢ T) -> \Type (\suc \lp))
+  | \classifying P : \Pi (T : Type) {C : SimpleContext} (e : C ⊢ T) -> \Type (\suc \lp)
   | acceptsTerm : \Pi {T : Type} {C : SimpleContext}
                       (e : C ⊢ T)
                       (underlying e)
                       (\Pi (r : Reduction e) -> P _ (reduce r))
   -> P _ e
 
-\func SN : LogicalPredicate Terminates \cowith
+\func SN : LogicalPredicate (\lam t => \let foo => Terminates t \in foo) \cowith
   | P => SNP
   | acceptsTerm => SNacceptsTerm
   \where {
-    \func SNP (T : Type) {C : SimpleContext} (e : C ⊢ T) : \Set \elim T
+    \func SNP (T : Type) {C : SimpleContext} (e : C ⊢ T) : \1-Type (\suc \lp) \elim T
+      | Base B => Terminates e
       | Natural => Terminates e
       | EmptyT => Terminates e
       | A --> B => \Sigma (Terminates e) (\Pi (e' : C ⊢ A) (SNP A e') -> SNP B (e ⋅ e'))
@@ -32,12 +33,14 @@
     \elim T
       | Natural => h
       | EmptyT => h
+      | Base B => h
       | A --> T => h.1
 
     \func SNacceptsTerm {T : Type} {C : SimpleContext} (e : C ⊢ T) (terminates : Terminates e) (h : \Pi (r : Reduction e) -> SNP T (reduce r)) : SNP T e
     \elim T, terminates
       | Natural, (_, vv, refl idp) => (e, vv, refl idp)
       | EmptyT, (_, vv, refl idp) => (e, vv, refl idp)
+      | Base B, (_, vv, refl idp) => (e, vv, refl idp)
       | A --> T, (var l, (), _)
       | A --> T, (⋅ v1 v2, (), _)
       | A --> T, (lam b, V-lam, refl idp) => ((lam b, V-lam, refl idp),
@@ -46,7 +49,7 @@
 
     \func typedIsSN {T : Type} (e : ∅ ⊢ T) : SN T e =>
       \let proof => typedIsSNSubs {T} {∅} {∅} e var (\case __ \with {})
-      \in rewriteF SimpleSubstOperaions.subst-ids proof
+      \in rewriteF SimpleSubstOperations.subst-ids proof
       \where {
         \func SubSatsContext {gamma delta : SimpleContext} (s : SimpleSubst gamma delta) : \Type =>
           \Pi {T : Type} (i : gamma ∋ T) -> SN T {delta} (s i)
@@ -86,8 +89,9 @@
             | Natural, l => sh l
             | EmptyT, l => sh l
             | A --> T1, l => sh l
+            | Base B, l => sh l
           }
-          | T1, ⋅ e1 e2 => rewrite SimpleSubstOperaions.substApp $ (typedIsSNSubs e1 s sh).2 (subst s e2) (typedIsSNSubs e2 s sh)
+          | T1, ⋅ e1 e2 => rewrite SimpleSubstOperations.substApp $ (typedIsSNSubs e1 s sh).2 (subst s e2) (typedIsSNSubs e2 s sh)
           | T1 --> T2, lam b =>
             ((_, V-lam, refl idp),
              \lam e' snE' =>

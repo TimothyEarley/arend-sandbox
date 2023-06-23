@@ -61,12 +61,14 @@
     \func TermP {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A) : \Prop \elim A
       | Natural => StronglyNormalizing t
       | EmptyT => StronglyNormalizing t
+      | Base B => StronglyNormalizing t
       | --> A B => \Pi {delta : SimpleContext} (r : Rename gamma delta) {a : delta ⊢ A} (TermP a) -> TermP (rename r t ⋅ a)
       \where {
         \func underReduction {gamma : SimpleContext} {A : Type} {t t' : gamma ⊢ A} (st : t ->1 t') (h : TermP t) : TermP t'
         \elim A, h
           | Natural, sn h => h t' st
           | EmptyT, sn h => h t' st
+          | Base B, sn h => h t' st
           | --> A A1, h => \lam {delta} r {a} pa =>
               \let rSt => ->1.underRename r st
                 | p : reduce (R-App1 rSt.1) = rename r t' ⋅ a => rewrite reduce.app1 (pmap (__ ⋅ _) rSt.2)
@@ -92,11 +94,13 @@
           | Natural => ()
           | EmptyT => ()
           | --> A A1 => ()
+          | Base B => ()
 
         \func varNeutral {c : SimpleContext} {A : Type} {v : c ∋ A} : Neutral (var v) \elim A
           | Natural => ()
           | EmptyT => ()
           | --> A A1 => ()
+          | Base B => ()
 
         \func afterRename {gamma delta : SimpleContext} {r : Rename gamma delta}
                           {A : Type} {t : gamma ⊢ A} (n : Neutral t)
@@ -116,6 +120,7 @@
       | Natural, var l => h l
       | EmptyT, var l => h l
       | --> A A1, var l => h l
+      | Base B, var l => h l
       | --> A A1, lam t => \lam {delta'} r {a} ap => unqoute {?} {?} {?}
       | A, ⋅ t1 t2 => {?}
 
@@ -123,6 +128,7 @@
     \elim A
       | Natural => h
       | EmptyT => h
+      | Base B => h
       | --> A A1 =>
         \let
           | var0P => unqoute {gamma ∕ A} {A} (var #0) Neutral.varNeutral (\lam t' r => \case r.1)
@@ -134,6 +140,7 @@
                   (h : \Pi (t' : gamma ⊢ A) (t ->1 t') -> TermP t') : TermP t \elim A
       | Natural => sn h
       | EmptyT => sn h
+      | Base B => sn h
       | --> A A1 => \lam {delta} r {a} ap =>
           unqoute (rename r t ⋅ a) Neutral.appNeutral (go (rename r t) (Neutral.afterRename nt) (f' t h) a ap (qoute ap))
       \where {
@@ -170,23 +177,27 @@
 \func L {gamma : SimpleContext} (T : Type) : Ensemble (gamma ⊢ T) \elim T
   | Natural => StronglyNormalizing
   | EmptyT => StronglyNormalizing
+  | Base B => StronglyNormalizing
   | --> A T => \lam f => \Pi {arg : gamma ⊢ A} (arg ∈ L A) -> (f ⋅ arg) ∈ L T
 
   \where {
     \func toSN {gamma : SimpleContext} {T : Type} : L {gamma} T ⊆ StronglyNormalizing \elim T
       | Natural => ⊆.refl
       | EmptyT => ⊆.refl
+      | Base B => ⊆.refl
       | --> A T => {?}
   }
 
 \func R (T : Type) : Ensemble (Context.∅ ⊢ T) \elim T
   | Natural => StronglyNormalizing
   | EmptyT => StronglyNormalizing
+  | Base B => StronglyNormalizing
   | --> A T => \lam t => \Sigma (StronglyNormalizing t) (\Pi {arg : Context.∅ ⊢ A} (arg ∈ R A) -> (t ⋅ arg) ∈ R T)
   \where {
     \func toSN {T : Type} : R T ⊆ StronglyNormalizing \elim T
       | Natural => ⊆.refl
       | EmptyT => ⊆.refl
+      | Base B => ⊆.refl
       | --> A T => \lam {x} e => e.1
   }
 
@@ -201,6 +212,7 @@
   | Natural, var l => hs l
   | EmptyT, var l => hs l
   | --> A T, var l => hs l
+  | Base B, var l => hs l
 
   | --> T T1, lam t => {?}
 
@@ -213,10 +225,12 @@
       | Natural, var l => idp
       | EmptyT, var l => idp
       | --> A T, var l => idp
+      | Base B, var l => idp
       | --> A B, lam h => pmap lam (transport (subst __ h = h) substId-lemma' substId)
       | Natural, ⋅ h1 h2 => pmap2 (⋅) substId substId
       | EmptyT, ⋅ h1 h2 => pmap2 (⋅) substId substId
       | --> A B, ⋅ h1 h2 => pmap2 (⋅) substId substId
+      | Base B, ⋅ t1 t2 => pmap2 (⋅) substId substId
       | Natural, zero => idp
       | Natural, succ h => pmap succ substId
 
@@ -225,6 +239,7 @@
       | Natural, ∋.S l => idp
       | --> A1 A2, ∋.S l => idp
       | EmptyT, ∋.S l => idp
+      | Base B, ∋.S l => idp
 
     \func substId-lemma' {gamma : SimpleContext} {A : Type} : var = {SimpleSubst (gamma ∕ A) (gamma ∕ A)} extends var =>
       ext substId-lemma

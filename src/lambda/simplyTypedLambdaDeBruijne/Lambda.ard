@@ -5,6 +5,7 @@
 - -}
 
 \data Type
+  | Base (B : \Set)
   | Natural
   | EmptyT
   | \infixr 6 --> (A B : Type)

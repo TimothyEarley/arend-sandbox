@@ -7,7 +7,7 @@
 \import Star
 \import lambda.GeneralContext
 \import lambda.simplyTypedLambdaDeBruijne.Lambda
-\import lambda.simplyTypedLambdaDeBruijne.Substitute (SimpleSubst, SimpleSubstOperaions)
+\import lambda.simplyTypedLambdaDeBruijne.Substitute (SimpleSubst, SimpleSubstOperations)
 \open lambda.simplyTypedLambdaDeBruijne.Substitute.rename (renameApp)
 
 \data Value {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A) : \Prop \elim A, t
@@ -106,19 +106,21 @@
 \func reduce {gamma : SimpleContext} {A : Type} {t : gamma ⊢ A} (r : Reduction t) : gamma ⊢ A
 \elim A, t, r
   | Natural, succ t, R-Succ r => succ (reduce r)
-  | --> A B, ⋅ (lam body) arg, R-Beta _ => sub body arg
+
+  | --> A B, ⋅ {T} (lam body) arg, R-Beta _ => sub body arg
+  | Natural, ⋅ {T} (lam body) arg, R-Beta v => sub body arg
+  | EmptyT, ⋅ {T} (lam body) arg, R-Beta v => sub body arg
+  | Base B, ⋅ {T} (lam body ) arg, R-Beta v => sub body arg
 
   | --> A B, ⋅ f arg, R-App1 r => reduce r ⋅ arg
-  | --> A B, ⋅ f arg, R-App2 r v => f ⋅ reduce r
-
-  -- TODO remove duplicates
-  | Natural, ⋅ (lam body) arg, R-Beta v => sub body arg
   | Natural, ⋅ f arg, R-App1 r => reduce r ⋅ arg
-  | Natural, ⋅ f arg, R-App2 r v => f ⋅ reduce r
-
-  | EmptyT, ⋅ (lam body) arg, R-Beta v => sub body arg
   | EmptyT, ⋅ f arg, R-App1 r => reduce r ⋅ arg
+  | Base B, ⋅ f arg, R-App1 r => reduce r ⋅ arg
+
+  | --> A B, ⋅ f arg, R-App2 r v => f ⋅ reduce r
+  | Natural, ⋅ f arg, R-App2 r v => f ⋅ reduce r
   | EmptyT, ⋅ f arg, R-App2 r v => f ⋅ reduce r
+  | Base B, ⋅ f arg, R-App2 r v => f ⋅ reduce r
   \where {
     \func app1 {c : SimpleContext} {T T' : Type} {f : c ⊢ T --> T'} {arg : c ⊢ T}
                {r : Reduction f} : reduce (R-App1 {_} {_} {_} {_} {arg} r) = reduce r ⋅ arg
@@ -129,6 +131,8 @@
       | Natural, ⋅ f1 f2 => idp
       | EmptyT, ⋅ f1 f2 => idp
       | --> T' T'1, ⋅ f1 f2 => idp
+      | Base B, lam f => idp
+      | Base B, ⋅ f1 f2 => idp
 
     \func app2 {c : SimpleContext} {T T' : Type} {f : c ⊢ T --> T'} {vf : Value f} {arg : c ⊢ T}
                {r : Reduction arg} : reduce (R-App2 r vf) = f ⋅ reduce r
@@ -136,14 +140,16 @@
       | Natural, lam f => idp
       | EmptyT, lam f => idp
       | --> A B, lam f => idp
+      | Base B, lam f => idp
 
     \func beta {c : SimpleContext} {T T' : Type}
                {body : c ∕ T ⊢ T'} {arg : c ⊢ T} {v : Value arg}
-      : reduce (R-Beta {_} {_} {_} {body} v) = sub body arg
+      : reduce (R-Beta {_} {_} {_} {body} v) = {c ⊢ T'} sub body arg
       \elim T'
         | Natural => idp
         | EmptyT => idp
         | --> A T' => idp
+        | Base B => idp
   }
 
 \func ReducesStep \alias \infix 5 ->1 {gamma : SimpleContext} {A : Type} (t t' : gamma ⊢ A) =>
@@ -190,6 +196,7 @@
       | Natural, var l, ((), p)
       | EmptyT, var l, ((), p)
       | --> A A1, var l, ((), p)
+      | Base B, var l, ((),p)
       | --> A A1, lam t, ((),p)
       | A, ⋅ t1 t2, (r,p) => \let r' => rewrite renameApp r \in {?}
   }
@@ -263,7 +270,7 @@
   | inr b => inl b
 }
 
-\func Terminates {A : Type} {C : SimpleContext} (t : C ⊢ A) : \Set
+\func Terminates {A : Type} {C : SimpleContext} (t : C ⊢ A) : \1-Type
   => \Sigma  (v : C ⊢ A) (Value v) (t ->* v)
 \where {
   \func fromValue {C : SimpleContext} {T : Type} {t : C ⊢ T} (v : Value t) : Terminates t

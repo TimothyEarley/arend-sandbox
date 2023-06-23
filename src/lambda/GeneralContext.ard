@@ -7,12 +7,12 @@
 \import lambda.unityped.Substitute
 \import util.FinUtil
 
-\data Context (Type : \Set)
+\data Context (Type : \Type)
   | None \alias ∅
   | Cons \alias \infixl 6 ∕ (Context Type) Type
 
   \where {
-    \func length {Type : \Set} (c : Context Type) : Nat \elim c
+    \func length {Type : \Type} (c : Context Type) : Nat \elim c
       | ∅ => 0
       | ∕ c t => suc (length c)
 
@@ -34,7 +34,7 @@
     }
   }
 
-\data Lookup \alias \infix 5 ∋ {Type : \Set} (c : Context Type) (T : Type) \elim c
+\data Lookup \alias \infix 5 ∋ {Type : \1-Type} (c : Context Type) (T : Type) \elim c
   | ∕ c head => Z (head = T)
   | ∕ c head => S (c ∋ T)
   \where {
@@ -71,17 +71,17 @@
 
 \meta #3 => S #2
 
-\func Rename {Type : \Set} (gamma delta : Context Type) => \Pi {A : Type} (gamma ∋ A) -> delta ∋ A
+\func Rename {Type : \1-Type} (gamma delta : Context Type) => \Pi {A : Type} (gamma ∋ A) -> delta ∋ A
   \where {
-    \func id {Type : \Set} {gamma : Context Type} : Rename gamma gamma => \lam {A} l => l
+    \func id {Type : \1-Type} {gamma : Context Type} : Rename gamma gamma => \lam {A} l => l
 
-    \func weaken {Type : \Set} {gamma : Context Type} {A : Type} : Rename gamma (gamma ∕ A) => \lam {_} => S
+    \func weaken {Type : \1-Type} {gamma : Context Type} {A : Type} : Rename gamma (gamma ∕ A) => \lam {_} => S
 
-    \func compose {Type : \Set} {gamma delta epsilon : Context Type}
+    \func compose {Type : \1-Type} {gamma delta epsilon : Context Type}
                   (r1 : Rename gamma delta) (r2 : Rename delta epsilon) : Rename gamma epsilon =>
       \lam {A} l => r2 (r1 l)
 
-    \func extendCompose {Type : \Set} {gamma delta epsilon : Context Type}
+    \func extendCompose {Type : \1-Type} {gamma delta epsilon : Context Type}
                         {r1 : Rename gamma delta} {r2 : Rename delta epsilon} {A : Type}
       : extend (compose r1 r2) = {Rename (gamma ∕ A) (epsilon ∕ A)} compose (extend r1) (extend r2) =>
       ext (\lam {A1} l => \case \elim l \with {
@@ -90,16 +90,16 @@
       })
   }
 
-\func Subst {Type : \Set} {Term : Context Type -> Type -> \Set} (gamma delta : Context Type) =>
-  \Pi {A : Type} (gamma ∋ A) -> Term delta A
-
-\func extend {Type : \Set} {gamma delta : Context Type} (h : Rename gamma delta) {B : Type}
+\func extend {Type : \1-Type} {gamma delta : Context Type} (h : Rename gamma delta) {B : Type}
   : Rename (gamma ∕ B) (delta ∕ B) => \lam h2 => \case \elim h2 \with {
   | Z p => Z p
   | S h2 => S (h h2)
 }
 
-\class LC \noclassifying {Type : \Set} (Term : Context Type -> Type -> \Set) {
+\func Subst {Type : \1-Type} {Term : Context Type -> Type -> \1-Type} (gamma delta : Context Type) =>
+  \Pi {A : Type} (gamma ∋ A) -> Term delta A
+
+\class LC {Type : \1-Type} (\classifying Term : Context Type -> Type -> \1-Type) {
   | s-var {c : Context Type} {A : Type} (l : c ∋ A) : Term c A
 }
 
@@ -110,29 +110,29 @@
 
   | extends {gamma delta : Context Type} (h : Subst {_} {Term} gamma delta)
             {B : Type} : Subst {_} {Term} (gamma ∕ B) (delta ∕ B)
-  | subst {gamma delta : Context Type} (s : Subst  {_} {Term} gamma delta) {A : Type} (h : Term gamma A) : Term delta A
+  | subst {gamma delta : Context Type} (s : Subst {_} {Term} gamma delta) {A : Type} (h : Term gamma A) : Term delta A
 }
 
-\func sub {Type : \Set} {Term : Context Type -> Type -> \Set} {SO : SubstOperations Term}
-          {gamma : Context Type} {A B : Type}
-          (t : Term (gamma ∕ B) A) (t' : Term gamma B) : Term gamma A => subst (extendsOne t') t
+\func sub {SO : SubstOperations}
+          {gamma : Context SO.Type} {A B : SO.Type}
+          (t : SO.Term (gamma ∕ B) A) (t' : SO.Term gamma B) : SO.Term gamma A => subst (extendsOne t') t
 
   \where {
-    \func extendsOne {Type : \Set} {Term : Context Type -> Type -> \Set} {SO : SubstOperations Term}
-                     {gamma : Context Type} {B : Type} (t' : Term gamma B) {A : Type} (h : gamma ∕ B ∋ A) : Term gamma A
+    \func extendsOne {SO : SubstOperations}
+                     {gamma : Context SO.Type} {B : SO.Type} (t' : SO.Term gamma B) {A : SO.Type} (h : gamma ∕ B ∋ A) : SO.Term gamma A
     \elim h
       | Z idp => t'
       | S h => s-var h
   }
 
-\func sub2 {Type : \Set} {Term : Context Type -> Type -> \Set} {SO : SubstOperations Term}
-           {gamma : Context Type} {A B C : Type}
-           (t : Term (gamma ∕ B ∕ C) A) (t' : Term gamma B) (t'' : Term gamma C) : Term gamma A =>
+\func sub2 {SO : SubstOperations}
+           {gamma : Context SO.Type} {A B C : SO.Type}
+           (t : SO.Term (gamma ∕ B ∕ C) A) (t' : SO.Term gamma B) (t'' : SO.Term gamma C) : SO.Term gamma A =>
   subst (extendsTwo t' t'') t
   \where {
-    \func extendsTwo {Type : \Set} {Term : Context Type -> Type -> \Set} {SO : SubstOperations Term}
-                     {gamma : Context Type} {B C : Type} (t' : Term gamma B) (t'' : Term gamma C)
-                     {A : Type} (h : gamma ∕ B ∕ C ∋ A) : Term gamma A
+    \func extendsTwo {SO : SubstOperations}
+                     {gamma : Context SO.Type} {B C : SO.Type} (t' : SO.Term gamma B) (t'' : SO.Term gamma C)
+                     {A : SO.Type} (h : gamma ∕ B ∕ C ∋ A) : SO.Term gamma A
     \elim h
       | Z idp => t''
       | S (Z idp) => t'

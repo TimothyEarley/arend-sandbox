@@ -1,28 +1,23 @@
 \import Equiv
 \import Logic
 \import Logic.Meta
-\import Order.Lattice \hiding (∧)
-\import Paths
 \import Paths.Meta
 \import Set
-\import sets.Add
 \import sets.Complement
 \import sets.DecidableSet
 \import sets.Elements
-\import sets.Family
 \import sets.Intersect
 \import sets.finite.Sized
-\import sets.subset
-\import sets.union (∪, ⋃)
+\import sets.union (∪)
 \import util.ArrayUtils
 \open ArrayUtils (HasSome)
 
-\func Ensemble (A : \Set) : \Set => A -> \Prop
+\func Ensemble (A : \Type) : \Type => A -> \Prop
 
 \class BaseEnsemble \extends BaseSet
   | \classifying S : Ensemble E
 
-\func element \alias \infix 6 ∈ {A : \Set} (a : A) (S : Ensemble A) : \Prop => S a
+\func element \alias \infix 6 ∈ {A : \Type} (a : A) (S : Ensemble A) : \Prop => S a
 
 \func not-element \alias \infix 6 ∉ {A : \Set} (a : A) (S : Ensemble A) : \Prop => Not (S a)
 

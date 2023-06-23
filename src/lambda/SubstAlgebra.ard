@@ -27,22 +27,22 @@
                               (s : Subst {_} {Term}  gamma delta) (s' : Subst {_} {Term}  delta epsilon)
     : Subst {_} {Term} gamma epsilon => \lam i => subst s' (s i)
 
-  \lemma sub-head {C D : Context Type} {T : Type} {t : Term D T}
+  \func sub-head {C D : Context Type} {T : Type} {t : Term D T}
                  {s : Subst {_} {Term} C D}
     : subst (t ⋅⋅ s) (s-var $ Z idp) = t => subst-var (t ⋅⋅ s) (Z idp)
 
-  \lemma sub-tail {C D : Context Type} {T : Type} {t : Term D T}
+  \func sub-tail {C D : Context Type} {T : Type} {t : Term D T}
                  {s : Subst {_} {Term} C D}
     : ∆ ⊳ (t ⋅⋅ s) = s => ext (\lam {A} l => subst-var _ _)
 
-  \lemma sub-eta {C D : Context Type} {T : Type}
+  \func sub-eta {C D : Context Type} {T : Type}
                 {s : Subst {_} {Term} (C ∕ T) D}
     : subst s (s-var (Z idp)) ⋅⋅ (∆ ⊳ s) = s => ext (\lam {A} l => \case \elim A, \elim l \with {
     | _, Z idp => subst-var _ _
     | _, S l => subst-var _ _
   })
 
-  \lemma Z-shift {gamma : Context Type} {T : Type}
+  \func Z-shift {gamma : Context Type} {T : Type}
     : s-var (Z idp) ⋅⋅ ∆ = ids {\this} {gamma ∕ T} => ext (\lam {A} l => \case \elim A, \elim l \with {
     | _, Z idp => idp
     | _, S l => idp

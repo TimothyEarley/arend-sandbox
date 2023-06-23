@@ -7,7 +7,7 @@
 
 \func UniSubst => Subst {_} {u⊢}
 
-\instance UniSubstOperaions : SubstOperations (u⊢)
+\instance UniSubstOperations : SubstOperations (u⊢)
   | rename => rename
   | subst => subst
   | s-var l => var l
@@ -65,7 +65,7 @@
 
   \func sequence \alias \infixr 6 ++ {gamma delta epsilon : UniContext}
                                      (s : UniSubst gamma delta) (s' : UniSubst delta epsilon) : UniSubst gamma epsilon =>
-    \lam {A} l => UniSubstOperaions.subst s' (s l)
+    \lam {A} l => UniSubstOperations.subst s' (s l)
 
   -- properties
 

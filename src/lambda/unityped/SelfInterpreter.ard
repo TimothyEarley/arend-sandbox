@@ -19,8 +19,8 @@
 
 \func encode {ctx : UniContext} (term : ctx u⊢ *) : ctx u⊢ * \elim term
   | var l => lam $ lam $ lam $ (var #2 ⋅ var (S $ S $ S l))
-  | ⋅ term term1 => lam $ lam $ lam $ (var #1 ⋅ UniSubstOperaions.subst shift3 (encode term) ⋅ UniSubstOperaions.subst shift3 (encode term1))
-  | lam term => lam $ lam $ lam $ (var #0 ⋅ UniSubstOperaions.subst shift3 (lam  (encode term)))
+  | ⋅ term term1 => lam $ lam $ lam $ (var #1 ⋅ UniSubstOperations.subst shift3 (encode term) ⋅ UniSubstOperations.subst shift3 (encode term1))
+  | lam term => lam $ lam $ lam $ (var #0 ⋅ UniSubstOperations.subst shift3 (lam  (encode term)))
 
   \where {
     \meta shift3 => shift ++ shift ++ shift
@@ -156,6 +156,6 @@
         (lam $ var #0 ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))) ⋅ encode (t ⋅ t')  ~~< (R-Beta, idp) >~>
         encode (t ⋅ t') ⋅ I ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))  ~~< (R-App1 (R-App1 R-Beta),
                                                                                                                                           pmap (\lam z => lam (lam z) ⋅ _ ⋅ _) {?}) >~>
-        (lam $ lam $ (var #1 ⋅ UniSubstOperaions.subst shift2 (encode t) ⋅ UniSubstOperaions.subst shift2 (encode t'))) ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))  ~~< ({?}, {?}) >~>
+        (lam $ lam $ (var #1 ⋅ UniSubstOperations.subst shift2 (encode t) ⋅ UniSubstOperations.subst shift2 (encode t'))) ⋅ (lam $ lam $ ((recSelf ⋅ var #1) ⋅ (recSelf ⋅ var #0))) ⋅ (lam $ lam $ recSelf ⋅ (var #1 ⋅ var #0))  ~~< ({?}, {?}) >~>
         t ⋅ t' `stop
   }

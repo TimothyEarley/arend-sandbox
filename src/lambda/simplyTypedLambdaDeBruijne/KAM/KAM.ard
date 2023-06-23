@@ -17,11 +17,11 @@
 
 -- https://bentnib.org/posts/2020-08-13-non-idempotent-intersection-types.html#11952
 
-\data Env (n : Nat) : \Set \elim n
+\data Env (n : Nat) : \1-Type (\suc \lp) \elim n
   | 0 => nil
   | suc n => cons (Env n) Closure
 
-\data Closure : \Set
+\data Closure : \1-Type (\suc \lp)
   | clo (ctx : SimpleContext) (T : Type) (Env (Context.length ctx)) (ctx ⊢ T)
 
 \data Stack
@@ -53,10 +53,17 @@
       | (clo ctx Natural e (succ t),s) => no (\lam r => \case r)
   }
 
--- TODO remove silly splits
 \func reduce {c : Configuration} (r : Reduction c) : Configuration
 \elim c, r
   | (clo (∕ ctx c) Natural (cons env cl) (var (Z p)),st), grab => \new Configuration {
+    | closure => cl
+    | stack => st
+  }
+  | (clo (∕ ctx c) (Base B) (cons env cl) (var (Z p)), st), grab => \new Configuration {
+    | closure => cl
+    | stack => st
+  }
+  | (clo (∕ ctx c) (EmptyT) (cons env cl) (var (Z p)), st), grab => \new Configuration {
     | closure => cl
     | stack => st
   }
@@ -72,6 +79,14 @@
     | closure => clo ctx (T' --> Natural) env f
     | stack => clo ctx T' env arg # st
   }
+  | (clo ctx (Base B) env (⋅ {T'} f arg), st), push => \new Configuration {
+    | closure => clo ctx (T' --> Base B) env f
+    | stack => clo ctx T' env arg # st
+  }
+  | (clo ctx EmptyT env (⋅ {T'} f arg), st), push => \new Configuration {
+    | closure => clo ctx (T' --> EmptyT) env f
+    | stack => clo ctx T' env arg # st
+  }
   | (clo ctx (--> A B) env (⋅ {T'} f arg), st), push => \new Configuration {
     | closure => clo ctx (T' --> (A --> B)) env f
     | stack => clo ctx T' env arg # st
@@ -80,7 +95,6 @@
     | closure => clo (ctx ∕ A) B (cons env c) body
     | stack => st
   }
-
 
 \func initial {T : Type} (t : ∅ ⊢ T) : Configuration \cowith
   | closure => clo ∅ T nil t
