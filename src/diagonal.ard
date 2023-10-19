@@ -1,0 +1,36 @@
+\import Equiv
+\import Function
+\import Function.Meta
+\import Meta
+\import Paths
+\import Paths.Meta
+
+\func DiagPair (A : \Type) : \Type => \Sigma (a : \Sigma A A) (h : a.1 = a.2)
+  \where {
+    \func from {A : \Type} (a : A) : DiagPair A => ((a, a), idp)
+
+    \func diagPairEq {A : \Type} : A = DiagPair A => ext (\new QEquiv {
+      | f a => ((a, a), idp)
+      | ret (aa, p) => aa.1
+      | ret_f a => idp
+      | f_sec => \case \elim __ \with {
+        | ((a, a'), idp) => idp
+      }
+    })
+  }
+
+\func lemma {A B : \Type} (p : (\Sigma A A) = (\Sigma B B)) : A = B =>
+  \let p' : DiagPair A = DiagPair B => ext (\new QEquiv {
+    | f ((a, _), pa) => DiagPair.from (transport id p (a, a)).1
+    | ret ((b, _), pb) => DiagPair.from (transport id (inv p) (b, b)).1
+    | ret_f ((a, a'), pa) => unfold_let $
+    unfold DiagPair.from $
+    ext (ext ({?},
+              {?}),
+         {?})
+    | f_sec => {?}
+  })
+  \in
+    DiagPair.diagPairEq *>
+    {?} *>
+    inv DiagPair.diagPairEq

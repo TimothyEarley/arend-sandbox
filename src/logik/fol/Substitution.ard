@@ -1,20 +1,58 @@
+\import Algebra.Monoid
+\import Arith.Nat
 \import Data.List
 \import Function.Meta
+\import Meta
+\import Paths
+\import Paths.Meta
 \import lambda.GeneralContext
 \import logik.fol.FOL
 
 \instance FOLTermSub {L : Language} : SubstOperations
   | Type => \Sigma
-  | Term c () => TermIn c
+  | Term c _ => TermIn c
   | s-var l => var (∋.toIndex l)
-  | rename r t => {?}
-  | extends => {?}
-  | subst => {?}
-  \where {
+  | rename r t => rename r t
+  | extends s t => \case \elim t \with {
+    | Z p => var (rewrite (length_++, NatSemiring.+-comm {_} {1}) 0)
+    | S l => rename S (s l)
+  }
+  | subst s t => subst s t
+\where {
+  \func FOLSubst {L : Language} => Subst {\Sigma} {\lam c _ => TermIn c}
   \func TermIn {L : Language} (c : Context (\Sigma)) : \Set => Term (length (Context.toList c))
 
   \func rename {L : Language} {gamma delta : Context (\Sigma)} (r : Rename gamma delta) (t : TermIn gamma) : TermIn delta
     \elim t
       | var f => var (∋.toIndex $ r $ ∋.fromIndex f)
-      | apply f d => {?}
+      | apply f d => apply f (\lam i => rename r (d i))
+
+  \func subst {L : Language} {gamma delta : Context (\Sigma)} (s : FOLSubst gamma delta) (t : TermIn gamma) : TermIn delta
+    \elim t
+      | var f => s (∋.fromIndex f)
+      | apply f d => apply f (\lam i => subst s (d i))
+}
+
+\module FormulaSubst \where {
+
+--  \func Subst {L : Language} (x y : Nat) => Fin x -> Term {L} y
+--  \func toFOLContext (n : Nat) : Context (\Sigma) \elim n
+--    | 0 => ∅
+--    | suc n => toFOLContext n ∕ ()
+
+--  \lemma contextLength {n : Nat} : length (Context.toList (toFOLContext n)) = n
+--    \elim n
+--      | 0 => idp
+--      | suc n => rewrite (length_++, NatSemiring.+-comm {1}) $ pmap suc contextLength
+--
+--  \func Subst2Subst {L : Language} {x y : Nat} (s : Subst x y) : FOLTermSub.FOLSubst {L}
+--      (toFOLContext x)
+--      (toFOLContext y)
+--    => \lam {A} l =>  run {
+--      unfold FOLTermSub.TermIn,
+--      rewrite contextLength,
+--      s,
+--      rewriteI contextLength,
+--      ∋.toIndex l
+--    }
 }

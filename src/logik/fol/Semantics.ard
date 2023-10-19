@@ -144,7 +144,7 @@
 
       \func substitutionLemma-> {L : Language} {n m : Nat} {I : Interpretation m}
                                 {ts : Subst n m} {phi : Formula n}
-                                (h : I ⊧ subst (ts !! __) phi):
+                                (h : I ⊧ subst (ts !! __) phi) :
         Interpretation.subst I (ts !! __) ⊧ phi \elim phi, h
         | equal x y, p => termSubstitution x *> p *> inv (termSubstitution y)
         | atomic r d, h => transport

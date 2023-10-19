@@ -1,0 +1,26 @@
+\import Algebra.Monoid
+\import Arith.Int
+\import Arith.Rat
+\import Equiv
+\import Function.Meta
+\import Logic
+\import Paths
+
+\data MyRat
+  | myRat (nom : Int) (denom : Nat) (denom /= 0)
+  | myRat-eq (a b : Int) (c d : Nat)
+             (h1 : c /= 0) (h2 : d /= 0) (h : a * d = b * c) : myRat a c h1 = myRat b d h2
+\where {
+
+  \func MyRat=Rat : QEquiv {MyRat} {Rat} \cowith
+    | f => \case \elim __ \with {
+      | myRat nom denom d/=0 => makeRat nom denom d/=0
+      | myRat-eq a b c d h1 h2 h => \let foo => inv $ rat_alt_makeRat.aux {a} {c} {h1}
+                                    \in Rat.ext
+            {?}
+            {?}
+    }
+    | ret => {?}
+    | ret_f => {?}
+    | f_sec => {?}
+}

@@ -9,6 +9,7 @@
 \import Paths.Meta
 \import Set
 \import logik.fol.Semantics
+\import logik.fol.Substitution
 \import sets.MySet
 \open Semantics (Interpretation, ⊧, ⊭)
 \open Term (liftN, lifts, liftsN)
@@ -181,7 +182,7 @@
       | notH f => notH (subst {L} s f)
       | forallH f => forallH (subst (extends s) f)
       \where {
-        \func substId {L : Language} {n : Nat} (f : Formula n) : subst var f = f \elim f
+        \func substId {L : Language} {n : Nat} (f : Formula n) : subst {L} {n} {n} var f = f \elim f
           | equal x y => pmap2 equal (subTerm.subTermId x) (subTerm.subTermId y)
           | atomic r d => pmap (atomic r) (subTerms.subTermsId d)
           | impH x f => pmap2 (impH) (substId x) (substId f)
