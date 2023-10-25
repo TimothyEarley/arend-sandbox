@@ -1,0 +1,44 @@
+\import Algebra.Monoid
+\import Arith.Nat
+\import Function.Meta
+\import Paths
+\import Paths.Meta
+
+-- https://www.youtube.com/playlist?list=PLJTuln4ze6X8FchoH9qBqHQp5KrVBJWQ8
+
+\module TheMonoidMovies \where {
+  \class Homomorphism {A B : Monoid} (f : A -> B)
+    | fe : f A.ide = B.ide
+    | fop {x y : A} : f (x A.* y) = f x B.* f y
+
+  \func NatAddMonoid : Monoid Nat 0 (Nat.+) \cowith
+    | ide-left => idp
+    | ide-right => idp
+    | *-assoc => NatSemiring.+-assoc
+
+  \func f_x {X : Monoid} (x : X) : Homomorphism {NatAddMonoid} {X} \cowith
+    | f => f
+    | fe => idp
+    | fop => fop
+    \where {
+      \func f (n : Nat) : X \elim n
+        | 0 => X.ide
+        | suc n => f n X.* x
+
+      \func fop {n m : Nat} : f (n + m) = f n X.* f m
+      \elim m
+        | 0 => inv X.ide-right
+        | suc m => rewrite (fop, X.*-assoc) idp
+    }
+
+  \func knownAtOne {X : Monoid}
+                   {f g : Homomorphism {NatAddMonoid} {X}}
+                   (h : f 1 = g 1) : f = g => ext $ ext rec
+    \where {
+      \func rec (n : Nat) : f n = g n \elim n
+        | 0 => f.fe *> inv g.fe
+        | suc n => rewrite (suc_1, f.fop {n} {1}, g.fop {n} {1}) $ pmap2 (X.*) (rec n) h
+      \func suc_1 {n : Nat} : suc n = n + 1
+        => idp
+    }
+}
