@@ -2,11 +2,12 @@
 \import Data.Maybe
 \import Logic
 \import identity.NatIdentity
+\import lambda.GeneralContext
 \import logik.fol.FOL
 \import logik.fol.Incompleteness
 \import logik.fol.Semantics
+\import logik.fol.Substitution
 \import sets.FromArray
-\import sets.MySet
 \import util.CantorPair
 \open Semantics (Structure)
 \open NatSemiring (<)
@@ -38,7 +39,7 @@
 
     \data LNN_Functions | Plus | Times | Succ | Zero
 
-    \func encodeFormula {n : Nat} (f : Formula {LNN'} n) : Nat
+    \func encodeFormula {c : TermContext} (f : Formula {LNN'} c) : Nat
     \elim f
       | equal x y => cPair 0 (cPair (encodeTerm x) (encodeTerm y))
       | atomic Less d => cPair 1 (termsToNat d)
@@ -47,8 +48,8 @@
       | forallH f => cPair 4 (encodeFormula f)
 
 
-    \func decodeFormula (n : Nat) (freeVars : Nat) : Maybe (Formula {LNN'} freeVars)
-      => \case cPair.unPair n \with {
+    \func decodeFormula (encoded : Nat) (c : TermContext) : Maybe (Formula {LNN'} c)
+      => \case cPair.unPair encoded \with {
         | (0, n2) => \let (x, y) => cPair.unPair n2 \in {?}
         | (1, n2) => {?}
         | (2, n2) => {?}
@@ -57,16 +58,16 @@
         | (_, _) => nothing
       }
 
-    \func encodeTerm {n : Nat} (t : Term {LNN'} n) : Nat
+    \func encodeTerm {c : TermContext} (t : Term {LNN'} c) : Nat
     \elim t
-      | var f => cPair 0 f
+      | var f => cPair 0 (∋.toIndex f)
       | apply Plus d => cPair 1 (termsToNat d)
       | apply Times d => cPair 2 (termsToNat d)
       | apply Succ d => cPair 3 (termsToNat d)
       | apply Zero d => cPair 4 (termsToNat d)
 
-    \func decodeTerm (n : Nat) (freeVars : Nat) : Maybe (Term {LNN'} freeVars)
-      => \case cPair.unPair n \with {
+    \func decodeTerm (encoded : Nat) (c : TermContext) : Maybe (Term {LNN'} c)
+      => \case cPair.unPair encoded \with {
         | (0,n2) => {?}
         | (1,n2) => {?}
         | (2,n2) => {?}
@@ -75,26 +76,26 @@
         | _ => nothing
       }
 
-    \func termsToNat {n : Nat} (ts : Array (Term {LNN'} n)) : Nat
+    \func termsToNat {c : TermContext} (ts : Array (Term {LNN'} c)) : Nat
     \elim ts
       | nil => 0
       | :: a arr => cPair (encodeTerm a) (termsToNat arr)
 
-    \func natToTerm (n : Nat) : Term {LNN'} 0
+    \func natToTerm (encoded : Nat) : Term {LNN'} ∅
       | 0 => apply Zero nil
       | suc n => apply Succ (natToTerm n :: nil)
   }
 
-\func NN : System {LNN} => \let axioms : Array (Formula {LNN} 0) 9 =>
+\func NN : System {LNN} => \let axioms : Array (Formula {LNN} ∅) 9 =>
   -- ∀x0. ¬ Sx0 = 0
-  forallH (notH (equal (apply LNN.Succ (var {LNN} 0 :: nil)) (apply LNN.Zero nil))) ::
+  forallH (notH (equal (apply LNN.Succ (var {LNN} #0 :: nil)) (apply LNN.Zero nil))) ::
   -- ∀x1. ∀x0. (Sx1 = Sx0 ⇒ x1 = x0)
   forallH (forallH (impH
-      (equal (apply LNN.Succ (var 1 :: nil)) (apply LNN.Succ (var 0 :: nil)))
-      (equal (var 1) (var 0))
+      (equal (apply LNN.Succ (var #1 :: nil)) (apply LNN.Succ (var #0 :: nil)))
+      (equal (var #1) (var #0))
   )) ::
   -- ∀x0. x0 + 0 = x0
-  forallH (equal (apply LNN.Plus (var 0 :: apply LNN.Zero nil :: nil)) (var 0)) ::
+  forallH (equal (apply LNN.Plus (var #0 :: apply LNN.Zero nil :: nil)) (var #0)) ::
   -- ∀x1. ∀x0. x1 + Sx0 = S(x1 + x0)
   {?} ::
   -- ∀x0. x0 × 0 = 0

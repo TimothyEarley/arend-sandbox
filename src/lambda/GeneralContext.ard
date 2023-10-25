@@ -1,11 +1,12 @@
 \import Arith.Nat
 \import Data.Fin
-\import Data.List
+\import Data.List \hiding (nil, ::)
+\import Data.Or
 \import Order.PartialOrder
 \import Paths
 \import Paths.Meta
 \import lambda.unityped.Substitute
-\import util.FinUtil
+\open Context (∕∕)
 
 \data Context (Type : \Type)
   | None \alias ∅
@@ -17,12 +18,12 @@
       | ∕ c t => suc (length c)
 
     \func toList {Type : \Set} (c : Context Type) : List Type \elim c
-      | ∅ => nil
-      | ∕ c t => toList c ++ t :: nil
+      | ∅ => List.nil
+      | ∕ c t => toList c ++ t List.:: List.nil
 
     \func toReversedList {Type : \Set} (c : Context Type) : List Type \elim c
-      | ∅ => nil
-      | ∕ c t => t :: toReversedList c
+      | ∅ => List.nil
+      | ∕ c t => t List.:: toReversedList c
 
     \func getAt {Type : \Set} (c : Context Type) (i : Fin (length c)) : Type \elim c, i
       | ∕ c t, 0 => t
@@ -32,6 +33,15 @@
       | len => length c
       | at => getAt c
     }
+
+    \func Conss \alias \infixl 6 ∕∕ {Type : \Type} (c : Context Type) (a : Array Type) : Context Type \elim a
+      | nil => c
+      | a :: l => c ∕∕ l ∕ a
+
+    \func lengthConss \alias length-∕∕ {Type : \Type} {c : Context Type} {a : Array Type} : length (c ∕∕ a) = length c Nat.+ a.len
+      \elim a
+        | nil => idp
+        | a :: l => pmap suc length-∕∕
   }
 
 \data Lookup \alias \infix 5 ∋ {Type : \1-Type} (c : Context Type) (T : Type) \elim c
@@ -51,16 +61,33 @@
       | ∕ c head, Z idp => expand-fin-right.correct 0
       | ∕ c head, S l => expand-fin-left.correct (toIndex l) *> indexOfList
 
-    \func fromIndex {Type : \Set} {c : Context Type} (i : Index (Context.toList c)) : c ∋ (Context.toList c !! i) =>
-      \let revI => revFin i
-        | foo => {?}
-      \in {?}
-      \where {
-        \func fromIndexWithReversed {Type : \Set} {c : Context Type} (i : Index (Context.toReversedList c)) : c ∋ (Context.toReversedList c !! i)
-        \elim c, i
-          | ∕ c1 t, 0 => Z idp
-          | ∕ c1 t, suc f => S (fromIndexWithReversed f)
-      }
+--    \func fromIndex {Type : \Set} {c : Context Type} (i : Index (Context.toList c)) : c ∋ (Context.toList c !! i) =>
+--      \let revI => revFin i
+--        | foo => {?}
+--      \in {?}
+--      \where {
+--        \func fromIndexWithReversed {Type : \Set} {c : Context Type} (i : Index (Context.toReversedList c)) : c ∋ (Context.toReversedList c !! i)
+--        \elim c, i
+--          | ∕ c1 t, 0 => Z idp
+--          | ∕ c1 t, suc f => S (fromIndexWithReversed f)
+--      }
+
+    \func toIndexFin {Type : \Set} {c : Context Type} {T : Type} (l : c ∋ T) : Fin (Context.length c) \elim c, l
+      | ∕ c1 head, Z p => zero
+      | ∕ c1 head, S l => fsuc (toIndexFin l)
+
+    \func fromIndexFin {Type : \Set} {c : Context Type}
+                       (i : Fin (Context.length c))
+      : c ∋ Context.getAt c i \elim  c, i
+      | ∕ c1 t, 0 => Z idp
+      | ∕ c1 t, suc i => S (fromIndexFin i)
+
+    \func toFromIndexFin {Type : \Set} {c : Context Type} (i : Fin (Context.length c)) : toIndexFin (fromIndexFin i) = i
+      \elim c, i
+        | ∕ c1 t, 0 => idp
+        | ∕ c1 t, suc i => pmap fsuc (toFromIndexFin i)
+
+    -- fromToIndexFin is not as nice, since we loose info on type T
   }
 
 \meta #0 => Z idp
@@ -96,7 +123,7 @@
   | S h2 => S (h h2)
 }
 
-\func Subst {Type : \1-Type} {Term : Context Type -> Type -> \1-Type} (gamma delta : Context Type) =>
+\func Subst {Type : \1-Type} {Term : Context Type -> Type -> \1-Type} (gamma delta : Context Type) : \Type =>
   \Pi {A : Type} (gamma ∋ A) -> Term delta A
 
 \class LC {Type : \1-Type} (\classifying Term : Context Type -> Type -> \1-Type) {
@@ -121,7 +148,7 @@
     \func extendsOne {SO : SubstOperations}
                      {gamma : Context SO.Type} {B : SO.Type} (t' : SO.Term gamma B) {A : SO.Type} (h : gamma ∕ B ∋ A) : SO.Term gamma A
     \elim h
-      | Z idp => t'
+      | Z p => rewriteI p t'
       | S h => s-var h
   }
 
@@ -137,4 +164,21 @@
       | Z idp => t''
       | S (Z idp) => t'
       | S (S h) => s-var h
+  }
+
+\func subN {SO : SubstOperations}
+          {gamma : Context SO.Type} {A : SO.Type} {Bs : Array SO.Type}
+           (t : SO.Term (gamma ∕∕ Bs) A)
+           (t' :  DArray (\lam i => SO.Term gamma (Bs i)))
+            : SO.Term gamma A => subst (extendsN t') t
+
+  \where {
+    \func extendsN {SO : SubstOperations}
+                   {gamma : Context SO.Type} {Bs : Array SO.Type}
+                   (t' :  DArray (\lam i => SO.Term gamma (Bs i))) {A : SO.Type}
+                   (h : gamma ∕∕ Bs ∋ A) : SO.Term gamma A
+      \elim Bs, t', h
+        | nil, nil, h => s-var h
+        | a :: _, x :: _, Z p => rewriteI p x
+        | _ :: l, _ :: t', S h => extendsN t' h
   }

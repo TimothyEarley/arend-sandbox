@@ -5,16 +5,17 @@
 \import identity.DecMaps
 \import identity.Identity
 \import logik.fol.FOL
+\import logik.fol.Substitution
 \import logik.fol.TermDec
 \open TermDec (terms-decide)
 
-\instance FormulaDec {L : DecLanguage} {n : Nat} : Identity.Decidable (Formula n)
+\instance FormulaDec {L : DecLanguage} {c : TermContext} : Identity.Decidable (Formula c)
   | Code => Code
   | code-refl => code-refl
   | code-decode => code-decode
   | code-decide => code-decide
 \where {
-  \func Code {L : Language} {n : Nat} (x y : Formula n) : \Prop \elim x, y
+  \func Code {L : Language} {c : TermContext} (x y : Formula c) : \Prop \elim x, y
     | equal x y, equal x1 y1 => \Sigma (x = x1) (y = y1)
     | atomic r d, atomic r1 d1 => \Sigma (r = r1) (d = d1) -- (r, d) = {\Sigma (r : L.Relations) (Array (Term n) (L.relationsArity r))} (r1, d1)
     | notH x, notH y => Code x y
@@ -41,21 +42,21 @@
     | forallH x, impH x1 y => Empty
     | forallH x, notH y => Empty
 
-  \func code-refl {L : Language} {n : Nat} (x : Formula n) : Code x x \elim x
+  \func code-refl {L : Language} {c : TermContext} (x : Formula c) : Code x x \elim x
     | equal x y => (idp, idp)
     | atomic r d => (idp, idp)
     | impH x x1 => (code-refl x, code-refl x1)
     | notH x => code-refl x
     | forallH x => code-refl x
 
-  \func code-decode {L : Language} {n : Nat} {x y : Formula n} (h : Code x y) : x = y \elim x, y, h
+  \func code-decode {L : Language} {c : TermContext} {x y : Formula c} (h : Code x y) : x = y \elim x, y, h
     | equal x y, equal x1 y1, (idp, idp) => idp
     | atomic r d, atomic r1 d1, (idp, idp) => idp
     | impH x x1, impH x2 y, h => pmap2 (impH) (code-decode h.1) (code-decode h.2)
     | notH x, notH y, h => pmap notH (code-decode h)
     | forallH x, forallH y, h => pmap forallH (code-decode h)
 
-  \func code-decide {L : DecLanguage} {n : Nat} (x y : Formula n) : Dec (Code x y) \elim x, y
+  \func code-decide {L : DecLanguage} {c : TermContext} (x y : Formula c) : Dec (Code x y) \elim x, y
     | equal x y, equal x1 y1 => decMap2 (TermDec.decideEq x x1) (TermDec.decideEq y y1) <->refl <->refl
     | atomic r d, atomic r1 d1 => decMap2 (L.decRelations.decideEq r r1) (terms-decide d d1) <->refl <->refl
     | impH x x1, impH x2 y => decMap2 (code-decide x x2) (code-decide x1 y) <->refl <->refl

@@ -1,22 +1,19 @@
 \import Arith.Nat
-\import Data.Fin
 \import Function
 \import Function.Meta
 \import Logic
 \import LogicUtil
-\import Meta
 \import Order.PartialOrder
 \import Paths
 \import Paths.Meta
-\import Util
+\import lambda.GeneralContext
 \import logik.fol.FOL
+\import logik.fol.Substitution
 \import sets.Elements
 \open NatSemiring (+-comm)
-\open Formula (Subst, extends, renamesAt, subTermsAt, subst)
-\open DArray (!!)
 \open Term (FreeVar, termDepth)
 \open Semantics (Structure, ⊧)
-\open Semantics.Interpretation (subOne, subOneRename)
+\open Semantics.Interpretation (subOne)
 
 \module Semantics \where {
   \record Structure (L : Language)
@@ -24,54 +21,64 @@
     | rel : \Pi (r : Relations) (args : Array Universe (relationsArity r)) -> \Prop
     | funcs : \Pi (f : Functions) (args : Array Universe (functionArity f)) -> Universe
 
-  \func Interpretation {L : Language} (n : Nat) => \Sigma (S : Structure L) (Fin n -> S.Universe)
+  \func Interpretation {L : Language} (c : TermContext) => \Sigma (S : Structure L) (variable c -> S.Universe)
     \where {
-      \func subst {L : Language} {n m : Nat} (I : Interpretation n) (s : Subst m n) : Interpretation m =>
+      -- TODO: SUbstOperations for Interpretation but in reverse??
+      \func subst {L : Language} {c c' : TermContext} (I : Interpretation c) (s : TermSubst c' c) : Interpretation c' =>
         (I.1, \lam f => evaluate I (s f))
 
-      \func subOne {L : Language} {n : Nat} (I : Interpretation n) (with : Universe {I.1}) : Interpretation (suc n) =>
+      \func subOne {L : Language} {c : TermContext} (I : Interpretation c) (with : Universe {I.1}) : Interpretation (c ∕ ()) =>
         (I.1, \lam f => \case \elim f \with {
-          | 0 => with
-          | suc f => I.2 f
+          | Z p => with
+          | S l => I.2 l
         })
 
-      \func subOneRename {L : Language} {n : Nat} {I : Interpretation n}
-                         {x : Universe {I.1}} (t : Term n)
-        : evaluate (subOne I x) (Formula.rename fsuc t) = evaluate I t \elim t
+      \func subOneRename {L : Language} {c : TermContext} {I : Interpretation c}
+                         {x : Universe {I.1}} (t : Term c)
+        : evaluate (subOne I x) (FOLTermSub.rename S t) = evaluate I t \elim t
         | var f => idp
-        | apply f d => unfold $ pmap (funcs {I.1} f) (ext (ext (\lam j => rewriteF (inv (renamesAt j)) (subOneRename (d j)))))
+        | apply f d => pmap (funcs {I.1} f) (ext $ ext $ (\lam j => subOneRename (d j)))
     }
 
-  \func evaluate {L : Language} {n : Nat} (I : Interpretation n) (t : Term n) : Universe {I.1} \elim t
+  \func evaluate {L : Language} {c : TermContext} (I : Interpretation c) (t : Term c) : Universe {I.1} \elim t
     | var i => I.2 i
     | apply f d => funcs {I.1} f (\lam j => evaluate I (d j))
+\where {
+  \func evalSubst {L : Language} {c c' : TermContext} {I : Interpretation c'} (t : Term c)
+                  {s s' : TermSubst c c'} (h : \Pi {f : variable c} (Term.FreeVar t f) -> evaluate I (s f) = evaluate I (s' f))
+    : evaluate I (FOLTermSub.subst s t) = evaluate I (FOLTermSub.subst s' t)
+  \elim t
+    | var f => h idp
+    | apply f d => pmap (Semantics.funcs {I.1} f)
+      $ ext $ ext $ (\lam j => evalSubst (d j) (\lam {f1} f2 => h {f1} (inP (j, f2))))
+}
 
-  \func models \alias \infix 4 ⊧ {L : Language} {n : Nat} (I : Interpretation n) (f : Formula n) : \Prop \elim f
+  \func models \alias \infix 4 ⊧ {L : Language} {c : TermContext} (I : Interpretation c) (f : Formula c) : \Prop \elim f
     | equal x y => evaluate I x = evaluate I y
     | atomic r d => rel {I.1} r (\lam j => evaluate I (d j))
     | impH x y => (I ⊧ x) -> (I ⊧ y)
     | notH f => Not (I ⊧ f)
     | forallH f => \Pi (x : Universe {I.1}) -> subOne I x ⊧ f
 
-  \func notModels \alias \infix 4 ⊭ {L : Language} {n : Nat} (I : Interpretation n) (f : Formula n) : \Prop =>
+  \func notModels \alias \infix 4 ⊭ {L : Language} {c : TermContext} (I : Interpretation c) (f : Formula c) : \Prop =>
     Not (I ⊧ f)
 
-  \func modelImplies \alias \infix 6 ⊫f {L : Language} {n : Nat} (x y : Formula n) : \Prop =>
-    \Pi (I : Interpretation n) (I ⊧ x) -> I ⊧ y
+  \func modelImplies \alias \infix 6 ⊫f {L : Language} {c : TermContext} (x y : Formula c) : \Prop =>
+    \Pi (I : Interpretation c) (I ⊧ x) -> I ⊧ y
 
-  \func substitutionLemma {L : Language} {n : Nat}
-                          (phi : Formula n) (ts : Subst n 0)
-                          (I : Interpretation 0) :
-    (I ⊧ subst ts phi) <-> (Interpretation.subst I ts ⊧ phi) =>
+  \func substitutionLemma {L : Language} {c : TermContext}
+                          (phi : Formula c) (s : TermSubst c ∅)
+                          (I : Interpretation ∅) :
+    (I ⊧ FormulaSubst.subst s phi) <-> (Interpretation.subst I s ⊧ phi) =>
     (substitutionLemma->, substitutionLemma<-)
 
     \where {
-      \func termCoincidenceLemma {L : Language} {n : Nat} {U : \Set}
+      \func termCoincidenceLemma {L : Language} {c : TermContext} {U : \Set}
                                  {S1 S2 : Structure L U}
-                                 {a1 a2 : Fin n -> U}
-                                 {t : Term n}
+                                 {a1 a2 : variable c -> U}
+                                 {t : Term c}
                                  (h1 : \Pi (f : L.Functions) -> S1.funcs f = S2.funcs f)
-                                 (h2 : \Pi {i : Fin n} (free : FreeVar t i) -> a1 i = a2 i)
+                                 (h2 : \Pi {i : variable c} (free : FreeVar t i) -> a1 i = a2 i)
         -- easy termination check
                                  {depth : Nat} (rh : termDepth t <= depth)
         : evaluate (S1, a1) t = evaluate (S2, a2) t
@@ -86,13 +93,13 @@
               (h1 f)
               (pmap (S2.funcs f) p)
 
-      \func coincidenceLemma {L : Language} {n : Nat} {U : \Set}
+      \func coincidenceLemma {L : Language} {c : TermContext} {U : \Set}
                              {S1 S2 : Structure L U}
-                             {a1 a2 : Fin n -> U}
-                             (f : Formula n) (m : (S1, a1) ⊧ f)
+                             {a1 a2 : variable c -> U}
+                             (f : Formula c) (m : (S1, a1) ⊧ f)
                              (h1 : \Pi (f : L.Functions) -> S1.funcs f = S2.funcs f)
                              (h2 : \Pi (r : L.Relations) -> S1.rel r = S2.rel r)
-                             (h3 : \Pi {i : Fin n} (free : Formula.FreeVar f i) -> a1 i = a2 i)
+                             (h3 : \Pi {i : variable c} (free : Formula.FreeVar f i) -> a1 i = a2 i)
         : (S2, a2) ⊧ f
       \elim f
         | equal x y =>
@@ -118,7 +125,7 @@
               | fc => coincidenceLemma f m1 (invPi h1) (invPi h2) (\lam {i} free => inv (h3 free))
             \in m fc
         | forallH f => \lam x =>
-            coincidenceLemma {L} {suc n} {U} {S1} {S2}
+            coincidenceLemma {L} {_} {U} {S1} {S2}
                 {(subOne (S1, a1) x).2}
                 {(subOne (S2, a2) x).2}
                 f
@@ -126,83 +133,75 @@
                 h1
                 h2
                 (\lam {i} free => \case \elim i, free \with {
-                  | 0, free => idp
-                  | suc i, free => h3 free
+                  | Z p, free => idp
+                  | S l, free => h3 free
                 })
 
-      \func termSubstitution {L : Language} {n m : Nat} {I : Interpretation m}
-                             {ts : Subst n m} (x : Term n)
-        : evaluate (Interpretation.subst I ts) x = evaluate I (Formula.subTerm ts x)
+      \func termSubstitution {L : Language} {c c' : TermContext} {I : Interpretation c'}
+                             {s : TermSubst c c'} (x : Term c)
+        : evaluate (Interpretation.subst I s) x = evaluate I (FOLTermSub.subst s x)
       \elim x
         | var f => idp
-        | apply f d => pmap (funcs {I.1} f) (ext (ext (\lam j =>
-            \let
-              | goal' : evaluate (Interpretation.subst I ts) (d j) = evaluate I (Formula.subTerm ts (d j)) => termSubstitution (d j)
-              | goal : evaluate (Interpretation.subst I ts) (d j) = evaluate I (Formula.subTerms ts d j) => rewriteF (inv (subTermsAt j)) goal'
-            \in goal
-        )))
+        | apply f d => pmap (funcs {I.1} f) (ext (ext (\lam j => termSubstitution (d j))))
 
-      \func substitutionLemma-> {L : Language} {n m : Nat} {I : Interpretation m}
-                                {ts : Subst n m} {phi : Formula n}
-                                (h : I ⊧ subst (ts !! __) phi) :
-        Interpretation.subst I (ts !! __) ⊧ phi \elim phi, h
+      \func substitutionLemma-> {L : Language} {c c' : TermContext} {I : Interpretation c'}
+                                {s : TermSubst c c'} {phi : Formula c}
+                                (h : I ⊧ FormulaSubst.subst s phi) :
+        Interpretation.subst I s ⊧ phi \elim phi, h
         | equal x y, p => termSubstitution x *> p *> inv (termSubstitution y)
-        | atomic r d, h => transport
-            (rel {I.1} r)
-            (ext (ext (\lam j => inv (rewriteF (inv (subTermsAt j)) (termSubstitution (d j))))))
-            h
+        | atomic r d, h => transport (rel {I.1} r) (ext $ ext $ (\lam j => inv (termSubstitution (d j)))) h
         | impH x phi, h => \lam m => substitutionLemma-> (h (substitutionLemma<- m))
         | notH phi, h => \lam m => h (substitutionLemma<- m)
         | forallH phi, h => \lam x =>
             \let
-              | psi =>  subst (Formula.extends ts) phi
+              | psi => FormulaSubst.subst (FOLTermSub.extends s) phi
               | h' : subOne I x ⊧ psi => h x
-              | h'' : Interpretation.subst (subOne I x) (extends ts) ⊧ phi => substitutionLemma-> h'
-              | goal : subOne (Interpretation.subst I ts) x ⊧ phi => coincidenceLemma
+              | h'' : Interpretation.subst (subOne I x) (FOLTermSub.extends s) ⊧ phi => substitutionLemma-> h'
+              | goal : subOne (Interpretation.subst I s) x ⊧ phi => coincidenceLemma
                   phi
                   h''
                   (\lam f => idp)
                   (\lam r => idp)
                   (\lam {i} free => \case \elim i \with {
-                    | 0 => idp
-                    | suc i => subOneRename (ts i)
+                    | Z _ => idp
+                    | S l => Interpretation.subOneRename (s l)
                   })
             \in goal
 
-      \func substitutionLemma<- {L : Language} {n m : Nat} {I : Interpretation m}
-                                {ts : Subst n m} {phi : Formula n}
-                                (h : Interpretation.subst I ts ⊧ phi)
-        : I ⊧ subst ts phi  \elim phi, h
+      \func substitutionLemma<- {L : Language} {c c' : TermContext} {I : Interpretation c'}
+                                {s : TermSubst c c'} {phi : Formula c}
+                                (h : Interpretation.subst I s ⊧ phi)
+        : I ⊧ FormulaSubst.subst s phi  \elim phi, h
         | equal x y, p => inv (termSubstitution x) *> p *> termSubstitution y
         | atomic r d, h => transport
             (rel {I.1} r)
-            (ext (ext (\lam j => rewriteF (inv (subTermsAt j)) (termSubstitution (d j)))))
+            (ext $ ext $ (\lam j => termSubstitution (d j)))
             h
         | impH x phi, h => \lam m => substitutionLemma<- (h (substitutionLemma-> m))
         | notH phi, h => \lam m => h (substitutionLemma-> m)
         | forallH phi, h => \lam x =>
             \let
-              | psi => subst (Formula.extends ts) phi
-              | h' : subOne (Interpretation.subst I ts) x ⊧ phi => h x
-              | h'' : Interpretation.subst (subOne I x) (extends ts) ⊧ phi => coincidenceLemma
+              | psi => FormulaSubst.subst (FOLTermSub.extends s) phi
+              | h' : subOne (Interpretation.subst I s) x ⊧ phi => h x
+              | h'' : Interpretation.subst (subOne I x) (FOLTermSub.extends s) ⊧ phi => coincidenceLemma
                   phi
                   h'
                   (\lam f => idp)
                   (\lam r => idp)
                   (\lam {i} free => \case \elim i \with {
-                    | 0 => idp
-                    | suc i => inv (subOneRename (ts i))
+                    | Z p => idp
+                    | S l => inv (Interpretation.subOneRename (s l))
                   })
-              | goal : subOne I x ⊧ psi => substitutionLemma<- {L} {_} {suc m} {subOne I x} h''
+              | goal : subOne I x ⊧ psi => substitutionLemma<- {L} {_} {_} {subOne I x} h''
             \in goal
     }
 
-  \func logicalEquivalent \alias \infix 2 ≡ {L : Language} {n : Nat} (x y : Formula n) : \Prop =>
+  \func logicalEquivalent \alias \infix 2 ≡ {L : Language} {c : TermContext} (x y : Formula c) : \Prop =>
     \Sigma (x ⊫f y) (y ⊫f x)
 
-  \func example : (NatStructure, nil) ⊧ {MonoidLang} forallH (forallH (equal
-      (apply plus (var 0 :: var 1 :: nil))
-      (apply plus (var 1 :: var 0 :: nil))
+  \func example : (NatStructure, \case __) ⊧ {MonoidLang} {∅} forallH (forallH (equal
+      (apply plus (var #0 :: var #1 :: nil))
+      (apply plus (var #1 :: var #0 :: nil))
   )) => \lam x y => +-comm
     \where {
       \func MonoidLang : Language \cowith

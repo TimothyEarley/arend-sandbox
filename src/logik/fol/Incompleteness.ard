@@ -3,21 +3,22 @@
 \import Data.Or
 \import Function.Meta ($)
 \import Paths.Meta
+\import lambda.GeneralContext
 \import logik.fol.FOL
 \import logik.fol.LNN
 \import logik.fol.SequentCalculus
+\import logik.fol.Substitution
 \import sets.DecidableSet
 \import sets.subset
-\open Formula (sub, subN')
 \open SequentCalulus (⊢)
 \open CodeableLanguage (⊻⊼)
 
 \class CodeableLanguage \extends Language {
-  | encode \alias ⊼ : \Pi {n : Nat} (Formula {\this} n) -> Nat
-  | natToTerm \alias ⊻ : Nat -> Term 0
-  | decode : \Pi (n : Nat) (freeVars : Nat) -> Maybe (Formula freeVars)
+  | encode \alias ⊼ : \Pi {c : TermContext} (Formula {\this} c) -> Nat
+  | natToTerm \alias ⊻ : Nat -> Term ∅
+  | decode : \Pi (n : Nat) (c : TermContext) -> Maybe (Formula c)
 
-  \func encodeToTerm \alias ⊻⊼ {n : Nat} (f : Formula n) : Term 0 => ⊻ (⊼ f)
+  \func encodeToTerm \alias ⊻⊼ {c : TermContext} (f : Formula c) : Term ∅ => ⊻ (⊼ f)
 }
 
 
@@ -25,8 +26,7 @@
   | functionRepresentation {r : Nat} (f : Array Nat r -> Nat) :
     \Sigma (phi : Formula (suc r)) (\Pi (a : Array Nat r) -> T ⊢ subN' phi (natToTerm (f a) :: map natToTerm a))
 
-\func Inconsistent {L : Language} (T : System) => \Pi (f : Formula 0) -> T ⊢ f
-
+\func Inconsistent {L : Language} (T : System) => \Pi (f : Formula ∅) -> T ⊢ f
 
 \func fixedPoint (C : CodeableLanguage) (T : System)
                  (R : AllowsRepresentations C T)

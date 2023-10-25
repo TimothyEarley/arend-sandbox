@@ -1,38 +1,59 @@
+\import Function.Meta ($)
 \import Logic
 \import Paths
+\import Paths.Meta
 \import Set
-\import identity.FinIdentity
 \import identity.Identity
+\import lambda.GeneralContext
 \import logik.fol.FOL
+\import logik.fol.Substitution
 \import util.ArrayUtils
 \open ArrayUtils (headOr, tail)
 
-\instance TermDec {L : DecLanguage} {n : Nat} : Identity.Decidable (Term n)
+\instance TermDec {L : DecLanguage} {c : TermContext} : Identity.Decidable (Term c)
   | Code => Code
   | code-refl => code-refl
   | code-decode => code-decode
   | code-encode => code-encode
   | code-decide => code-decide
   \where {
-    \func Code {L : Language} {n : Nat} (x y : Term n) : \Prop \elim x, y
+    \func Code {L : Language} {c : TermContext} (x y : Term c) : \Prop \elim x, y
       | var f, var f1 => f = f1
       | var f, apply f1 d => Empty
       | apply f d, var f1 => Empty
-      | apply f d, apply f1 d1 => (f, d) = {\Sigma (f : Functions) (Array (Term n) (functionArity f))} (f1, d1)
+      | apply f d, apply f1 d1 => (f, d) = {\Sigma (f : Functions) (Array (Term c) (functionArity f))} (f1, d1)
 
-    \func code-refl {L : Language} {n : Nat} (x : Term n) : Code x x \elim x
+    \func code-refl {L : Language} {c : TermContext} (x : Term c) : Code x x \elim x
       | var f => idp
       | apply f d => idp
 
-    \func code-encode {L : Language} {n : Nat} {x y : Term n} (p : x = y) : Code x y \elim p
+    \func code-encode {L : Language} {c : TermContext} {x y : Term c} (p : x = y) : Code x y \elim p
       | idp => code-refl x
 
-    \func code-decode {L : Language} {n : Nat} {x y : Term n} (h : Code x y) : x = y \elim x, y, h
+    \func code-decode {L : Language} {c : TermContext} {x y : Term c} (h : Code x y) : x = y \elim x, y, h
       | var f, var f1, h => pmap var h
       | apply f d, apply f1 d1, h => pmap (\lam z => apply z.1 z.2) h
 
-    \func code-decide {L : DecLanguage} {n : Nat} (x y : Term n) : Dec (Code x y) \elim x, y
-      | var f, var f1 => f fin≟ f1
+    \func decideVarEqual \alias \infix 6 var≟ {c : TermContext} (l l' : variable c) : Dec (l = l')
+      \elim c, l, l'
+        | ∕ c1 head, Z p, Z p' => yes (pmap Z pathsEqual)
+        | ∕ c1 head, Z p, S l => no (\lam n => transport (\case __ \with {| Z _ => \Sigma | S _ => Empty }) n ())
+        | ∕ c1 head, S l, Z p => no (\lam n => transport (\case __ \with {| Z _ => Empty | S _ => \Sigma  }) n ())
+        | ∕ c1 head, S l, S l1 => \case l var≟ l1 \with {
+          | yes e => yes (pmap S e)
+          | no n => no (\lam p => n $ pmap (\case \elim __ \with {
+            | Z p1 => l
+            | S l2 => l2
+          }) p)
+        }
+      \where {
+      \func pathsEqual {a b c d : \Sigma} {p : a = b} {p' : c = d}  : p = p'
+        \elim a, b, c, d
+          | (), (), (), () => ext
+    }
+
+    \func code-decide {L : DecLanguage} {c : TermContext} (x y : Term c) : Dec (Code x y) \elim x, y
+      | var f, var f1 => f var≟ f1
       | var f, apply f1 d => no absurd
       | apply f d, var f1 => no absurd
       | apply f d, apply f1 d1 => \case L.decFunctions.decideEq f f1 \with {
@@ -43,14 +64,14 @@
         | no n1 => no (\lam c => n1 (pmap __.1 c))
       }
 
-    \func terms-decide {L : DecLanguage} {n : Nat} (x y : Array (Term n))
-      : Dec (x = {Array (Term n)} y) \elim x, y
+    \func terms-decide {L : DecLanguage} {c : TermContext} (x y : Array (Term c))
+      : Dec (x = {Array (Term c)} y) \elim x, y
       | nil, nil => yes idp
       | nil, :: a arr => no (\case __)
       | :: a arr, nil => no (\case __)
       | :: a arr, :: a1 arr1 => \case code-decide a a1 \with {
         | yes e => \case terms-decide arr arr1 \with {
-          | yes e1 => yes (transport2 (\lam z z' => a :: arr = {Array (Term n)} z :: z') (code-decode e) e1 idp)
+          | yes e1 => yes (transport2 (\lam z z' => a :: arr = {Array (Term c)} z :: z') (code-decode e) e1 idp)
           | no n1 => no (\lam p => n1 (pmap tail p))
         }
         | no n1 => no (\lam p => n1 (code-encode (pmap (headOr a) p)))

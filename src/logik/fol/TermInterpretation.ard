@@ -7,24 +7,24 @@
 \import logik.fol.FOL
 \import logik.fol.Semantics
 \import logik.fol.SequentCalculus
+\import logik.fol.Substitution
 \import logik.fol.TermCongruence
 \import sets.MySet
 \open Semantics (Interpretation, evaluate, ⊧)
 \open SequentCalulus (⊢)
-\open Formula (extendsN')
 
-\func TermInterpretation {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) : Interpretation n =>
+\func TermInterpretation {L : Language} {c : TermContext} (axioms : Ensemble (Formula c)) : Interpretation c =>
   (\new Semantics.Structure {
-     | Universe =>  Quotient {Term n} (~ {T~ axioms})
+     | Universe =>  Quotient {Term c} (~ {T~ axioms})
      | rel => relInterpretation axioms
      | funcs f d => {?}
    },
    \lam f => in~ (var f))
   \where {
-    \func relInterpretation {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) (r : Relations) (d : Array (Quotient {Term n} (~ {T~ axioms})) (relationsArity r)) : \Prop =>
+    \func relInterpretation {L : Language} {c : TermContext} (axioms : Ensemble (Formula n)) (r : Relations) (d : Array (Quotient {Term n} (~ {T~ axioms})) (relationsArity r)) : \Prop =>
       relInterpretation' axioms r (Quotient.liftArray {relationsArity r} {_} (\lam {j} => ~ {T~ axioms}) (\lam {j} x => ~-reflexive {T~ axioms}) d)
 
-    \func relInterpretation' {L : Language} {n : Nat} (axioms : Ensemble (Formula n)) (r : Relations)
+    \func relInterpretation' {L : Language} {c : TermContext} (axioms : Ensemble (Formula n)) (r : Relations)
                              (d : Quotient {Array (Term n) (relationsArity r)} (\lam f g => \Pi (i : Fin (L.relationsArity r)) -> f i ~ {T~ axioms} g i)) : \Prop
     \elim d
       | in~ d => TruncP (axioms ⊢ atomic r d)
@@ -57,12 +57,12 @@
           {_} {n} {l} {axioms} {\lam j => x (fsuc j)} {\lam j => y (fsuc j)}
           (\lam j => h (fsuc j)) i
 
-    \func termInterpretationIsQuotient {L : Language} {n : Nat} {axioms : Ensemble (Formula n)} {t : Term n}
+    \func termInterpretationIsQuotient {L : Language} {c : TermContext} {axioms : Ensemble (Formula n)} {t : Term n}
       : evaluate (TermInterpretation axioms) t = in~ t \elim t
       | var f => idp
       | apply f d => idp
 
-    \func termInterpretationEquivForAtomics {L : Language} {n : Nat}
+    \func termInterpretationEquivForAtomics {L : Language} {c : TermContext}
                                             {phi : Formula n}
                                             {axioms : Ensemble (Formula n)}
       -- TruncP because there could be many proofs?

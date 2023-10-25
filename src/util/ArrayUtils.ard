@@ -56,6 +56,19 @@
     }
 
   \func arrayOf {A : \Type} (val : A) {n : Nat} : Array A n => mkArray (\lam f => val)
+  \func arrayOf' {A : \Type} (val : A) {n : Nat} : Array A n
+    \elim n
+      | 0 => nil
+      | suc n => val :: arrayOf' val
+  \where {
+    \func atIndex= {A : \Type} {val : A} {n : Nat} {j : Fin n} : arrayOf' val {n} j = val
+      \elim n, j
+        | suc n, 0 => idp
+        | suc n, suc j => atIndex=
+  }
+  \func arrayOf= {A : \Type} {val : A} {n : Nat} : arrayOf val {n} = arrayOf' val {n}
+    => ext (idp,
+            ext (\lam j => inv arrayOf'.atIndex=))
 
   --  \func set {n : Nat} {A : \Type} (a : Array A n) (i : Fin n) (v : A) : Array A n =>
   --    \lam j => \case i fin≟ j \return A \with {
