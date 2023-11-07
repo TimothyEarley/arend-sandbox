@@ -1,9 +1,11 @@
+\import Data.Fin
 \import Function.Meta
 \import Logic
 \import Meta
 \import Paths
 \import Paths.Meta
 \import Set \hiding (#)
+\import Util
 \import lambda.GeneralContext
 \import logik.fol.FOL
 \import logik.fol.FormulaDec
@@ -15,6 +17,7 @@
 \import sets.finite.Sized
 \import sets.remove
 \import sets.subset
+\import util.ArrayUtils
 \open Semantics (Interpretation, ⊧)
 
 \module SequentCalulus \where {
@@ -226,6 +229,40 @@
       \func intro-<->H {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
                        {x y : Formula c} (h1 : axioms ⊢ x impH y) (h2 : axioms ⊢ y impH x)
         : axioms ⊢ (x <->H y) => intro-and h1 h2
+
+      \func EqualRel {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
+        {r : L.Relations} {d d' : Array (Term c) (L.relationsArity r)}
+        (he : \Pi (i : Fin (L.relationsArity r)) -> axioms ⊢ equal (d i) (d' i))
+        (h : axioms ⊢ atomic r d) : axioms ⊢ atomic r d'
+        => {?}
+
+      \func EqualApply {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
+        {f : L.Functions} {d d' : Array (Term c) (L.functionArity f)}
+        (h : \Pi (i : Fin (L.functionArity f)) -> axioms ⊢ equal (d i) (d' i))
+        : axioms ⊢ equal (apply f d) (apply f d')
+        => ⊢.E-Sub'
+            (subN.extendsN {FOLTermSub} {_} {ArrayUtils.arrayOf' ()} d)
+            (subN.extendsN {FOLTermSub} {_} {ArrayUtils.arrayOf' ()} d')
+            (\lam i => equalExtendsN h i)
+            (equal (apply f (\lam i => Term.liftN (d i))) (apply f arrayOfVars))
+            {?}
+            {?}
+          \where {
+            \func arrayOfVars {L : Language} {c : TermContext} {length : Nat} : Array (Term {L} (c Context.∕∕ ArrayUtils.arrayOf () {length})) length =>
+              \lam i =>
+                  \let i' : Fin (Context.length c Nat.+ length) => finExpandLeft i
+                  \in var (∋.fromIndexFin $ rewrite Context.length-∕∕ i')
+
+            \func equalExtendsN {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
+                                       {l : Nat} {d d' : Array (Term c) l}
+                                       (de : \Pi (i : Fin l) -> axioms ⊢ equal (d i) (d' i))
+                                       (i : c Context.∕∕ ArrayUtils.arrayOf () {l} ∋ ())
+            : axioms ⊢ equal (subN.extendsN {FOLTermSub} d i) (subN.extendsN {FOLTermSub} d' i)
+          \elim l, i
+            | 0, i => ⊢.E-Refl idp
+            | suc l, Z p => de 0
+            | suc l, S i => equalExtendsN (\lam j => de (fsuc j)) i
+          }
     }
 
   \func weaken {L : Language} {c : TermContext} {axioms axioms' : Ensemble (Formula c)} {toShow : Formula c}

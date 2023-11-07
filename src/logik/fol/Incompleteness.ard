@@ -2,6 +2,8 @@
 \import Data.Maybe
 \import Data.Or
 \import Function.Meta ($)
+\import Meta
+\import Paths
 \import Paths.Meta
 \import lambda.GeneralContext
 \import logik.fol.FOL
@@ -10,6 +12,7 @@
 \import logik.fol.Substitution
 \import sets.DecidableSet
 \import sets.subset
+\import util.ArrayUtils
 \open SequentCalulus (⊢)
 \open CodeableLanguage (⊻⊼)
 
@@ -21,39 +24,84 @@
   \func encodeToTerm \alias ⊻⊼ {c : TermContext} (f : Formula c) : Term ∅ => ⊻ (⊼ f)
 }
 
-
 \class AllowsRepresentations (C : CodeableLanguage) (T : System)
   | functionRepresentation {r : Nat} (f : Array Nat r -> Nat) :
-    \Sigma (phi : Formula (suc r)) (\Pi (a : Array Nat r) -> T ⊢ subN' phi (natToTerm (f a) :: map natToTerm a))
+  \Sigma (phi : Formula (∅ Context.∕∕ ArrayUtils.arrayOf' () {suc r}))
+         (\Pi (a : Array Nat r) ->
+             T ⊢ FormulaSubst.subst {C}
+                     (\case \elim __ \with {
+                       | Z p => ⊻ (f a)
+                       | S l => ⊻ (a (rewriteF Context.length-∕∕ $ ∋.toIndexFin l))
+                     })
+                     phi)
 
 \func Inconsistent {L : Language} (T : System) => \Pi (f : Formula ∅) -> T ⊢ f
 
 \func fixedPoint (C : CodeableLanguage) (T : System)
                  (R : AllowsRepresentations C T)
-                 (psi : Formula 1) : \Sigma (phi : Formula 0) (T ⊢ phi <->H sub psi (natToTerm (encode phi)))
-  => \let
-     | F : (Array Nat 2) -> Nat => \case __ \with {
-       | :: n (:: m nil) => \case decode n 1 \with {
-         | nothing => 0
-         | just xi => encode (sub xi (natToTerm m))
-       }
-     }
-     | (alpha, fRepH) => R.functionRepresentation F
-     | beta : Formula 1 => forallH ({?} impH {?})
-     | phi : Formula 0 => forallH ({?} impH {?})
-     | betabeta : phi = sub beta (⊻⊼ beta) => {?}
-     | Fbeta : F (⊼ beta :: ⊼ beta :: nil) = ⊼ phi => {?}
-     | h' => rewriteF Fbeta $ fRepH (⊼ beta :: ⊼ beta :: nil)
-     | h : T ⊢ subN' alpha (⊻⊼ phi :: ⊻⊼ beta :: ⊻⊼ beta :: nil) => {?} -- should just be h'
-     \in (phi,
-          ⊢.intro-<->H
-              (SequentCalulus.impIntro {?})
-              {?})
+                 (psi : Formula (∅ ∕ ())) : \Sigma (phi : Formula ∅) (T ⊢ phi <->H FormulaSubst.sub psi (natToTerm (⊼ phi))) =>
+  \let
+    -- F codes for (x : Term, y : Nat) -> x[0->y]
+    | F : (Array Nat 2) -> Nat => \case __ \with {
+      | :: n (:: m nil) => \case decode n (∅ ∕ ()) \with {
+        | nothing => 0
+        | just xi => ⊼ (FormulaSubst.sub xi (⊻ m))
+      }
+    }
+    | (alpha, fRepH) => R.functionRepresentation F
+    | beta : Formula (∅ ∕ ()) => forallH ({?} impH Formula.lift psi)
+    | phi : Formula ∅ => forallH ({?} impH {?})
+    | betabeta : phi = FormulaSubst.sub beta (⊻⊼ beta) => {?}
+    | Fbeta : F (⊼ beta :: ⊼ beta :: nil) = ⊼ phi => {?}
+
+    | h' : R.T ⊢ FormulaSubst.subst (\lam {A : \Sigma} (p0 : ∅ ∕ () ∕ () ∕ () ∋ A) => \case p0 \with {
+      | Z _ => ⊻ (F (⊼ beta :: ⊼ beta :: nil))
+      | S l => ⊻ ((⊼ beta :: ⊼ beta :: nil) (∋.toIndexFin l))
+    }) alpha => fRepH (⊼ beta :: ⊼ beta :: nil)
+    | h : T ⊢ FormulaSubst.sub3 alpha (⊻⊼ phi) (⊻⊼ beta) (⊻⊼ beta) =>
+      transport (T ⊢ FormulaSubst.subst __ alpha)
+                                       {\lam {A : \Sigma} (p0 : ∅ ∕ () ∕ () ∕ () ∋ A) => \case p0 \return Term ∅ \with {
+                                         | Z _ => ⊻ (F (⊼ beta :: ⊼ beta :: nil))
+                                         | S l => ⊻ ((⊼ beta :: ⊼ beta :: nil) (∋.toIndexFin l))
+                                       }}
+                                       {FormulaSubst.sub3.extends3 _ _ _}
+                                       (ext (\case \elim __ \with {
+                                         | Z p => pmap ⊻ Fbeta
+                                         | S (Z _) => idp
+                                         | S (S (Z _)) => idp
+                                         | S (S (S ()))
+                                       }))
+                                       h'
+  \in (phi,
+       {?})
+
+
+-- according to lemma 37.2 of https://builds.openlogicproject.org/open-logic-complete.pdf
+--\func diag {C : CodeableLanguage} {T : System}
+--           {R : AllowsRepresentations C T}
+--           (psi : Formula (∅ ∕ ())) : Formula ∅
+--  => FormulaSubst.sub psi (⊻ (⊼ psi))
+--
+--\func fixedPoint2 (C : CodeableLanguage) (T : System)
+--                 (R : AllowsRepresentations C T)
+--                 (psi : Formula (∅ ∕ ())) : \Sigma (phi : Formula ∅) (T ⊢ phi <->H FormulaSubst.sub psi (natToTerm (⊼ phi))) =>
+--  \let
+--    | diagN : (Array Nat 1) -> Nat => \case __ \with {
+--      | :: n nil => \case decode n (∅ ∕ ()) \with {
+--        | nothing => 0
+--        | just xi => ⊼ (FormulaSubst.sub xi (⊻⊼ xi))
+--      }
+--    }
+--    | (diagF : Formula (∅ ∕ () ∕ ()), diagProof) => R.functionRepresentation diagN
+--    | alpha : Formula (∅ ∕ ()) => existsH ({?} andH {?}) -- diagF(x, y) and psi(y)
+--
+--
+--  \in {?}
 
 \func Incompleteness (T : System {LNN}) {DT : DecElementEnsemble _ T}
                      (hasNN : NN ⊆ T)
                      (represents : AllowsRepresentations LNN T)
-  : \Sigma  (f : Formula {LNN} 0)
+  : \Sigma  (f : Formula {LNN} ∅)
             (Or (T ⊢ {LNN} f) (T ⊢ {LNN} notH f) -> Inconsistent {LNN} T) =>
   ({?},
    \lam o f => {?})

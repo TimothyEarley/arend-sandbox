@@ -143,5 +143,4 @@
     | (_, inP (6, idp)) => {?}
     | (_, inP (7 ,idp)) => {?}
     | (_, inP (8 ,idp)) => {?}
-    | _ => {?} -- error in pattern matching?
   }

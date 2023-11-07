@@ -6,7 +6,7 @@
 \import logik.fol.FOL
 
 \func TermContext : \Set => Context (\Sigma)
-\where {
+  \where {
     \func equalNat : TermContext = Nat => ext (\new QEquiv {
       | f => Context.length
       | ret => contextOfLength
@@ -25,11 +25,9 @@
     \func sec (n : Nat) : Context.length (contextOfLength n) = n \elim n
       | 0 => idp
       | suc n => pmap suc (sec n)
-}
-
+  }
 
 \func TermSubst {L : Language} : \Pi (_ _ : Context (\Sigma)) -> \Type => Subst {\Sigma} {\lam c _ => Term c}
-
 
 \instance FOLTermSub {L : Language} : SubstOperations
   | Type => \Sigma
@@ -41,31 +39,49 @@
     | S l => rename S (s l)
   }
   | subst s t => subst s t
-\where {
-
-  \func rename {L : Language} {gamma delta : Context (\Sigma)} (r : Rename gamma delta) (t : Term gamma) : Term delta
+  \where {
+    \func rename {L : Language} {gamma delta : Context (\Sigma)} (r : Rename gamma delta) (t : Term gamma) : Term delta
     \elim t
       | var f => var $ r f
       | apply f d => apply f (\lam i => rename r (d i))
 
-  \func subst {L : Language} {gamma delta : TermContext} (s : TermSubst gamma delta) (t : Term gamma) : Term delta
+    \func subst {L : Language} {gamma delta : TermContext} (s : TermSubst gamma delta) (t : Term gamma) : Term delta
     \elim t
       | var f => s f
       | apply f d => apply f (\lam i => subst s (d i))
 
-
-  \func subTermId {L : Language} {gamma : TermContext} (t : Term gamma) : subst (\lam {A} l => var l) t = t \elim t
-    | var f => idp
-    | apply f d => pmap (apply f) (ext $ ext (\lam j => subTermId (d j)))
-}
+    \func subTermId {L : Language} {gamma : TermContext} (t : Term gamma) : subst (\lam {A} l => var l) t = t \elim t
+      | var f => idp
+      | apply f d => pmap (apply f) (ext $ ext (\lam j => subTermId (d j)))
+  }
 
 \module FormulaSubst \where {
   \func subst {L : Language} {gamma delta : TermContext} (s : TermSubst gamma delta) (f : Formula gamma)
     : Formula delta
-    \elim f
-      | equal x y => equal (FOLTermSub.subst s x) (FOLTermSub.subst s y)
-      | atomic r d => atomic r (\lam i => FOLTermSub.subst s (d i))
-      | x impH f => subst s x impH subst s f
-      | notH f => notH (subst s f)
-      | forallH f => forallH (subst (FOLTermSub.extends s) f)
+  \elim f
+    | equal x y => equal (FOLTermSub.subst s x) (FOLTermSub.subst s y)
+    | atomic r d => atomic r (\lam i => FOLTermSub.subst s (d i))
+    | x impH f => subst s x impH subst s f
+    | notH f => notH (subst s f)
+    | forallH f => forallH (subst (FOLTermSub.extends s) f)
+
+  \func sub {L : Language} {gamma : TermContext}
+            (f : Formula (gamma ∕ ())) (t : Term gamma) : Formula gamma => subst (\case \elim __ \with {
+    | Z p => t
+    | S l => var l
+  }) f
+
+  \func sub3 {L : Language} {gamma : TermContext}
+             (f : Formula (gamma ∕ () ∕ () ∕ ()))
+             (t t' t'' : Term gamma) : Formula gamma => subst (extends3 t t' t'') f
+  \where {
+    \func extends3 {L : Language} {gamma : TermContext}
+      (t t' t'' : Term gamma) : TermSubst (gamma ∕ () ∕ () ∕ ()) gamma
+      => \case \elim __ \with {
+        | Z _ => t
+        | S (Z _) => t'
+        | S (S (Z _)) => t''
+        | S (S (S l)) => var l
+      }
+  }
 }

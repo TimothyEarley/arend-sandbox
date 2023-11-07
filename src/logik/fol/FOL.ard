@@ -129,129 +129,6 @@
   | forallH (x : Formula {L} (variables ∕ ()))
   \where {
 
-    --    \func subTerms {L : Language} {n m l : Nat} (s : Subst {L} n m) (d : Array (Term {L} n) l) : Array (Term {L} m) l
-    --    \elim l, d
-    --      | 0, nil => nil
-    --      | suc l, :: a d => subTerm s a :: subTerms s d
-    --      \where {
-    --        \func subTermsId {L : Language} {n l : Nat} (d : Array (Term {L} n) l) : subTerms var d = {Array (Term n) l} d \elim l, d
-    --          | 0, nil => idp {Array (Term n) 0}
-    --          | suc l, :: a d => pmap2 {Term n} {Array (Term n) l} {Array (Term n) (suc l)} (::) (subTerm.subTermId a) (subTermsId d)
-    --      }
-    --
---    \func subTermsAt  {L : Language} {n m l : Nat} {s : Subst {L} n m} {d : Array (Term {L} n) l} (j : Fin l) : subTerms s d j = subTerm s (d j)
-    --    \elim l, d, j
-    --      | suc l, :: a d, 0 => idp
-    --      | suc l, :: a d, suc j => subTermsAt j
-    --
---    \func subTermLift {L : Language} {n : Nat} {x : Term n}
-    --                      (s : Subst (suc n) n)
-    --                      (h : \Pi (f : Fin n) -> s (suc f) = var f)
-    --      : subTerm s (Term.lift x) = x \elim x
-    --      | var f => h f
-    --      | apply f d => pmap (apply f) (subTermsLift {_} {_} {functionArity f} h)
-    --
---    \func subTermsLift {L : Language} {n l : Nat} {x : Array (Term n) l}
-    --                       {s : Subst (suc n) n}
-    --                       (h : \Pi (f : Fin n) -> s (suc f) = var f)
-    --      : subTerms s (lifts x) = {Array (Term n) l} x \elim l, x
-    --      | 0, nil => path (\lam i => nil)
-    --      | suc l, :: a x => path (\lam i => (subTermLift s h @ i) :: subTermsLift h @ i)
-    --
---    \func rename {L : Language} {x y : Nat} (r : Rename x y) (t : Term {L} x) : Term {L} y
-    --    \elim t
-    --      | var f => var (r f)
-    --      | apply f d => apply f (renames r d)
-    --
---    \func renames {L : Language} {x y l : Nat} (r : Rename x y) (t : Array (Term {L} x) l) : Array (Term {L} y) l
-    --    \elim l, t
-    --      | 0, nil => nil
-    --      | suc l, :: a t => rename r a :: renames r t
-    --
---    \func renamesAt {L : Language} {x y l : Nat} {r : Rename x y} {t : Array (Term x) l} (j : Fin l)
-    --      : renames r t j = rename r (t j)
-    --    \elim l, t, j
-    --      | suc l, :: a t, 0 => idp
-    --      | suc l, :: a t, suc j => renamesAt j
-    --
---    \func extends {L : Language} {n m : Nat} (s : Subst {L} n m) : Subst (suc n) (suc m) => \case __ \with {
-    --      | 0 => var 0
-    --      | suc f => rename fsuc (s f)
-    --    }
-    --
---    \func extendsN {L : Language} {n m k : Nat} (s : Subst n m) : Subst (n Nat.+ k) (m Nat.+ k) \elim k
-    --      | 0 => s
-    --      | suc k => extends (extendsN s)
-    --
---    \func extendsN' {L : Language} {n m : Nat} (s : Subst m n) : Subst (n Nat.+ m) n => helper s
-    --      \where {
-    --        \func helper{n m : Nat} (s : Subst m n) (i : Fin (n Nat.+ m)) : Term {L} n \elim m, i
-    --          | 0, i => var i
-    --          | suc m, 0 => s 0
-    --          | suc m, suc i => helper (\lam f => s (suc f)) i
-    --
---        \func subExtendsLifts {L : Language} {n m : Nat} {s : Subst n m} {t : Term m}
-    --          : subTerm {L} {m Nat.+ n} {m} (extendsN' s) (liftN n t) = t
-    --        \elim n, t
-    --          | 0, var f => idp
-    --          | 0, apply f d => pmap {Array (Term m) (L.functionArity f)} (apply f) {subTerms (extendsN' s) d} {d}
-    --              {?}
-    --          | suc n, var f => {?}
-    --          | suc n, apply f d => {?}
-    --
-----        \func liftsN0 {L : Language} {n l : Nat} {t : Array (Term n) l} : liftsN 0 t = {Array (Term n) l} t \elim t
-    ----          | nil => idp
-    ----          | a :: t1 => pmap2 (::) idp liftsN0
-    --
---        \func subTermsExtendsLifts {L : Language} {n m l : Nat} (s : Subst n m) {t : Array (Term m) l}
-    --          : subTerms {L} {m Nat.+ n} {m} (extendsN' s) (liftsN n t) = {Array (Term m) l} t \elim l, t
-    --          | 0, nil => {?}
-    --          | suc l, a :: t => {?} -- pmap2 (::) {?} {?}
-    --      }
-
-    --    \func subst {L : Language} {n m : Nat} (s : Subst {L} n m) (f : Formula {L} n) : Formula {L} m
-    --    \elim f
-    --      | equal x y => equal (subTerm {L} s x) (subTerm {L} s y)
-    --      | atomic r d => atomic r (subTerms {L} s d)
-    --      | impH x f => impH (subst {L} s x) (subst {L} s f)
-    --      | notH f => notH (subst {L} s f)
-    --      | forallH f => forallH (subst (extends s) f)
-    --      \where {
-    --        \func substId {L : Language} {n : Nat} (f : Formula n) : subst {L} {n} {n} var f = f \elim f
-    --          | equal x y => pmap2 equal (subTerm.subTermId x) (subTerm.subTermId y)
-    --          | atomic r d => pmap (atomic r) (subTerms.subTermsId d)
-    --          | impH x f => pmap2 (impH) (substId x) (substId f)
-    --          | notH f => pmap notH (substId f)
-    --          | forallH f => pmap forallH (\let goal : subst (extends var) f = f => rewrite extendsVarIsVar (substId f) \in goal)
-    --
---        \func extendsVarIsVar {L : Language} {n : Nat} : extends var = {Subst (suc n) (suc n)} var =>
-    --          ext (\case \elim  __ \with {
-    --            | 0 => idp
-    --            | suc f => idp
-    --          })
-    --      }
-    --
---    \func sub {L : Language} {n : Nat} (f : Formula {L} (suc n)) (with : Term {L} n) : Formula n =>
-    --      subst (substFunction with) f
-    --      \where {
-    --        \func substFunction {L : Language} {n : Nat} (with : Term n) : Subst (suc n) n => \case __ \with {
-    --          | 0 => with
-    --          | suc f => var f
-    --        }
-    --      }
-    --
---    \func subN' {L : Language} {n : Nat} (f : Formula n) (with : Array (Term 0) n) : Formula 0 => subN f with
-    --
---    \func subN {L : Language} {n m : Nat} (f : Formula (n Nat.+ m)) (with : Array (Term n) m) : Formula n =>
-    --      subst (substFunction with) f
-    --      \where {
-    --        \func substFunction {L : Language} {n m : Nat} (with : Array (Term n) m) (i : Fin (n Nat.+ m)) : Term n
-    --        \elim m, with, i
-    --          | 0, nil, i => var i
-    --          | suc m, :: a with, 0 => a
-    --          | suc m, :: a with, suc i => substFunction with i
-    --      }
-
     \func FreeVar {L : Language} {c : TermContext} (f : Formula c) (i : variable c) : \Prop \elim f
       | equal x y => Term.FreeVar x i || Term.FreeVar y i
       | atomic r d => Term.AnyFreeVar d i
@@ -259,15 +136,15 @@
       | notH f => FreeVar f i
       | forallH f => FreeVar f (S i)
 
-    --    \func lift {L : Language} {n : Nat} (f : Formula n) : Formula (suc n) \elim f
-    --      | equal x y => equal (Term.lift x) (Term.lift y)
-    --      | atomic r d => atomic r (Term.lifts d)
-    --      | impH x f => lift x impH lift f
-    --      | notH f => notH (lift f)
-    --      | forallH f => forallH (lift f) -- TODO this is wrong
+        \func lift {L : Language} {c : TermContext} (f : Formula c) : Formula (c ∕ ())
+          => FormulaSubst.subst (\lam {A} l => var (S l)) f
+
   }
 
 -- x --> y = y or not x
+
+\cons existsH {L : Language} {c : TermContext} (x : Formula {L} (c ∕ ())) : Formula {L} c
+  => notH (forallH (notH x))
 
 \cons \infix 6 orH {L : Language} {c : TermContext} (x y : Formula {L} c) : Formula {L} c
 => notH x impH y
