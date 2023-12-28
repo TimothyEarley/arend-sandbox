@@ -5,10 +5,10 @@
 \import Paths
 \import Paths.Meta
 \import Set \hiding (#)
-\import Util
 \import lambda.GeneralContext
 \import logik.fol.FOL
 \import logik.fol.FormulaDec
+\import logik.fol.Lifting
 \import logik.fol.Semantics
 \import logik.fol.Substitution
 \import sets.Add
@@ -18,7 +18,7 @@
 \import sets.remove
 \import sets.subset
 \import util.ArrayUtils
-\open Semantics (Interpretation, ⊧)
+\open Semantics (Interpretation, ⊧, ⊫e)
 
 \module SequentCalulus \where {
   \data SequentProof \alias \infix 5 ⊢ {L : Language} {c : TermContext} (axioms : Ensemble (Formula c)) (toShow : Formula c) : \1-Type
@@ -107,6 +107,7 @@
       --        MP (equal t t') te (E-Subst t t' (byRight idp) phi (weaken h (byLeft __)) p)
       --
 
+
       \func E-Symm {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
                    {x y : Term c}
                    (h : axioms ⊢ equal x y) : axioms ⊢ equal y x =>
@@ -117,29 +118,29 @@
               | Z p => h
               | S l => E-Refl idp
             })
-            (equal (var #0) (Term.lift x))
-            (rewrite Term.subLift (E-Refl idp))
-            (rewrite Term.subLift idp)
+            (equal (var #0) (TermLifting.lift x))
+            (rewrite TermLifting.subLift (E-Refl idp))
+            (rewrite TermLifting.subLift idp)
 
-            \func E-Trans {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
-                          {x y z : Term c}
-                          (h : axioms ⊢ equal x y) (h' : axioms ⊢ equal y z) : axioms ⊢ equal x z =>
-              E-Sub'
-                  (sub.extendsOne {FOLTermSub} y)
-                  (sub.extendsOne {FOLTermSub} z)
-                  (\case \elim __ \with {
-                    | Z p => h'
-                    | S l => E-Refl idp
-                  })
-                  (equal (Term.lift x) (var #0))
-                  (rewrite Term.subLift h)
-                  (rewrite Term.subLift idp)
+      \func E-Trans {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
+                    {x y z : Term c}
+                    (h : axioms ⊢ equal x y) (h' : axioms ⊢ equal y z) : axioms ⊢ equal x z =>
+        E-Sub'
+            (sub.extendsOne {FOLTermSub} y)
+            (sub.extendsOne {FOLTermSub} z)
+            (\case \elim __ \with {
+              | Z p => h'
+              | S l => E-Refl idp
+            })
+            (equal (TermLifting.lift x) (var #0))
+            (rewrite TermLifting.subLift h)
+            (rewrite TermLifting.subLift idp)
 
---              \let h'' :  add axioms (equal y z) ⊢ equal x y => weaken h (byLeft __)
---              \in E-Subst' y z h'
---                  (equal (Term.lift x) (var 0))
---                  (unfold sub $ rewrite (subTermLift _ (\lam f => idp)) h)
---                  (unfold sub $ rewrite (subTermLift _ (\lam f => idp)) idp)
+      --              \let h'' :  add axioms (equal y z) ⊢ equal x y => weaken h (byLeft __)
+      --              \in E-Subst' y z h'
+      --                  (equal (Term.lift x) (var 0))
+      --                  (unfold sub $ rewrite (subTermLift _ (\lam f => idp)) h)
+      --                  (unfold sub $ rewrite (subTermLift _ (\lam f => idp)) idp)
 
       -- TruncP because thats where we use it
 
@@ -231,38 +232,53 @@
         : axioms ⊢ (x <->H y) => intro-and h1 h2
 
       \func EqualRel {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
-        {r : L.Relations} {d d' : Array (Term c) (L.relationsArity r)}
-        (he : \Pi (i : Fin (L.relationsArity r)) -> axioms ⊢ equal (d i) (d' i))
-        (h : axioms ⊢ atomic r d) : axioms ⊢ atomic r d'
-        => {?}
+                     {r : L.Relations} {d d' : Array (Term c) (L.relationsArity r)}
+                     (he : \Pi (i : Fin (L.relationsArity r)) -> axioms ⊢ equal (d i) (d' i))
+                     (h : axioms ⊢ atomic r d) : axioms ⊢ atomic r d' => {?}
 
       \func EqualApply {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
-        {f : L.Functions} {d d' : Array (Term c) (L.functionArity f)}
-        (h : \Pi (i : Fin (L.functionArity f)) -> axioms ⊢ equal (d i) (d' i))
-        : axioms ⊢ equal (apply f d) (apply f d')
-        => ⊢.E-Sub'
-            (subN.extendsN {FOLTermSub} {_} {ArrayUtils.arrayOf' ()} d)
-            (subN.extendsN {FOLTermSub} {_} {ArrayUtils.arrayOf' ()} d')
-            (\lam i => equalExtendsN h i)
-            (equal (apply f (\lam i => Term.liftN (d i))) (apply f arrayOfVars))
-            {?}
-            {?}
-          \where {
-            \func arrayOfVars {L : Language} {c : TermContext} {length : Nat} : Array (Term {L} (c Context.∕∕ ArrayUtils.arrayOf () {length})) length =>
-              \lam i =>
-                  \let i' : Fin (Context.length c Nat.+ length) => finExpandLeft i
-                  \in var (∋.fromIndexFin $ rewrite Context.length-∕∕ i')
+                       {f : L.Functions} {d d' : Array (Term c) (L.functionArity f)}
+                       (h : \Pi (i : Fin (L.functionArity f)) -> axioms ⊢ equal (d i) (d' i))
+        : axioms ⊢ equal (apply f d) (apply f d') =>
+        \let
+          | s => subN.extendsN {FOLTermSub} {_} {ArrayUtils.arrayOf' ()} d
+          | s' => subN.extendsN {FOLTermSub} {_} {ArrayUtils.arrayOf' ()} d'
+          | phi => equal (apply f (\lam i => TermLifting.liftN (d i))) (apply f arrayOfVars)
+        \in
+          ⊢.E-Sub' s s' (\lam i => equalExtendsN h i) phi
+              (E-Refl (pmap (apply f) $
+              ext $ ext (\lam j => TermLifting.subLiftN *> inv (subN.extendsNSecondConss {FOLTermSub} d j))
+              ))
 
-            \func equalExtendsN {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
-                                       {l : Nat} {d d' : Array (Term c) l}
-                                       (de : \Pi (i : Fin l) -> axioms ⊢ equal (d i) (d' i))
-                                       (i : c Context.∕∕ ArrayUtils.arrayOf () {l} ∋ ())
+              (
+                \let
+                  | h1 : d = {Array (Term c) (L.functionArity f)} (\lam i => subN {FOLTermSub} (TermLifting.liftN (d i)) d') =>
+                    ext $ ext $ (\lam j => inv TermLifting.subLiftN)
+
+                  | h2 : d' = {Array (Term c) (L.functionArity f)} (\lam i => subN {FOLTermSub} (arrayOfVars i) d') =>
+                    ext $ ext $ (\lam j => \let h : d' j = subN {FOLTermSub} (arrayOfVars j) d' => inv $ arrayOfVarsSubN j d' \in h)
+
+                  | goal : equal (apply f d) (apply f d') = FormulaSubst.subst s' phi =>
+                    pmap2 equal (pmap (apply f) h1) (pmap (apply f) h2)
+                \in goal)
+
+        \where {
+          \func arrayOfVars {L : Language} {c : TermContext} {length : Nat} : Array (Term {L} (c Context.∕∕ ArrayUtils.arrayOf () {length})) length =>
+            \lam i => var (∋.secondConss i idp)
+
+          \func arrayOfVarsSubN {L : Language} {c : TermContext} {length : Nat} (i : Fin length) (d : Array (Term c) length)
+            : subN {FOLTermSub} (arrayOfVars i) d = d i => subN.extendsNSecondConss {FOLTermSub} d i
+
+          \func equalExtendsN {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
+                              {l : Nat} {d d' : Array (Term c) l}
+                              (de : \Pi (i : Fin l) -> axioms ⊢ equal (d i) (d' i))
+                              (i : c Context.∕∕ ArrayUtils.arrayOf () {l} ∋ ())
             : axioms ⊢ equal (subN.extendsN {FOLTermSub} d i) (subN.extendsN {FOLTermSub} d' i)
           \elim l, i
             | 0, i => ⊢.E-Refl idp
             | suc l, Z p => de 0
             | suc l, S i => equalExtendsN (\lam j => de (fsuc j)) i
-          }
+        }
     }
 
   \func weaken {L : Language} {c : TermContext} {axioms axioms' : Ensemble (Formula c)} {toShow : Formula c}
@@ -287,9 +303,6 @@
     | impH x toShow, impIntro h => impIntro (weaken h (⊆.unionSubset' sub ⊆.refl))
     | impH x toShow, impIntro' h => impIntro' (weaken h sub)
     | toShow, impElim x y h h1 h2 => impElim x y (sub h) (weaken h1 (⊆.unionSubset' sub ⊆.refl)) (weaken h2 (⊆.unionSubset' sub ⊆.refl))
-
-  \func entails \alias \infix 6 ⊫e {L : Language} (from : Ensemble (Formula ∅)) (to : Formula ∅) =>
-    \Pi (I : Interpretation ∅) (h : \Pi {f : Formula ∅} (f ∈ from) -> I ⊧ f) -> I ⊧ to
 
   \func proofIsEntails
     {L : Language} {from : Ensemble (Formula ∅)} {to : Formula ∅}

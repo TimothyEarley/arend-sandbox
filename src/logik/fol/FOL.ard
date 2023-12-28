@@ -1,9 +1,7 @@
 \import Arith.Nat
 \import Equiv
-\import Function.Meta ($)
 \import Logic
 \import Logic.Meta
-\import Meta
 \import Order.Lattice
 \import Order.PartialOrder
 \import Paths
@@ -13,7 +11,6 @@
 \import logik.fol.Semantics
 \import logik.fol.Substitution
 \import sets.MySet \hiding (S, ∅)
-\import util.ArrayUtils
 \open Semantics (Interpretation, ⊧, ⊭)
 
 -- http://r6.ca/Goedel/goedel1.html
@@ -77,48 +74,6 @@
           | :: a arr, 0 => join-left
           | :: a arr, suc j => <=-transitive maxTermDepthIsBigger join-right
       }
-
-    \func lift {L : Language} {c : TermContext} (t : Term c) : Term (c ∕ ()) => FOLTermSub.rename {L} {c} {c ∕ ()} S t
-
-    \func subLift {L : Language} {c : TermContext} {t t' : Term c} : sub {FOLTermSub} {c} (lift t) t' = {Term c} t
-    \elim t
-      | var v => idp
-      | apply f d => pmap (apply f) (ext $ ext (\lam j => subLift {L} {c} {d j}))
-
-    \func liftN {L : Language} {c : TermContext} (t : Term c) {n : Nat} : Term (c Context.∕∕ ArrayUtils.arrayOf' () {n})
-      \elim n
-        | 0 => t
-        | suc n => lift (liftN t)
-    \where {
-      \func matches1 {L : Language} {c : TermContext} {t : Term c}  : lift t = liftN t {1}
-        => idp
-    }
-
-    \func subLiftN {L : Language} {c : TermContext} {t : Term c} {n : Nat} {t' : Array (Term c) n}  :
-      subN {FOLTermSub} {c} {_} {ArrayUtils.arrayOf' () {n}} (liftN t {n}) t' = {Term c} t
-      \elim n, t'
-        | 0, nil => FOLTermSub.subTermId t
-        | suc n, a :: t' => \let foo => subLiftN {L} {c} {t} {n} {t'}
-          | bar : subN.extendsN {FOLTermSub {L}} {c} {() :: ArrayUtils.arrayOf' {\Sigma} () {n}} (a :: t') = {?} => {?}
-                            \in {?}
-
-
-
-
-    --    \func lifts {L : Language} {n l : Nat} (t : Array (Term n) l) : Array (Term (suc n)) l \elim l, t
-    --      | 0, nil => nil
-    --      | suc l, :: a arr => lift a :: lifts arr
-    --
---    \func liftN {L : Language} {n : Nat} (k : Nat) (t : Term n) : Term (n Nat.+ k) \elim k
-    --      | 0 => t
-    --      | suc k => lift (liftN k t)
-    --
---    \func liftNL {L : Language} {n : Nat} (k : Nat) (t : Term n) : Term (k Nat.+ n) \elim k
-    --      | 0 => t
-    --      | suc k => lift (liftNL k t)
-    --
---    \func liftsN  {L : Language} {n l : Nat} (k : Nat) (t : Array (Term n) l) : Array (Term (n Nat.+ k)) l =>
-    --      map (liftN k) t
   }
 
 \data Formula {L : Language} (variables : TermContext) : \Set
@@ -135,10 +90,6 @@
       | impH x f => FreeVar x i || FreeVar f i
       | notH f => FreeVar f i
       | forallH f => FreeVar f (S i)
-
-        \func lift {L : Language} {c : TermContext} (f : Formula c) : Formula (c ∕ ())
-          => FormulaSubst.subst (\lam {A} l => var (S l)) f
-
   }
 
 -- x --> y = y or not x

@@ -1,6 +1,5 @@
 \import Function.Meta
 \import Logic
-\import Meta
 \import Paths.Meta
 \import Relation.Equivalence
 \import Util

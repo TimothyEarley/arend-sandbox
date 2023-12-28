@@ -1,0 +1,30 @@
+\import Function.Meta
+\import Paths
+\import Paths.Meta
+\import lambda.GeneralContext
+\import logik.fol.FOL (Formula, Language, Term, apply, var)
+\import logik.fol.Substitution
+\import util.ArrayUtils
+
+\module TermLifting \where {
+  \func lift {L : Language} {c : TermContext} (t : Term c) : Term (c ∕ ()) => FOLTermSub.rename {L} {c} {c ∕ ()} S t
+
+  \func subLift {L : Language} {c : TermContext} {t t' : Term c} : sub {FOLTermSub} {c} (lift t) t' = {Term c} t
+  \elim t
+    | var v => idp
+    | apply f d => pmap (apply f) (ext $ ext (\lam j => subLift {L} {c} {d j}))
+
+  \func liftN {L : Language} {c : TermContext} (t : Term c) {n : Nat} : Term (c Context.∕∕ ArrayUtils.arrayOf () {n}) =>
+    FOLTermSub.rename ∋.firstConss t
+
+  \func subLiftN {L : Language} {c : TermContext} {t : Term c} {n : Nat} {t' : Array (Term c) n}  :
+    subN {FOLTermSub} (liftN t {n}) t' = {Term c} t \elim t
+    | var v => subN.extendsNFirstConss {FOLTermSub} t'  v
+    | apply f d => pmap (apply f) $ ext $ ext $ (\lam j => subLiftN {_} {_} {d j})
+
+}
+
+\module FormulaLifting \where {
+  \func lift {L : Language} {c : TermContext} (f : Formula c) : Formula (c ∕ ()) =>
+    FormulaSubst.subst (\lam {A} l => var (S l)) f
+}

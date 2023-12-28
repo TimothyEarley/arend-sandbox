@@ -1,13 +1,12 @@
-\import Data.Array
 \import Data.Maybe
 \import Data.Or
 \import Function.Meta ($)
-\import Meta
 \import Paths
 \import Paths.Meta
 \import lambda.GeneralContext
 \import logik.fol.FOL
 \import logik.fol.LNN
+\import logik.fol.Lifting
 \import logik.fol.SequentCalculus
 \import logik.fol.Substitution
 \import sets.DecidableSet
@@ -49,7 +48,7 @@
       }
     }
     | (alpha, fRepH) => R.functionRepresentation F
-    | beta : Formula (∅ ∕ ()) => forallH ({?} impH Formula.lift psi)
+    | beta : Formula (∅ ∕ ()) => forallH ({?} impH FormulaLifting.lift psi)
     | phi : Formula ∅ => forallH ({?} impH {?})
     | betabeta : phi = FormulaSubst.sub beta (⊻⊼ beta) => {?}
     | Fbeta : F (⊼ beta :: ⊼ beta :: nil) = ⊼ phi => {?}

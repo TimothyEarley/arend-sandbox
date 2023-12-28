@@ -10,6 +10,7 @@
 \import logik.fol.FOL
 \import logik.fol.Substitution
 \import sets.Elements
+\import sets.MySet \hiding (S, ∅)
 \open NatSemiring (+-comm)
 \open Term (FreeVar, termDepth)
 \open Semantics (Structure, ⊧)
@@ -65,6 +66,9 @@
 
   \func modelImplies \alias \infix 6 ⊫f {L : Language} {c : TermContext} (x y : Formula c) : \Prop =>
     \Pi (I : Interpretation c) (I ⊧ x) -> I ⊧ y
+
+  \func entails \alias \infix 6 ⊫e {L : Language} (from : Ensemble (Formula ∅)) (to : Formula ∅) =>
+    \Pi (I : Interpretation ∅) (h : \Pi {f : Formula ∅} (f ∈ from) -> I ⊧ f) -> I ⊧ to
 
   \func substitutionLemma {L : Language} {c : TermContext}
                           (phi : Formula c) (s : TermSubst c ∅)
