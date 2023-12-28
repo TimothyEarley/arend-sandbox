@@ -231,11 +231,6 @@
                        {x y : Formula c} (h1 : axioms ⊢ x impH y) (h2 : axioms ⊢ y impH x)
         : axioms ⊢ (x <->H y) => intro-and h1 h2
 
-      \func EqualRel {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
-                     {r : L.Relations} {d d' : Array (Term c) (L.relationsArity r)}
-                     (he : \Pi (i : Fin (L.relationsArity r)) -> axioms ⊢ equal (d i) (d' i))
-                     (h : axioms ⊢ atomic r d) : axioms ⊢ atomic r d' => {?}
-
       \func EqualApply {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
                        {f : L.Functions} {d d' : Array (Term c) (L.functionArity f)}
                        (h : \Pi (i : Fin (L.functionArity f)) -> axioms ⊢ equal (d i) (d' i))
@@ -279,6 +274,24 @@
             | suc l, Z p => de 0
             | suc l, S i => equalExtendsN (\lam j => de (fsuc j)) i
         }
+
+      \func EqualRel {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
+                     {r : L.Relations} {d d' : Array (Term c) (L.relationsArity r)}
+                     (he : \Pi (i : Fin (L.relationsArity r)) -> axioms ⊢ equal (d i) (d' i))
+                     (h : axioms ⊢ atomic r d) : axioms ⊢ atomic r d' =>
+        ⊢.E-Sub' {L} {c} {c Context.∕∕ ArrayUtils.arrayOf () {L.relationsArity r}}
+            (subN.extendsN {FOLTermSub} d) (subN.extendsN {FOLTermSub} d')
+            (\lam i => EqualApply.equalExtendsN he i)
+            (atomic r EqualApply.arrayOfVars)
+            (
+              \let p : (\lam i => subN.extendsN {FOLTermSub} d (∋.secondConss i idp)) = {Array (Term c) (L.relationsArity r)} d
+              => ext $ ext $ (\lam j => subN.extendsNSecondConss {FOLTermSub} d j)
+              \in transportInv {Array (Term c) (L.relationsArity r)} (axioms ⊢ atomic r __) p h)
+            (pmap {Array (Term c) (L.relationsArity r)}
+                (atomic r __)
+                {d'}
+                {\new Array (Term c) (L.relationsArity r) (\lam i => subN.extendsN {FOLTermSub} d' (Lookup.secondConss i idp))}
+                (ext $ ext $ (\lam j => inv $ subN.extendsNSecondConss {FOLTermSub} d' j)))
     }
 
   \func weaken {L : Language} {c : TermContext} {axioms axioms' : Ensemble (Formula c)} {toShow : Formula c}

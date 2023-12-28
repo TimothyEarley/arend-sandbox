@@ -17,7 +17,7 @@
              (d : Array (Term c) (relationsArity r))
              (d' : Array (Term c) (relationsArity r))
              (d~d' : \Pi (i : Fin (relationsArity r)) -> d i ~ d' i)
-             (h : axioms ⊢ atomic r d) : axioms ⊢ atomic r d'
+             (h : axioms ⊢ atomic r d) : TruncP (axioms ⊢ atomic r d') -- TruncP might be wrong
 
 \func T~ {L : Language} {c : TermContext} (axioms : Ensemble (Formula c)) : TermCongruence \cowith
   | L => L
@@ -30,4 +30,6 @@
   | fCong f d d' d~d' => \case truncMap d~d' \with {
     | inP f_d~d' => inP (⊢.EqualApply f_d~d')
   }
-  | relCong r d d' d~d' h => {?}
+  | relCong r d d' d~d' h => \case truncMap d~d' \with {
+    | inP r_d~d' => inP (⊢.EqualRel r_d~d' h)
+  }
