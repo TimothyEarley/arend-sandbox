@@ -1,0 +1,88 @@
+\import Data.Bool
+\import Data.List
+\import Equiv
+\import Function
+\import Logic
+\import Paths
+\import Paths.Meta
+
+-- https://en.wikipedia.org/wiki/Inductive_type
+-- trying to understand the beginning  https://www.youtube.com/watch?v=ALj5hOmwXps
+-- see also https://mazzo.li/epilogue/index.html%3Fp=324.html
+
+
+\module W \where {
+  \data W (A : \Type) (B : A -> \Type) : \Type
+    | sup (a : A) (f : B a -> W A B)
+
+  -- group data and sub
+  \func LW (A : \Type) (B : A -> \Sigma \Type \Type) : \Type => W (\Sigma (a : A) ((B a).1)) (\lam (a, _) => (B a).2)
+
+  \func NatW => W (Fin 2) (\case __ \with {
+    | 0 => Empty
+    | 1 => \Sigma
+  })
+  \where {
+    \func zeroNatW : NatW => sup 0 absurd
+    \func succNatw (n : NatW) : NatW => sup 1 (\lam _ => n)
+
+    \func Nat=NatW : Nat = NatW => ext (\new QEquiv {
+      | f => Nat=>NatW
+      | ret => NatW=>Nat
+      | ret_f => h1
+      | f_sec => h2
+    })
+      \where {
+        \func Nat=>NatW (n : Nat) : NatW \elim n
+          | 0 => zeroNatW
+          | suc n => succNatw (Nat=>NatW n)
+
+        \func NatW=>Nat (n : NatW) : Nat \elim n
+          | sup 0 _ => zero
+          | sup 1 f => suc (NatW=>Nat (f ()))
+
+        \func h1 (n : Nat) : NatW=>Nat (Nat=>NatW n) = n \elim n
+          | 0 => idp
+          | suc n => pmap suc (h1 n)
+
+        \func h2 (n : NatW) : Nat=>NatW (NatW=>Nat n) = n \elim n
+          | sup 0 f => \let p : absurd = f => ext (\lam x => absurd x) \in rewrite p idp
+          | sup 1 f => \let p : (\lam _ => Nat=>NatW (NatW=>Nat (f ()))) = f => ext (\case \elim __ \with {
+            | () => h2 (f ())
+          }) \in rewrite p idp
+      }
+  }
+
+  \func ListL (X : \Type) : \Type => LW (Fin 2) (\case __ \with {
+    | 0 => (\Sigma, Empty)
+    | 1 => (X, \Sigma)
+  })
+  \where {
+    \func List=ListL : List = ListL => ext (\lam A => ext (\new QEquiv {
+      | f => fromList
+      | ret => toList
+      | ret_f => toFrom
+      | f_sec => fromTo
+    }))
+    \func fromList {A : \Type} (l : List A) : ListL A \elim l
+      | nil => sup (0, ()) absurd
+      | a :: l => sup (1, a) (\lam _ => fromList l)
+    \func toList {A : \Type} (l : ListL A) : List A \elim l
+      | sup (0, _) l => nil
+      | sup (1, a) l => a :: toList (l ())
+    \func toFrom {A : \Type} (l : List A) : toList (fromList l) = l \elim l
+      | nil => idp
+      | a :: l => pmap (a :: __) (toFrom l)
+
+    \func fromTo {A : \Type} (l : ListL A) : fromList (toList l) = l \elim l
+      | sup (0, _) f => \let p : absurd = f => ext \in rewrite p idp
+      | sup (1, a) f => \let p : (\lam _ => fromList (toList (f ()))) = f => ext \in rewrite p idp
+  }
+
+  -- W with A = 1
+  \func W' (A : \Type) => W (\Sigma) (\lam _ => A)
+
+  \func emptyW' : W' Empty
+    => sup () absurd
+
+}
