@@ -2,6 +2,7 @@
 \import Paths.Meta
 \import sets.Add
 \import sets.Elements
+\import sets.Image
 \import sets.Intersect
 \import sets.MySet
 \import sets.Single
@@ -53,5 +54,10 @@
       => \lam {x} (e, ne) => \case h e \with {
         | byLeft xBs => xBs
         | byRight x=a => absurd (ne x=a)
+      }
+
+    \func of-smap {A B : \Set} {as bs : Ensemble A} {f : A -> B} (h : as ⊆ bs) : as smap f ⊆ bs smap f
+      => \case \elim __ \with {
+        | inP (a, p, e) => inP (a, p, h e)
       }
   }

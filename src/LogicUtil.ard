@@ -17,6 +17,9 @@
     \func \infix 2 <-- (A : \Type) {B : \Type} (h : A <--> B) => h
     \func \fix 2 done (A : \Type) : A <--> A => refl
 
+    \func trunc {A B : \Type} (h : A <--> B) : TruncP A <--> TruncP B
+      => (TruncP.map __ h.1, TruncP.map __ h.2)
+
   }
 
 \func <->refl {A : \Prop} : A <-> A => <-->.refl

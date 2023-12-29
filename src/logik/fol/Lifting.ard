@@ -1,10 +1,13 @@
 \import Function.Meta
+\import LogicUtil
 \import Paths
 \import Paths.Meta
 \import lambda.GeneralContext
 \import logik.fol.FOL (Formula, Language, Term, apply, var)
+\import logik.fol.Semantics
 \import logik.fol.Substitution
 \import util.ArrayUtils
+\open Semantics (Interpretation, Universe, ⊧)
 
 \module TermLifting \where {
   \func lift {L : Language} {c : TermContext} (t : Term c) : Term (c ∕ ()) => FOLTermSub.rename {L} {c} {c ∕ ()} S t
@@ -21,10 +24,41 @@
     subN {FOLTermSub} (liftN t {n}) t' = {Term c} t \elim t
     | var v => subN.extendsNFirstConss {FOLTermSub} t'  v
     | apply f d => pmap (apply f) $ ext $ ext $ (\lam j => subLiftN {_} {_} {d j})
-
 }
 
 \module FormulaLifting \where {
   \func lift {L : Language} {c : TermContext} (f : Formula c) : Formula (c ∕ ()) =>
     FormulaSubst.subst (\lam {A} l => var (S l)) f
+
+  \func modelsLift {L : Language} {c : TermContext}
+                   {I : Interpretation c} {v : Universe {I.1}}
+                   {phi : Formula c}
+    : (I ⊧ phi) <--> (Semantics.Interpretation.subOne I v Semantics.⊧ lift phi) =>
+    (\lam m =>
+         \let
+           | goal : (I.1, Interpretation.substValueExtend I.2 v) ⊧ FormulaSubst.subst (\lam l => var (S l)) phi =>
+             Semantics.substitutionLemma.substitutionLemma<-
+                 {L}
+                 {c}
+                 {c ∕ ()}
+                 {(I.1, Interpretation.substValueExtend I.2 v)}
+                 {\lam l => var (S l)}
+                 {phi}
+                 {I.2}
+                 (\lam l f1 => idp)
+                 m
+         \in goal,
+     \lam m =>
+         \let
+           | goal : I ⊧ phi => Semantics.substitutionLemma.substitutionLemma->
+               {L}
+               {c}
+               {c ∕ ()}
+               {Interpretation.subOne I v}
+               {\lam l => var (S l)}
+               {phi}
+               {I.2}
+               (\lam l f => idp)
+               m
+         \in goal)
 }

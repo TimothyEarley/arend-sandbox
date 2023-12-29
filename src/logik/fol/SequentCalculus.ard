@@ -13,6 +13,7 @@
 \import logik.fol.Substitution
 \import sets.Add
 \import sets.DecidableSet
+\import sets.Image
 \import sets.MySet \hiding (S, ∅)
 \import sets.finite.Sized
 \import sets.remove
@@ -29,6 +30,14 @@
                     (add axioms (notH toShow) ⊢ psi) (add axioms (notH toShow) ⊢ notH psi)
 
     -- TODO ...
+
+    --    | forallH phi => forallIntro (\Pi (t : Term c) -> axioms ⊢ FormulaSubst.sub phi t)
+    | existsH phi => existsIntro (t : Term c) (axioms ⊢ FormulaSubst.sub phi t)
+
+
+    | forallH phi => forallIntro (axioms smap FormulaLifting.lift ⊢ phi)
+    | toShow => forallElim (phi : Formula (c ∕ ())) (axioms ⊢ forallH phi) (t : Term c)
+                           (toShow = FormulaSubst.sub phi t)
 
     | impH x y => impIntro (add axioms x ⊢ y)
     | impH x y => impIntro' (axioms ⊢ notH x)
@@ -173,13 +182,6 @@
                   | byLeft a => byLeft (byLeft (byLeft a)) | byRight b => byRight b
                 })))
 
-      --      \func intro-not {L : Language} {c : TermContext}
-      --                      {axioms : Ensemble (Formula c)} {f : Formula c}
-      --                      (h : Not (axioms ⊢ f))
-      --        : axioms ⊢ notH f => PC f
-      --          {?}
-      --          (Ass (byRight idp))
-
       \func CtrNot {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
                    {f : Formula c}
                    (psi : Formula c)
@@ -197,6 +199,19 @@
                 | byLeft a => byLeft (byLeft a) | byRight b => byRight b
               })))
 
+      \func elim-imp {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
+                     {phi psi : Formula c} (h : axioms ⊢ phi impH psi) (h' : axioms ⊢ phi) : axioms ⊢ psi =>
+        MP (phi impH psi) h (
+          impElim phi psi
+              (byRight idp)
+              (Contr' phi (weaken h' (\lam e => byLeft (byLeft e))) (Ass (byRight idp)))
+              (Ass (byRight idp))
+        )
+
+      \func elim-forall {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
+                        {phi : Formula (c ∕ ())} (h : axioms ⊢ forallH phi) (t : Term c) : axioms ⊢ FormulaSubst.sub phi t =>
+        forallElim phi h t idp
+
       \func elim-or {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
                     {x y toShow : Formula c} (h : (x orH y) ∈ axioms)
                     (h1 : add axioms x ⊢ toShow)
@@ -208,8 +223,26 @@
           })))
           h2
 
-      --      \func intro-or1 {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
-      --                      {x y : Formula c} (h : axioms ⊢ x) : axioms ⊢ x orH y => impIntro' (intro-notnot h)
+      \func elim-or' {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
+                     {x y toShow : Formula c} (h : axioms ⊢ (x orH y))
+                     (h1 : add axioms x ⊢ toShow)
+                     (h2 : add axioms y ⊢ toShow)
+        : axioms ⊢ toShow => MP (x orH y) h (
+        elim-or
+            (byRight idp)
+            (weaken h1 (\case \elim __ \with {
+              | byLeft a => byLeft (byLeft a)
+              | byRight b => byRight b
+            }))
+            (weaken h2 (\case \elim __ \with {
+              | byLeft a => byLeft (byLeft a)
+              | byRight b => byRight b
+            }))
+      )
+
+      \func intro-or1 {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
+                      {x y : Formula c} (h : axioms ⊢ x) : axioms ⊢ x orH y =>
+        impIntro (Contr' x (weaken h (byLeft __)) (Ass (byRight idp)))
 
       \func intro-or2 {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
                       {x y : Formula c} (h : axioms ⊢ y) : axioms ⊢ x orH y => impIntro (weaken h (byLeft __))
@@ -294,6 +327,9 @@
                 (ext $ ext $ (\lam j => inv $ subN.extendsNSecondConss {FOLTermSub} d' j)))
     }
 
+  \func notSequentProof \alias \infix 5 ⊬ {L : Language} {c : TermContext} (axioms : Ensemble (Formula c)) (toShow : Formula c) =>
+    Not (axioms ⊢ toShow)
+
   \func weaken {L : Language} {c : TermContext} {axioms axioms' : Ensemble (Formula c)} {toShow : Formula c}
                (h : axioms ⊢ toShow) (sub : axioms ⊆ axioms') : axioms' ⊢ toShow \elim toShow, h
     | toShow, Ass e => Ass (sub e)
@@ -316,10 +352,15 @@
     | impH x toShow, impIntro h => impIntro (weaken h (⊆.unionSubset' sub ⊆.refl))
     | impH x toShow, impIntro' h => impIntro' (weaken h sub)
     | toShow, impElim x y h h1 h2 => impElim x y (sub h) (weaken h1 (⊆.unionSubset' sub ⊆.refl)) (weaken h2 (⊆.unionSubset' sub ⊆.refl))
+    | existsH toShow, existsIntro t h => existsIntro t (weaken h sub)
+    | toShow, forallElim phi h t p => forallElim phi (weaken h sub) t p
+    | forallH toShow, forallIntro h => forallIntro (weaken h (⊆.of-smap sub))
+
+  -- TODO deciable used to be only on sentences, now it is quite strong
 
   \func proofIsEntails
-    {L : Language} {from : Ensemble (Formula ∅)} {to : Formula ∅}
-    (decidable : \Pi (I : Interpretation ∅) (f : Formula ∅) -> Dec (I ⊧ f))
+    {L : Language} {c : TermContext} {from : Ensemble (Formula c)} {to : Formula c}
+    (decidable : \Pi {c' : TermContext} (I : Interpretation c') (f : Formula c') -> Dec (I ⊧ f))
     (h : from ⊢ to) : from ⊫e to
   \elim to, h
     | to, Ass e => \lam I h => h e
@@ -372,6 +413,37 @@
         | byRight =nx => rewriteI =nx $ Inx
       })
     }
+    | existsH to, existsIntro t h => \lam I mf m =>
+        \let
+          | s : TermSubst (c ∕ ()) c => FormulaSubst.sub.subOne t
+          | ImodelsToSubT : I ⊧ FormulaSubst.sub to t => proofIsEntails decidable h I mf
+          | substModel => Semantics.substitutionLemma.substitutionLemma-> {L} {c ∕ ()} {c} {I} {s} {to} (\lam l f => idp) ImodelsToSubT
+          | subI=substI : Interpretation.subOne I (Semantics.evaluate I t) = Interpretation.subst I s =>
+            ext (idp, ext (\case \elim __ \with {
+              | Z p => idp
+              | S l => idp
+            }))
+        \in m (Semantics.evaluate I t) $ rewrite subI=substI substModel
+    | _, forallElim phi h t idp => \lam I mf =>
+        \let
+          | s : TermSubst (c ∕ ()) c => FormulaSubst.sub.subOne t
+          | ImodelsSub => proofIsEntails decidable h I mf (Semantics.evaluate I t)
+          | subI=substI : Interpretation.subOne I (Semantics.evaluate I t) = Interpretation.subst I s =>
+            ext (idp, ext (\case \elim __ \with {
+              | Z p => idp
+              | S l => idp
+            }))
+        \in Semantics.substitutionLemma.substitutionLemma<- (\lam l f => idp) (rewriteI subI=substI ImodelsSub)
+    | forallH to, forallIntro h => \lam I mf tValue =>
+        \let
+          | goal => proofIsEntails {L} {c ∕ ()} {from smap FormulaLifting.lift}
+              decidable
+              h
+              (Interpretation.subOne I tValue)
+              (\lam {f} e => \case \elim f, \elim e \with {
+                | _, inP (f', idp, e') => FormulaLifting.modelsLift.1 (mf e')
+              })
+        \in goal
 
   --  \func subModel {L : Language} {I : Interpretation ∅} {phi : Formula (Context.∅ ∕ ())} {t t' : Term ∅}
   --                 (h : I ⊧ sub phi t) (e : evaluate I t = evaluate I t')
@@ -402,15 +474,17 @@
   --            (h x)
   --    }
 
-  \func sequentProofUsesFiniteAxioms {L : DecLanguage} {axioms : DecElementEnsemble (Formula ∅)} {f : Formula ∅}
-                                     (h : axioms ⊢ f) : \Sigma (reducedAxioms : DecSizedEnsemble (Formula ∅)) (reducedAxioms.S ⊆ axioms) (reducedAxioms ⊢ f)
+  \func sequentProofUsesFiniteAxioms {L : DecLanguage} {c : TermContext}
+                                     {axioms : DecElementEnsemble (Formula c)} {f : Formula c}
+                                     (h : axioms ⊢ f)
+    : \Sigma (reducedAxioms : DecSizedEnsemble (Formula c)) (reducedAxioms.S ⊆ axioms) (reducedAxioms ⊢ f)
   \elim f, h
     | f, Ass e => (DecSizedEnsemble.fromSizedEnsemble $ SizedEnsemble.singleSized f, ⊆.singleSubset e, Ass idp)
     | equal x y, E-Refl p => (DecSizedEnsemble.fromSizedEnsemble $ SizedEnsemble.emptySized, ⊆.∅-is-⊆, E-Refl p)
     | f, PC psi h1 h2 =>
       \let
-        | (ax1 : DecSizedEnsemble, sax1, pax1) => sequentProofUsesFiniteAxioms {_} {axioms.addElement psi} h1
-        | (ax2 : DecSizedEnsemble, sax2, pax2) => sequentProofUsesFiniteAxioms {_} {axioms.addElement (notH psi)} h2
+        | (ax1 : DecSizedEnsemble, sax1, pax1) => sequentProofUsesFiniteAxioms {_} {_} {axioms.addElement psi} h1
+        | (ax2 : DecSizedEnsemble, sax2, pax2) => sequentProofUsesFiniteAxioms {_} {_} {axioms.addElement (notH psi)} h2
         -- we need to remove psi from ax1 (if it has it) unless it was already present in axioms
       \in \case axioms.decElement psi, ax1.decElement psi, axioms.decElement (notH psi), ax2.decElement (notH psi) \with {
         -- psi is already in axioms, we can cut the tree to that branch of PC
@@ -475,8 +549,8 @@
 
     | f, Ctr psi h1 h2 =>
       \let
-        | (ax1 : DecSizedEnsemble, sax1, pax1) => sequentProofUsesFiniteAxioms {_} {axioms.addElement (notH f)} h1
-        | (ax2 : DecSizedEnsemble, sax2, pax2) => sequentProofUsesFiniteAxioms {_} {axioms.addElement (notH f)} h2
+        | (ax1 : DecSizedEnsemble, sax1, pax1) => sequentProofUsesFiniteAxioms {_} {_} {axioms.addElement (notH f)} h1
+        | (ax2 : DecSizedEnsemble, sax2, pax2) => sequentProofUsesFiniteAxioms {_} {_} {axioms.addElement (notH f)} h2
       \in \case axioms.decElement (notH f), ax1.decElement (notH f), ax2.decElement (notH f) \with {
         | yes e, _, _ => (ax1.unionSized ax2,
                           ⊆.unionSubset
@@ -549,7 +623,7 @@
                p
       )
     | impH x f, impIntro h =>
-      \let (ax : DecSizedEnsemble, sax, pax) => sequentProofUsesFiniteAxioms {_} {axioms.addElement x} h
+      \let (ax : DecSizedEnsemble, sax, pax) => sequentProofUsesFiniteAxioms {_} {_} {axioms.addElement x} h
       \in \case axioms.decElement x, ax.decElement x \with {
         | yes e, _ => (ax, ⊆.trans sax (⊆.unionSubset ⊆.refl (⊆.singleSubset e)), impIntro (weaken pax (byLeft __)))
         | no n, yes e => (ax.removeSized e, ⊆.removeAdd sax, impIntro (rewriteI (remove.addBack e _) pax))
@@ -567,8 +641,8 @@
       -- A |- S
 
       \let
-        | addAxiomsNot : DecElementEnsemble (Formula ∅) => \new DecElementEnsemble {
-          | E => Formula ∅
+        | addAxiomsNot : DecElementEnsemble (Formula c) => \new DecElementEnsemble {
+          | E => Formula c
           | S => add axioms (notH phi)
           | decElement x => \case axioms.decElement x, decideEq {FormulaDec} (notH phi) x \with {
             | yes e1, _ => yes (byLeft e1)
@@ -579,8 +653,8 @@
             })
           }
         }
-        | addAxioms : DecElementEnsemble (Formula ∅) => \new DecElementEnsemble {
-          | E => Formula ∅
+        | addAxioms : DecElementEnsemble (Formula c) => \new DecElementEnsemble {
+          | E => Formula c
           | S => add axioms psi
           | decElement x => \case axioms.decElement x, decideEq {FormulaDec} psi x \with {
             | yes e1, _ => yes (byLeft e1)
@@ -592,8 +666,8 @@
           }
         }
 
-        | (h1axioms : DecSizedEnsemble, h1subset, h1Proof) => sequentProofUsesFiniteAxioms {_} {addAxiomsNot} h1
-        | (h2axioms : DecSizedEnsemble, h2subset, h2Proof) => sequentProofUsesFiniteAxioms {_} {addAxioms} h2
+        | (h1axioms : DecSizedEnsemble, h1subset, h1Proof) => sequentProofUsesFiniteAxioms {_} {_} {addAxiomsNot} h1
+        | (h2axioms : DecSizedEnsemble, h2subset, h2Proof) => sequentProofUsesFiniteAxioms {_} {_} {addAxioms} h2
         | h1Pure : DecSizedEnsemble => h1axioms.removeSized' (notH phi)
         | h2Pure : DecSizedEnsemble => h2axioms.removeSized' psi
         | unionAxioms : DecSizedEnsemble => h1Pure.unionSized h2Pure
@@ -624,4 +698,24 @@
                  })))
         }
       }
+    | existsH toShow, existsIntro t h =>
+      \let (axioms', sub, proof) => sequentProofUsesFiniteAxioms h
+      \in (axioms', sub, existsIntro t proof)
+    | toShow, forallElim phi h t idp =>
+      \let (axioms', sub, proof) => sequentProofUsesFiniteAxioms h
+      \in (axioms', sub, forallElim phi proof t idp)
+    | forallH f, forallIntro h =>
+      \let
+        | mappedAxioms : DecElementEnsemble => \new DecElementEnsemble {
+          | E => Formula (c ∕ ())
+          | S => axioms smap FormulaLifting.lift
+          | decElement a => \let base => FormulaSubst.sub a {?} \in \case axioms.decElement base \with {
+            | yes e => yes (inP (base, {?}, e))
+            | no n => no (\case __ \with {
+              | inP (x, p, e) => n {?}
+            })
+          }
+        }
+        | (axioms', sub, proof) => sequentProofUsesFiniteAxioms {_} {_} {mappedAxioms} h
+      \in {?}
 }

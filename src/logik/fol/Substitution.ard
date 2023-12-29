@@ -34,16 +34,20 @@
   | Term c _ => Term c
   | s-var {_} {()} l => var l
   | rename r t => rename r t
-  | extends s t => \case \elim t \with {
-    | Z p => var (Z idp)
-    | S l => rename S (s l)
-  }
+  | extends s t => extends s t
   | subst s t => subst s t
   \where {
     \func rename {L : Language} {gamma delta : Context (\Sigma)} (r : Rename gamma delta) (t : Term gamma) : Term delta
     \elim t
       | var f => var $ r f
       | apply f d => apply f (\lam i => rename r (d i))
+
+    \func extends {L : Language} {gamma delta : Context (\Sigma)} (s : TermSubst gamma delta) {A : \Sigma}
+      : TermSubst (gamma ∕ A) (delta ∕ A)
+      => \lam {B} l => \case \elim A, \elim B, \elim l \with {
+        | (), (), Z p => var (Z idp)
+        | (), (), S l => rename S (s l)
+      }
 
     \func subst {L : Language} {gamma delta : TermContext} (s : TermSubst gamma delta) (t : Term gamma) : Term delta
     \elim t
@@ -66,22 +70,25 @@
     | forallH f => forallH (subst (FOLTermSub.extends s) f)
 
   \func sub {L : Language} {gamma : TermContext}
-            (f : Formula (gamma ∕ ())) (t : Term gamma) : Formula gamma => subst (\case \elim __ \with {
-    | Z p => t
-    | S l => var l
-  }) f
+            (f : Formula (gamma ∕ ())) (t : Term gamma) : Formula gamma => subst (subOne t) f
+    \where {
+      \func subOne {L : Language} {gamma : TermContext} (t : Term gamma) : TermSubst (gamma ∕ ()) gamma
+        => \case \elim __ \with {
+          | Z _ => t
+          | S l => var l
+        }
+    }
 
   \func sub3 {L : Language} {gamma : TermContext}
              (f : Formula (gamma ∕ () ∕ () ∕ ()))
              (t t' t'' : Term gamma) : Formula gamma => subst (extends3 t t' t'') f
-  \where {
-    \func extends3 {L : Language} {gamma : TermContext}
-      (t t' t'' : Term gamma) : TermSubst (gamma ∕ () ∕ () ∕ ()) gamma
-      => \case \elim __ \with {
+    \where {
+      \func extends3 {L : Language} {gamma : TermContext}
+                     (t t' t'' : Term gamma) : TermSubst (gamma ∕ () ∕ () ∕ ()) gamma => \case \elim __ \with {
         | Z _ => t
         | S (Z _) => t'
         | S (S (Z _)) => t''
         | S (S (S l)) => var l
       }
-  }
+    }
 }

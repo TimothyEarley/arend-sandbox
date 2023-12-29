@@ -1,0 +1,123 @@
+\import Data.Or
+\import Function.Meta
+\import Logic
+\import Logic.Meta
+\import LogicUtil
+\import lambda.GeneralContext
+\import logik.fol.FOL
+\import logik.fol.Semantics
+\import logik.fol.SequentCalculus
+\import logik.fol.Substitution
+\import logik.fol.TermInterpretation
+\import sets.MySet \hiding (S, ∅)
+\open SequentCalulus (⊢, ⊬)
+\open Semantics (⊧, ⊭)
+\open <--> (-->, <--)
+
+\func Consistent {L : Language} {c : TermContext} (axioms : Ensemble (Formula c))
+  : \Prop => Not (∃ (psi : Formula c) (axioms ⊢ psi) (axioms ⊢ notH psi))
+
+\func NegationComplete {L : Language} {c : TermContext} (axioms : Ensemble (Formula c))
+  : \Type => \Pi (phi : Formula c) -> Or (axioms ⊢ phi) (axioms ⊢ notH phi)
+
+\func ContainsWitnesses {L : Language} {c : TermContext} (axioms : Ensemble (Formula c))
+  : \Prop => \Pi (psi : Formula (c ∕ ())) -> ∃ (t : Term c) (axioms ⊢ (existsH psi impH FormulaSubst.sub psi t))
+
+\func liftNegation {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
+                   (hc : Consistent axioms) (hn : NegationComplete axioms)
+                   (phi : Formula c)
+  : (axioms ⊢ notH phi) <--> (axioms ⊬ phi) =>
+  (\lam proofNotPhi proofPhi => hc (inP (phi, proofPhi, proofNotPhi)),
+   \lam notProofPhi => \case hn phi \with {
+     | inl proofPhi => contradiction
+     | inr proofNotPhi => proofNotPhi
+   })
+
+\func liftDisjunction {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
+                      (hn : NegationComplete axioms)
+                      (phi psi : Formula c)
+  : (axioms ⊢ phi orH psi) <--> Or (axioms ⊢ phi) (axioms ⊢ psi) =>
+  (\lam proofPhiOrPsi => \case hn phi \with {
+    | inl proofPhi => inl proofPhi
+    | inr proofNotPhi => inr (⊢.elim-or'
+        proofPhiOrPsi
+        (⊢.Contr' phi (SequentCalulus.Ass (byRight idp)) (SequentCalulus.weaken proofNotPhi (byLeft __)))
+        (SequentCalulus.Ass (byRight idp))
+    )
+  },
+   \case \elim __ \with {
+     | inl a => ⊢.intro-or1 a
+     | inr b => ⊢.intro-or2 b
+   })
+
+\func liftImplication {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
+                      (hn : NegationComplete axioms)
+                      (phi psi : Formula c)
+  : (axioms ⊢ phi impH psi) <--> ((axioms ⊢ phi) -> (axioms ⊢ psi)) =>
+  (\lam phiImpPsi proofPhi => ⊢.elim-imp phiImpPsi proofPhi,
+   \lam f => \case hn phi \with {
+     | inl proofPhi => ⊢.impIntro (SequentCalulus.weaken (f proofPhi) (byLeft __))
+     | inr proofNotPhi => SequentCalulus.impIntro' proofNotPhi
+   })
+
+\func liftExists {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
+                 (hw : ContainsWitnesses axioms)
+                 (phi : Formula (c ∕ ()))
+  -- TruncP might be wrong, could use \Sigma
+  : TruncP (axioms ⊢ existsH phi) <--> ∃ (t : Term c) (axioms ⊢ FormulaSubst.sub phi t) =>
+  (\lam proofExPhi => \case \elim proofExPhi, hw phi \with {
+    | inP proofExPhi, inP (t, impT) => inP (t, ⊢.elim-imp impT proofExPhi)
+  },
+   \case \elim __ \with {
+     | inP (t, proof) => inP (SequentCalulus.existsIntro t proof)
+   })
+\func liftForall {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
+                 (hw : ContainsWitnesses axioms)
+                 (phi : Formula (c ∕ ()))
+  : TruncP (axioms ⊢ forallH phi) <--> ∀ (t : Term c) (TruncP (axioms ⊢ FormulaSubst.sub phi t)) =>
+  (\lam h t => \case \elim h \return TruncP (axioms ⊢ FormulaSubst.sub phi t) \with {
+    | inP proof => inP (SequentCalulus.forallElim phi proof t idp)
+  },
+   \lam f => {?})
+
+\func henkin {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
+             (hc : Consistent axioms) (hn : NegationComplete axioms) (hw : ContainsWitnesses axioms)
+             (phi : Formula c)
+  : TruncP (axioms ⊢ phi) <--> (TermInterpretation axioms ⊧ phi) \elim phi
+  | equal x y => <-->.symm TermInterpretation.equalModel
+  | atomic r d => <-->.symm TermInterpretation.atomicModel
+  | notH phi =>
+    TruncP (axioms ⊢ notH phi) <-- <-->.trunc (liftNegation hc hn phi) -->
+    TruncP (axioms ⊬ phi)
+      <--
+    \let ind => henkin hc hn hw phi \in
+      (\lam (notPhi : TruncP (axioms ⊬ phi)) m => \case \elim notPhi, ind.2 m \return Empty \with {
+        | inP notPhi, inP yesPhi => notPhi yesPhi
+      },
+       \lam notPhi => inP (\lam yesPhi => notPhi (ind.1 (inP yesPhi))))
+        -->
+      (TermInterpretation axioms ⊭ phi) <-- <-->.refl -->
+      (TermInterpretation axioms ⊧ notH phi) <-->.`done
+
+  | phi impH psi =>
+    \let
+      | ind1 => henkin hc hn hw phi
+      | ind2 => henkin hc hn hw psi
+    \in TruncP (axioms ⊢ phi impH psi) <-- <-->.trunc (liftImplication hn phi psi) -->
+    TruncP (axioms ⊢ phi -> axioms ⊢ psi)
+      <--
+    (\lam f m => \case \elim f, ind1.2 m \return TermInterpretation axioms ⊧ psi \with {
+      | inP f, inP proofPhi  => ind2.1 (inP $ f proofPhi)
+    },
+     \lam f => \let fTr => ind2.2 $ f $ ind1.1 __ \in \case hn phi \with {
+       | inl proofPhi => TruncP.map (fTr $ inP proofPhi) (\lam proofPsi _ => proofPsi)
+       | inr proofNotPhi => inP (\lam proofPhi => absurd $ hc $ inP (phi, proofPhi, proofNotPhi))
+     })
+      -->
+    (TermInterpretation axioms ⊧ phi impH psi) <-->.`done
+
+
+  | forallH phi =>
+    TruncP (axioms ⊢ forallH phi) <-- {?} -->
+    TruncP (axioms ⊢ forallH phi) <-- {?} -->
+    (TermInterpretation axioms ⊧ forallH phi) <-->.`done
