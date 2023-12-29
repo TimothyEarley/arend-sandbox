@@ -1,5 +1,8 @@
 \import Function.Meta
 \import Logic
+\import LogicUtil
+\import Meta
+\import Paths
 \import Paths.Meta
 \import Relation.Equivalence
 \import Util
@@ -9,8 +12,9 @@
 \import logik.fol.Substitution
 \import logik.fol.TermCongruence
 \import sets.MySet
-\open Semantics (Interpretation, evaluate)
+\open Semantics (Interpretation, evaluate, ⊧)
 \open SequentCalulus (⊢)
+\open <--> (-->, done, <--, refl)
 
 \func TermUniverse {L : Language} {c : TermContext} (axioms : Ensemble (Formula c)) => Quotient {Term c} (~ {T~ axioms})
 
@@ -18,99 +22,94 @@
   Quotient {Array (Term c) l} (\lam f g => \Pi (i : Fin l) -> f i ~ {T~ axioms} g i)
 
 \func TermInterpretation {L : Language} {c : TermContext} (axioms : Ensemble (Formula c)) : Interpretation c =>
-  (\new Semantics.Structure {
-     | Universe => TermUniverse axioms
-     | rel => relInterpretation axioms
-     | funcs => funcInterpretation axioms
-   },
-   \lam f => in~ (var f))
+  \let E => T~ axioms
+  \in
+    (\new Semantics.Structure {
+       | Universe => TermUniverse axioms
+       | rel => relInterpretation axioms
+       | funcs => funcInterpretation axioms
+     },
+     \lam f => in~ (var f))
   \where {
+    \func liftArray' {E : Equivalence} {n : Nat}
+                     (d : Array (Quotient {E} (\lam x y => x E.~ y)) n)
+      : Quotient {Array E n} (\lam x y => \Pi (j : Fin d.len) -> x j E.~ y j) =>
+      Quotient.liftArray (\lam {j} => E.~) (\lam {j} x => E.~-reflexive) d
+
+    \func liftArray'FromIn~ {E : Equivalence} {n : Nat}
+                            {d : Array E n} : liftArray' {E} (\lam i => in~ (d i)) = in~ d
+    \elim n, d
+      | 0, nil => idp
+      | suc n, a :: d => run {
+        unfold liftArray',
+        rewrite (liftArray'FromIn~ {E} {n} {d}),
+        idp
+      }
+
     \func relInterpretation {L : Language} {c : TermContext} (axioms : Ensemble (Formula c))
                             (r : Relations) (d : Array (TermUniverse axioms) (relationsArity r)) : \Prop =>
-      relInterpretation' axioms r
-          (Quotient.liftArray (\lam {j} => ~ {T~ axioms}) (\lam {j} x => ~-reflexive {T~ axioms}) d)
-
-    \func relInterpretation' {L : Language} {c : TermContext} (axioms : Ensemble (Formula c)) (r : Relations)
-                             (d : TermArrayUniverse axioms (relationsArity r)) : \Prop
-    \elim d
-      | in~ d => TruncP (axioms ⊢ atomic r d)
-      | ~-equiv x y rxy => ext
-          (\case \elim __, truncMap rxy \with {
-            | inP rx, inP eq => inP $ ⊢.EqualRel eq rx
-          },
-           \case \elim __, truncMap rxy \with {
-             | inP ry, inP eq => inP $ ⊢.EqualRel (\lam i => ⊢.E-Symm (eq i)) ry
-           })
+      \case liftArray' {T~ axioms} d \with {
+        | in~ d => TruncP (axioms ⊢ atomic r d)
+        | ~-equiv x y rxy => ext
+            (\case \elim __, truncMap rxy \with {
+              | inP rx, inP eq => inP $ ⊢.EqualRel eq rx
+            },
+             \case \elim __, truncMap rxy \with {
+               | inP ry, inP eq => inP $ ⊢.EqualRel (\lam i => ⊢.E-Symm (eq i)) ry
+             })
+      }
 
     \func funcInterpretation {L : Language} {c : TermContext} (axioms : Ensemble (Formula c))
                              (f : L.Functions) (d : Array (TermUniverse axioms) (L.functionArity f))
       : TermUniverse axioms =>
-      funcInterpretation' f (Quotient.liftArray (\lam {j} => ~ {T~ axioms}) (\lam {j} x => ~-reflexive {T~ axioms}) d)
-
-    \func funcInterpretation' {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
-                              (f : L.Functions) (d : TermArrayUniverse axioms (functionArity f))
-      : TermUniverse axioms
-    \elim d
-      | in~ d => in~ (apply f d)
-      | ~-equiv d d' r => ~-equiv {_} {~ {T~ axioms}}
-          (apply f d)
-          (apply f d')
-          (\case truncMap r \with {
-            | inP eq => inP (⊢.EqualApply eq)
-          })
+      \case liftArray' {T~ axioms} d \with {
+        | in~ d => in~ (apply f d)
+        | ~-equiv d d' r => ~-equiv {_} {~ {T~ axioms}}
+            (apply f d)
+            (apply f d')
+            (\case truncMap r \with {
+              | inP eq => inP (⊢.EqualApply eq)
+            })
+      }
 
     \func termInterpretationIsQuotient {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)} (t : Term c)
       : evaluate (TermInterpretation axioms) t = in~ t \elim t
       | var f => idp
       | apply f d =>
         \let
-          | p : (\new Array (TermUniverse axioms) (L.functionArity f) (\lam j => evaluate (TermInterpretation axioms) (d j))) =
-                (\new Array (TermUniverse axioms) (L.functionArity f) (\lam j => in~ (d j))) =>
-            ext (idp, ext (\lam j => termInterpretationIsQuotient (d j)))
-          | goal : funcInterpretation' f
-              (Quotient.liftArray
-                  (\lam {j} => ~ {T~ axioms})
-                  (\lam {j} x => ~-reflexive {T~ axioms})
-                  (\new Array (TermUniverse axioms) (L.functionArity f) (\lam j => evaluate (TermInterpretation axioms) (d j)))
-              )
-            = in~ (apply f d)
-          => {?}
-          | goal' : funcInterpretation' f
-              (Quotient.liftArray
-                  (\lam {j} => ~ {T~ axioms})
-                  (\lam {j} x => ~-reflexive {T~ axioms})
-                  (\new Array (TermUniverse axioms) (L.functionArity f) (\lam j => in~ (d j)))
-              )
-            = in~ (apply f d)
-          => {?}
+          | A => Array (TermUniverse axioms) (L.functionArity f)
+          | d' : A => \lam i => evaluate (TermInterpretation axioms) (d i)
+          | d'' : A => \lam i => in~ (d i)
+          | p : d' = {A} d'' => ext $ ext (\lam j => termInterpretationIsQuotient (d j))
+          | goal' : funcInterpretation axioms f (\lam i => in~ (d i)) = in~ (apply f d) =>
+            unfold funcInterpretation $ rewrite (liftArray'FromIn~ {T~ axioms} {L.functionArity f}) idp
+          | goal :  funcInterpretation axioms f d' = in~ (apply f d) =>
+            transportInv {A} (funcInterpretation axioms f __ = in~ (apply f d)) p goal'
         \in goal
-    --
---    \func termInterpretationEquivForAtomics {L : Language} {c : TermContext}
-    --                                            {phi : Formula n}
-    --                                            {axioms : Ensemble (Formula n)}
-    --      -- TruncP because there could be many proofs?
-    --      : (TermInterpretation axioms ⊧ phi) = TruncP (axioms ⊢ phi)
-    --    \elim phi
-    --      | equal x y =>
-    --        (TermInterpretation axioms ⊧ equal x y) ==< idp >==
-    --        (evaluate (TermInterpretation axioms) x = evaluate (TermInterpretation axioms) y) ==< pmap2 (=) termInterpretationIsQuotient termInterpretationIsQuotient >==
-    --        (in~ x = {Quotient {Term n} (~ {T~ axioms})} in~ y) ==< quotientHelper >==
-    --        (x ~ {T~ axioms} y) ==< idp >==
-    --        TruncP (axioms ⊢ equal x y) `qed
-    --
---      | atomic r d =>
-    --        (TermInterpretation axioms ⊧ atomic r d) ==< idp >==
-    --        relInterpretation axioms r (\lam j => evaluate (TermInterpretation axioms) (d j))
-    --          ==<
-    --        pmap {Array (Quotient (~)) (L.relationsArity r)} (relInterpretation _ _) {\lam j => evaluate (TermInterpretation axioms) (d j)} {\lam j => in~ (d j)}
-    --            (ext (ext (\lam j => termInterpretationIsQuotient)))
-    --          >==
-    --        relInterpretation axioms r (\lam j => in~ (d j)) ==< {?} >==
-    --        TruncP (axioms ⊢ atomic r d) `qed
-    --
---      | x impH phi => ext
-    --          (\lam m => {?},
-    --           \lam t m => rewrite termInterpretationEquivForAtomics (inP (⊢.MP {?} {?} {?})))
-    --      | notH phi => {?}
-    --      | forallH phi => {?}
+
+    \func equalModel {L : Language} {c : TermContext} {t1 t2 : Term c} {axioms : Ensemble (Formula c)}
+      : (TermInterpretation axioms ⊧ equal t1 t2) <--> TruncP (axioms ⊢ equal t1 t2) => -- TruncP might be wrong
+      (TermInterpretation axioms ⊧ equal t1 t2) <-- refl -->
+      (evaluate (TermInterpretation axioms) t1 = evaluate (TermInterpretation axioms) t2) <-- rewrite (termInterpretationIsQuotient, termInterpretationIsQuotient) refl  -->
+      (in~ {_} {~ {T~ axioms}} t1 = in~ t2) <-- (Quotient.equalityEquiv (T~ axioms), \lam t~ => ~-equiv {_} t1 t2 t~) -->
+      (t1 ~ {T~ axioms} t2) <-- refl -->
+      TruncP (axioms ⊢ equal t1 t2) `done
+
+    \func atomicModel {L : Language} {c : TermContext} {r : Relations}
+                      {d : Array (Term c) (L.relationsArity r)}
+                      {axioms : Ensemble (Formula c)}
+      : (TermInterpretation axioms ⊧ atomic r d) <--> TruncP (axioms ⊢ atomic r d) => -- TruncP might be wrong
+      (TermInterpretation axioms ⊧ atomic r d) <-- refl -->
+      relInterpretation axioms r (\lam j => evaluate (TermInterpretation axioms) (d j))
+        <--
+      transportInv {Array (TermUniverse axioms) (L.relationsArity r)} (relInterpretation axioms r __ <--> _)
+          {\lam j => evaluate (TermInterpretation axioms) (d j)} {\lam j => in~ (d j)}
+          (ext $ ext $ (\lam j => termInterpretationIsQuotient (d j)))
+          refl
+        -->
+      relInterpretation axioms r (\lam j => in~ (d j))
+        <--
+        unfold relInterpretation (rewrite (liftArray'FromIn~ {T~ axioms} {L.relationsArity r}) refl)
+        -->
+      TruncP (axioms ⊢ atomic r d) `done
   }

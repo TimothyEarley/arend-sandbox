@@ -12,6 +12,11 @@
     \func refl {A : \Type} : A <--> A => (id, id)
     \func symm {A B : \Type} (h : A <--> B) : B <--> A => (h.2, h.1)
     \func trans {A B C : \Type} (h1 : A <--> B) (h2 : B <--> C) : A <--> C => (h2.1 o h1.1, h1.2 o h2.2)
+
+    \func \infixr 1 --> {A B C : \Type} (h : A <--> B) (h' : B <--> C) => trans h h'
+    \func \infix 2 <-- (A : \Type) {B : \Type} (h : A <--> B) => h
+    \func \fix 2 done (A : \Type) : A <--> A => refl
+
   }
 
 \func <->refl {A : \Prop} : A <-> A => <-->.refl

@@ -24,7 +24,7 @@
   | c => c
   | axioms => axioms
   | ~ x y => TruncP (axioms ⊢ equal x y)
-  | ~-reflexive => inP (SequentCalulus.E-Refl idp)
+  | ~-reflexive => inP (⊢.E-Refl idp)
   | ~-symmetric {x} {y} (inP h) => inP (⊢.E-Symm h)
   | ~-transitive {x} {y} {z} (inP h) (inP h') => inP (⊢.E-Trans h h')
   | fCong f d d' d~d' => \case truncMap d~d' \with {
