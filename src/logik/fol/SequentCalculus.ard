@@ -31,7 +31,6 @@
 
     -- TODO ...
 
-    --    | forallH phi => forallIntro (\Pi (t : Term c) -> axioms ⊢ FormulaSubst.sub phi t)
     | existsH phi => existsIntro (t : Term c) (axioms ⊢ FormulaSubst.sub phi t)
 
 
@@ -357,7 +356,6 @@
     | forallH toShow, forallIntro h => forallIntro (weaken h (⊆.of-smap sub))
 
   -- TODO deciable used to be only on sentences, now it is quite strong
-
   \func proofIsEntails
     {L : Language} {c : TermContext} {from : Ensemble (Formula c)} {to : Formula c}
     (decidable : \Pi {c' : TermContext} (I : Interpretation c') (f : Formula c') -> Dec (I ⊧ f))
@@ -444,35 +442,6 @@
                 | _, inP (f', idp, e') => FormulaLifting.modelsLift.1 (mf e')
               })
         \in goal
-
-  --  \func subModel {L : Language} {I : Interpretation ∅} {phi : Formula (Context.∅ ∕ ())} {t t' : Term ∅}
-  --                 (h : I ⊧ sub phi t) (e : evaluate I t = evaluate I t')
-  --    : I ⊧ sub phi t' => substModel phi (\lam {f : Fin 1} f1 => \case \elim f \with {
-  --    | zero => e
-  --  }) h
-  --    \where {
-  --      \func substModel {L : Language} {c c' : TermContext} {I : Interpretation m} (phi : Formula c)
-  --                       {s s' : Subst n m} (freeSame : \Pi {f : variable c} (Formula.FreeVar phi f) -> evaluate I (s f) = evaluate I (s' f))
-  --                       (h : I ⊧ subst s phi)
-  --        : I ⊧ subst s' phi
-  --      \elim phi
-  --        | equal x y => evalSubst x (\lam fr => inv (freeSame (byLeft fr))) *> h *> evalSubst y (\lam fr => freeSame (byRight fr))
-  --        | atomic r d => transport (Semantics.rel {I.1} r)
-  --            (ext (ext (\lam j => rewriteF (inv $ subTermsAt j, inv $ subTermsAt j) (evalSubst (d j) (\lam {k} free => freeSame $ inP (j, free))))))
-  --            h
-  --        | impH x phi => \lam mo =>
-  --            \let xs : I ⊧ subst s x => substModel x (\lam fr => inv (freeSame (byLeft fr))) mo
-  --            \in substModel phi (\lam fr => freeSame (byRight fr)) (h xs)
-  --        | notH phi => \lam mo => h (substModel phi (\lam fr => inv (freeSame fr)) mo)
-  --        | forallH phi => \lam x => substModel
-  --            phi
-  --            {extends s}
-  --            (\lam {k} free => \case \elim k, free \with {
-  --              | 0, free => idp
-  --              | suc k, free => \let fs => freeSame free \in unfold extends (subOneRename (s k) *> fs *> inv (subOneRename (s' k)))
-  --            })
-  --            (h x)
-  --    }
 
   \func sequentProofUsesFiniteAxioms {L : DecLanguage} {c : TermContext}
                                      {axioms : DecElementEnsemble (Formula c)} {f : Formula c}
@@ -704,18 +673,22 @@
     | toShow, forallElim phi h t idp =>
       \let (axioms', sub, proof) => sequentProofUsesFiniteAxioms h
       \in (axioms', sub, forallElim phi proof t idp)
-    | forallH f, forallIntro h =>
+
+    | forallH phi, forallIntro h =>
       \let
+        | foo : Term c => {?}
         | mappedAxioms : DecElementEnsemble => \new DecElementEnsemble {
           | E => Formula (c ∕ ())
           | S => axioms smap FormulaLifting.lift
-          | decElement a => \let base => FormulaSubst.sub a {?} \in \case axioms.decElement base \with {
-            | yes e => yes (inP (base, {?}, e))
+          | decElement a => \let base => FormulaSubst.sub a foo \in \case axioms.decElement base \with {
+            | yes e => yes (inP (base, unfold {?}, e))
             | no n => no (\case __ \with {
               | inP (x, p, e) => n {?}
             })
           }
         }
         | (axioms', sub, proof) => sequentProofUsesFiniteAxioms {_} {_} {mappedAxioms} h
-      \in {?}
+      \in ({?},
+           {?},
+           forallIntro {?})
 }

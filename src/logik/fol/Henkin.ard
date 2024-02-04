@@ -3,12 +3,15 @@
 \import Logic
 \import Logic.Meta
 \import LogicUtil
+\import Paths
 \import lambda.GeneralContext
 \import logik.fol.FOL
+\import logik.fol.Lifting
 \import logik.fol.Semantics
 \import logik.fol.SequentCalculus
 \import logik.fol.Substitution
 \import logik.fol.TermInterpretation
+\import sets.Image
 \import sets.MySet \hiding (S, ∅)
 \open SequentCalulus (⊢, ⊬)
 \open Semantics (⊧, ⊭)
@@ -71,6 +74,7 @@
    \case \elim __ \with {
      | inP (t, proof) => inP (SequentCalulus.existsIntro t proof)
    })
+
 \func liftForall {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
                  (hw : ContainsWitnesses axioms)
                  (phi : Formula (c ∕ ()))
@@ -78,7 +82,7 @@
   (\lam h t => \case \elim h \return TruncP (axioms ⊢ FormulaSubst.sub phi t) \with {
     | inP proof => inP (SequentCalulus.forallElim phi proof t idp)
   },
-   \lam f => {?})
+   \lam f => inP (SequentCalulus.forallIntro {?}))
 
 \func henkin {L : Language} {c : TermContext} {axioms : Ensemble (Formula c)}
              (hc : Consistent axioms) (hn : NegationComplete axioms) (hw : ContainsWitnesses axioms)
@@ -107,7 +111,7 @@
     TruncP (axioms ⊢ phi -> axioms ⊢ psi)
       <--
     (\lam f m => \case \elim f, ind1.2 m \return TermInterpretation axioms ⊧ psi \with {
-      | inP f, inP proofPhi  => ind2.1 (inP $ f proofPhi)
+      | inP f, inP proofPhi => ind2.1 (inP $ f proofPhi)
     },
      \lam f => \let fTr => ind2.2 $ f $ ind1.1 __ \in \case hn phi \with {
        | inl proofPhi => TruncP.map (fTr $ inP proofPhi) (\lam proofPsi _ => proofPsi)
@@ -118,6 +122,11 @@
 
 
   | forallH phi =>
-    TruncP (axioms ⊢ forallH phi) <-- {?} -->
-    TruncP (axioms ⊢ forallH phi) <-- {?} -->
+    TruncP (axioms ⊢ forallH phi)
+      <--
+        (\case \elim __ \return TruncP (axioms smap FormulaLifting.lift ⊢ phi) \with {
+          | inP a => inP (SequentCalulus.forallElim (FormulaLifting.lift phi) {?} (var (Z idp)) (inv FormulaLifting.subLift))
+        }, {?})
+      -->
+    TruncP (axioms smap FormulaLifting.lift ⊢ phi) <-- {?} -->
     (TermInterpretation axioms ⊧ forallH phi) <-->.`done

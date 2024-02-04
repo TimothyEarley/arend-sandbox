@@ -28,7 +28,10 @@
 
 \module FormulaLifting \where {
   \func lift {L : Language} {c : TermContext} (f : Formula c) : Formula (c ∕ ()) =>
-    FormulaSubst.subst (\lam {A} l => var (S l)) f
+    FormulaSubst.rename S f
+
+  \func subLift {L : Language} {c : TermContext} {f : Formula c} {t : Term c} : FormulaSubst.sub (lift f) t = f
+    => FormulaSubst.substRename *> FormulaSubst.substFormulaId
 
   \func modelsLift {L : Language} {c : TermContext}
                    {I : Interpretation c} {v : Universe {I.1}}
@@ -47,18 +50,19 @@
                  {I.2}
                  (\lam l f1 => idp)
                  m
-         \in goal,
-     \lam m =>
-         \let
-           | goal : I ⊧ phi => Semantics.substitutionLemma.substitutionLemma->
-               {L}
-               {c}
-               {c ∕ ()}
-               {Interpretation.subOne I v}
-               {\lam l => var (S l)}
-               {phi}
-               {I.2}
-               (\lam l f => idp)
-               m
-         \in goal)
+         \in {?},
+     \lam m => {?}
+--         \let
+--           | goal : I ⊧ phi => Semantics.substitutionLemma.substitutionLemma->
+--               {L}
+--               {c}
+--               {c ∕ ()}
+--               {Interpretation.subOne I v}
+--               {\lam l => var (S l)}
+--               {phi}
+--               {I.2}
+--               (\lam l f => idp)
+--               m
+--         \in goal
+    )
 }

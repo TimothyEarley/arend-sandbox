@@ -1,5 +1,6 @@
 \import Equiv
 \import Function.Meta
+\import Meta
 \import Paths
 \import Paths.Meta
 \import lambda.GeneralContext
@@ -43,11 +44,10 @@
       | apply f d => apply f (\lam i => rename r (d i))
 
     \func extends {L : Language} {gamma delta : Context (\Sigma)} (s : TermSubst gamma delta) {A : \Sigma}
-      : TermSubst (gamma ∕ A) (delta ∕ A)
-      => \lam {B} l => \case \elim A, \elim B, \elim l \with {
-        | (), (), Z p => var (Z idp)
-        | (), (), S l => rename S (s l)
-      }
+      : TermSubst (gamma ∕ A) (delta ∕ A) => \lam {B} l => \case \elim A, \elim B, \elim l \with {
+      | (), (), Z p => var (Z idp)
+      | (), (), S l => rename S (s l)
+    }
 
     \func subst {L : Language} {gamma delta : TermContext} (s : TermSubst gamma delta) (t : Term gamma) : Term delta
     \elim t
@@ -57,6 +57,13 @@
     \func subTermId {L : Language} {gamma : TermContext} (t : Term gamma) : subst (\lam {A} l => var l) t = t \elim t
       | var f => idp
       | apply f d => pmap (apply f) (ext $ ext (\lam j => subTermId (d j)))
+
+    \func substRename {L : Language} {gamma delta epsiolon : TermContext}
+                      {s : TermSubst delta epsiolon} {re : Rename gamma delta} (x : Term gamma)
+      : FOLTermSub.subst s (FOLTermSub.rename re x) = FOLTermSub.subst (\lam {A} l => s (re l)) x
+    \elim x
+      | var v => idp
+      | apply f d => pmap (apply f) (ext $ ext (\lam j => substRename (d j)))
   }
 
 \module FormulaSubst \where {
@@ -69,11 +76,46 @@
     | notH f => notH (subst s f)
     | forallH f => forallH (subst (FOLTermSub.extends s) f)
 
+  \func rename {L : Language} {gamma delta : TermContext} (re : Rename gamma delta) (f : Formula gamma)
+    : Formula delta \elim f
+    | equal x y => equal (FOLTermSub.rename re x) (FOLTermSub.rename re y)
+    | atomic r d => atomic r (\lam i => FOLTermSub.rename re (d i))
+    | x impH f => rename re x impH rename re f
+    | notH f => notH (rename re f)
+    | forallH f => forallH (rename (extend re) f)
+
+  \func substFormulaId {L : Language} {gamma : TermContext}
+                       {f : Formula gamma} : subst (\lam {A} l => var l) f = f
+  \elim f
+    | equal x y => pmap2 equal (FOLTermSub.subTermId x) (FOLTermSub.subTermId y)
+    | atomic r d => pmap (atomic r) (ext $ ext (\lam j => FOLTermSub.subTermId (d j)))
+    | x impH f => pmap2 (impH) substFormulaId substFormulaId
+    | notH f => pmap notH substFormulaId
+    | forallH f =>
+      \let p : FOLTermSub.extends (\lam {A} => var) = {TermSubst (gamma ∕ ()) (gamma ∕ ())} (\lam {A} => var) =>
+        ext (\lam {A} l => cases l idp)
+      \in transportInv (\lam s => forallH (subst s f) = forallH f) p (pmap forallH substFormulaId)
+
+  \func substRename {L : Language} {gamma delta epsilon : TermContext}
+                    {s : TermSubst delta epsilon} {re : Rename gamma delta}
+                    {f : Formula gamma}
+    : subst s (rename re f) = subst (\lam l => s (re l)) f
+  \elim f
+    | equal x y => pmap2 equal (FOLTermSub.substRename x) (FOLTermSub.substRename y)
+    | atomic r d => pmap (atomic r) (ext $ ext (\lam j => FOLTermSub.substRename (d j)))
+    | x impH f => pmap2 (impH) substRename substRename
+    | notH f => pmap notH substRename
+    | forallH f => pmap forallH (
+      \let p : (\lam {A} l => FOLTermSub.extends s (extend re l)) = FOLTermSub.extends (\lam {A} l => s (re l))
+      => ext (\lam {A} l => cases l idp)
+      \in substRename *> pmap (subst __ f) p
+    )
+
   \func sub {L : Language} {gamma : TermContext}
             (f : Formula (gamma ∕ ())) (t : Term gamma) : Formula gamma => subst (subOne t) f
     \where {
-      \func subOne {L : Language} {gamma : TermContext} (t : Term gamma) : TermSubst (gamma ∕ ()) gamma
-        => \case \elim __ \with {
+      \func subOne {L : Language} {gamma : TermContext} (t : Term gamma) : TermSubst (gamma ∕ ()) gamma =>
+        \case \elim __ \with {
           | Z _ => t
           | S l => var l
         }
