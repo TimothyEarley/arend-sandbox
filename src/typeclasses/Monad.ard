@@ -1,9 +1,6 @@
 \import Algebra.Meta
-\import Algebra.Monoid
-\import Category (Precat)
 \import Data.List
 \import Data.Maybe
-\import Equiv
 \import Function
 \import Function.Meta
 \import Logic
@@ -16,9 +13,7 @@
 \import sets.Single
 \import typeclasses.Functor
 \import typeclasses.Identity
-\open MonadMonoid (TypeMonoid)
 \open Monad (join)
-\open Precat (>>)
 
 \class Monad \extends Functor {
   | return : \Pi {A : \Type} (a : A) -> F A

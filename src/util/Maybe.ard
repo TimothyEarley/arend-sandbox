@@ -2,6 +2,7 @@
 \import Data.Maybe
 \import Debug.Meta
 \import Function
+\import Function.Meta
 \import Logic
 \import Logic.Meta
 \import Meta
@@ -32,6 +33,15 @@
   | nothing => f.2
 
 \func \infix 7 orElse {A : \Type} (m : Maybe A) (a : A) : A => m fold (id, a)
+
+\func \infix 1 maybeMap {A B : \Type} (m : Maybe A) (f : \Pi A -> B) : Maybe B
+  => MaybeMonad.fmap f m
+
+\func \infix 1 maybeMap2 {A B C : \Type} (m : \Sigma (Maybe A) (Maybe B)) (f : \Pi A B -> C) : Maybe C
+  \elim m
+    | (nothing, _) => nothing
+    | (_, nothing) => nothing
+    | (just a,just a1) => just $ f a a1
 
 \meta unwrap m => cases (m arg addPath) \with {
   | just x, _ => x

@@ -1,6 +1,11 @@
 \import Arith.Nat
 \import Data.Maybe
+\import Function.Meta
 \import Logic
+\import Meta
+\import Order.LinearOrder
+\import Paths
+\import Paths.Meta
 \import identity.NatIdentity
 \import lambda.GeneralContext
 \import logik.fol.FOL
@@ -9,6 +14,7 @@
 \import logik.fol.Substitution
 \import sets.FromArray
 \import util.CantorPair
+\import util.Maybe (maybeMap, maybeMap2)
 \open Semantics (Structure)
 \open NatSemiring (<)
 
@@ -19,11 +25,12 @@
   | functionArity => LNN'.functionArity
   | encode => encodeFormula
   | natToTerm => natToTerm
-  | decode => decodeFormula
+  | decode => decodeFormula __ __ 100000
   \where {
     -- seperate Lang definition, bc otherwise encode cannot be implemented (need Lang to already be defined)
+
     \func LNN' : Language \cowith
-      | Relations => LNN_Relatios
+      | Relations => LNN_Relations
       | relationsArity => \case __ \with {
         | LNN.Less => 2
       }
@@ -35,51 +42,122 @@
         | LNN.Zero => 0
       }
 
-    \data LNN_Relatios | Less
+    \data LNN_Relations | Less
 
     \data LNN_Functions | Plus | Times | Succ | Zero
 
     \func encodeFormula {c : TermContext} (f : Formula {LNN'} c) : Nat
     \elim f
       | equal x y => cPair 0 (cPair (encodeTerm x) (encodeTerm y))
-      | atomic Less d => cPair 1 (termsToNat d)
+      | atomic Less d => cPair 1 (encodeTerms d)
       | impH x f => cPair 2 (cPair (encodeFormula x) (encodeFormula f))
       | notH f => cPair 3 (encodeFormula f)
       | forallH f => cPair 4 (encodeFormula f)
 
-
-    \func decodeFormula (encoded : Nat) (c : TermContext) : Maybe (Formula {LNN'} c)
-      => \case cPair.unPair encoded \with {
-        | (0, n2) => \let (x, y) => cPair.unPair n2 \in {?}
-        | (1, n2) => {?}
-        | (2, n2) => {?}
-        | (3, n2) => {?}
-        | (4, n2) => {?}
-        | (_, _) => nothing
+    \func decodeFormula (encoded : Nat) (c : TermContext) (fuel : Nat) : Maybe (Formula {LNN'} c) \elim fuel
+      | 0 => nothing
+      | suc fuel => \let (type, value) => cPair.unPair encoded  \in decodeFormulaCase type value c fuel
+      \where {
+        \func decodeFormulaCase (type value : Nat) (c : TermContext) (fuel : Nat) : Maybe (Formula {LNN'} c) \elim type
+          | 0 => \let (x, y) => cPair.unPair value \in (decodeTerm x c fuel, decodeTerm y c fuel) maybeMap2 (\lam t t1 => equal t t1)
+          | 1 => decodeTerms value c 2 fuel maybeMap {Array (Term {LNN'} c) 2} (\lam d => atomic Less d)
+          | 2 => \let (x, y) => cPair.unPair value \in (decodeFormula x c fuel, decodeFormula y c fuel) maybeMap2 (\lam f f1 => f impH f1)
+          | 3 => decodeFormula value c fuel maybeMap (\lam f => notH f)
+          | 4 => decodeFormula value (c ∕ ()) fuel maybeMap (\lam f => forallH f)
+          | _ => nothing
       }
 
     \func encodeTerm {c : TermContext} (t : Term {LNN'} c) : Nat
     \elim t
-      | var f => cPair 0 (∋.toIndex f)
-      | apply Plus d => cPair 1 (termsToNat d)
-      | apply Times d => cPair 2 (termsToNat d)
-      | apply Succ d => cPair 3 (termsToNat d)
-      | apply Zero d => cPair 4 (termsToNat d)
+      | var f => cPair 0 (∋.toIndexFin f)
+      | apply Plus d => cPair 1 (encodeTerms d)
+      | apply Times d => cPair 2 (encodeTerms d)
+      | apply Succ d => cPair 3 (encodeTerms d)
+      | apply Zero d => cPair 4 (encodeTerms d)
 
-    \func decodeTerm (encoded : Nat) (c : TermContext) : Maybe (Term {LNN'} c)
-      => \case cPair.unPair encoded \with {
-        | (0,n2) => {?}
-        | (1,n2) => {?}
-        | (2,n2) => {?}
-        | (3,n2) => {?}
-        | (4,n2) => {?}
-        | _ => nothing
+    \func decodeTerm (encoded : Nat) (c : TermContext) (fuel : Nat) : Maybe (Term {LNN'} c) \elim fuel
+      | 0 => nothing
+      | suc fuel => \let (type, value) => cPair.unPair encoded  \in decodeTermCase type value c fuel
+      \where {
+        \func decodeTermCase (type value : Nat) (c : TermContext) (fuel : Nat) : Maybe (Term {LNN'} c) \elim type
+          | 0 => \case NatSemiring.trichotomy value (Context.length c) \with {
+            | less n2<ctx => just (var (∋.fromIndexFin (toFin {value} n2<ctx)))
+            | equals n2=ctx => nothing
+            | greater n2>ctx => nothing
+          }
+          | 1 => decodeTerms value c 2 fuel maybeMap {Array (Term {LNN'} c) 2} (\lam d => apply Plus d)
+          | 2 => decodeTerms value c 2 fuel maybeMap {Array (Term {LNN'} c) 2} (\lam d => apply Times d)
+          | 3 => decodeTerms value c 1 fuel maybeMap {Array (Term {LNN'} c) 1} (\lam d => apply Succ d)
+          | 4 => decodeTerms value c 0 fuel maybeMap {Array (Term {LNN'} c) 0} (\lam d => apply Zero d)
+          | _ => nothing
       }
 
-    \func termsToNat {c : TermContext} (ts : Array (Term {LNN'} c)) : Nat
+    \func encodeTerms {c : TermContext} (ts : Array (Term {LNN'} c)) : Nat
     \elim ts
       | nil => 0
-      | :: a arr => cPair (encodeTerm a) (termsToNat arr)
+      | :: a arr => cPair (encodeTerm a) (encodeTerms arr)
+
+    \func decodeTerms (encoded : Nat) (c : TermContext) (l : Nat) (fuel : Nat) : Maybe $ Array (Term {LNN'} c) l
+    \elim l
+      | 0 => \case encoded \with {
+        | 0 => just nil
+        | suc n => nothing
+      }
+      | suc l =>
+        \let (n1, n2) => cPair.unPair encoded
+        \in \case decodeTerm n1 c fuel, decodeTerms n2 c l fuel \with {
+          | nothing, _ => nothing
+          | _, nothing => nothing
+          | just a, just arr => just (a :: arr)
+        }
+
+    \func requiredFuelTerm {c : TermContext} (f : Term {LNN'} c) : Nat \elim f
+      | var v => 1
+      | apply f d => 2
+
+    \func decodeEncodeTerm {c : TermContext} {t : Term {LNN'} c} : decodeTerm (encodeTerm t) c (requiredFuelTerm t) = just t
+    \elim t
+      | var v =>
+        \let
+          | h => variable.fromToIndexFin v
+          | p : toFin (fin_< (Lookup.toIndexFin v)) = {Fin (Context.length c)} Lookup.toIndexFin v =>
+            {?}
+        \in run {
+          rewrite (CantorPairing.unPaircPair (0, ∋.toIndexFin v)),
+          unfold_let,
+          rewrite (LinearOrder.trichotomy<_reduce (fin_< _)),
+          pmap just,
+          pmap (var {LNN'}),
+          pmap ∋.fromIndexFin p *> h
+        }
+      | apply Plus d => run {
+        rewrite (CantorPairing.unPaircPair (1, encodeTerms d)),
+        unfold_let,
+        {?}
+      }
+      | apply Times d => {?}
+      | apply Succ d => {?}
+      | apply Zero d => {?}
+
+    \func requiredFuel {c : TermContext} (f : Formula {LNN'} c) : Nat \elim f
+      | equal x y => 2
+      | atomic r d => 0
+      | x impH f => 0
+      | notH f => 0
+      | forallH f => 0
+
+    \func decodeEncode {c : TermContext} {f : Formula {LNN'} c} : decodeFormula (encodeFormula f) c (requiredFuel f) = just f
+    \elim f
+      | equal x y => run {
+        rewrite (CantorPairing.unPaircPair (0, cPair (encodeTerm x) (encodeTerm y))),
+        unfold_let,
+        {?}
+      }
+
+      | atomic r d => {?}
+      | x impH f => {?}
+      | notH f => {?}
+      | forallH f => {?}
 
     \func natToTerm (encoded : Nat) : Term {LNN'} ∅
       | 0 => apply Zero nil
