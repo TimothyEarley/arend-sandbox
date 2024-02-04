@@ -30,16 +30,16 @@
   \func lift {L : Language} {c : TermContext} (f : Formula c) : Formula (c ∕ ()) =>
     FormulaSubst.rename S f
 
-  \func subLift {L : Language} {c : TermContext} {f : Formula c} {t : Term c} : FormulaSubst.sub (lift f) t = f
-    => FormulaSubst.substRename *> FormulaSubst.substFormulaId
+  \func subLift {L : Language} {c : TermContext} {f : Formula c} {t : Term c} : FormulaSubst.sub (lift f) t = f =>
+    FormulaSubst.substRename *> FormulaSubst.substFormulaId
 
   \func modelsLift {L : Language} {c : TermContext}
                    {I : Interpretation c} {v : Universe {I.1}}
                    {phi : Formula c}
-    : (I ⊧ phi) <--> (Semantics.Interpretation.subOne I v Semantics.⊧ lift phi) =>
+    : (I ⊧ phi) <--> (Interpretation.subOne I v ⊧ lift phi) =>
     (\lam m =>
          \let
-           | goal : (I.1, Interpretation.substValueExtend I.2 v) ⊧ FormulaSubst.subst (\lam l => var (S l)) phi =>
+           | goalWithSubst : Interpretation.subOne I v ⊧ FormulaSubst.subst (\lam l => var (S l)) phi =>
              Semantics.substitutionLemma.substitutionLemma<-
                  {L}
                  {c}
@@ -50,19 +50,23 @@
                  {I.2}
                  (\lam l f1 => idp)
                  m
-         \in {?},
-     \lam m => {?}
---         \let
---           | goal : I ⊧ phi => Semantics.substitutionLemma.substitutionLemma->
---               {L}
---               {c}
---               {c ∕ ()}
---               {Interpretation.subOne I v}
---               {\lam l => var (S l)}
---               {phi}
---               {I.2}
---               (\lam l f => idp)
---               m
---         \in goal
+           | p : FormulaSubst.subst (\lam l => var (S l)) phi = lift phi =>
+             FormulaSubst.varSubst=rename (\lam l => idp)
+         \in transport (_ ⊧ __) p goalWithSubst,
+     \lam m =>
+             \let
+              | m' : Interpretation.subOne I v ⊧ FormulaSubst.subst (\lam {A : \Sigma} (l : c ∋ A) => var (S l)) phi
+                => transportInv (_ ⊧ __) (FormulaSubst.varSubst=rename (\lam l => idp)) m
+               | goal : I ⊧ phi => Semantics.substitutionLemma.substitutionLemma->
+                   {L}
+                   {c}
+                   {c ∕ ()}
+                   {Interpretation.subOne I v}
+                   {\lam l => var (S l)}
+                   {phi}
+                   {I.2}
+                   (\lam l f => idp)
+                   m'
+             \in goal
     )
 }

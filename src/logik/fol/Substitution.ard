@@ -64,6 +64,13 @@
     \elim x
       | var v => idp
       | apply f d => pmap (apply f) (ext $ ext (\lam j => substRename (d j)))
+
+    \func varSubst=rename {L : Language} {gamma delta : TermContext}
+                          {s : TermSubst gamma delta} {r : Rename gamma delta}
+                          (h : \Pi (l : gamma ∋ ()) -> s l = var (r l))
+                          {t : Term gamma} : subst s t = rename r t \elim t
+      | var v => h v
+      | apply f d => pmap (apply f) (ext $ ext (\lam j => varSubst=rename h {d j}))
   }
 
 \module FormulaSubst \where {
@@ -110,6 +117,20 @@
       => ext (\lam {A} l => cases l idp)
       \in substRename *> pmap (subst __ f) p
     )
+
+  \lemma varSubst=rename {L : Language} {gamma delta : TermContext}
+                         {s : TermSubst gamma delta} {r : Rename gamma delta}
+                         (h : \Pi (l : gamma ∋ ()) -> s l = var (r l))
+                         {f : Formula gamma}
+    : subst s f = rename r f \elim f
+    | equal x y => pmap2 equal (FOLTermSub.varSubst=rename h) (FOLTermSub.varSubst=rename h)
+    | atomic r1 d => pmap (atomic r1) (ext $ ext (\lam j => FOLTermSub.varSubst=rename h))
+    | x impH f => pmap2 (impH) (varSubst=rename h) (varSubst=rename h)
+    | notH f => pmap notH (varSubst=rename h)
+    | forallH f => pmap forallH (varSubst=rename (\lam (l : (gamma ∕ ()) ∋ ()) => \case \elim l \with {
+      | Z p => idp
+      | S l => unfold (extend, FOLTermSub.extends) $ rewrite (h l) idp
+    }))
 
   \func sub {L : Language} {gamma : TermContext}
             (f : Formula (gamma ∕ ())) (t : Term gamma) : Formula gamma => subst (subOne t) f
