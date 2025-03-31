@@ -1,0 +1,163 @@
+\import Algebra.Meta
+\import Arith.Nat
+\import Function.Meta
+\import Logic
+\import Meta
+\import Order.Lattice
+\import Order.LinearOrder
+\import Paths
+\import Paths.Meta
+
+
+-- https://www.youtube.com/watch?v=dzykeGUpLhg&list=WL&index=1
+
+\open Nat (*, +)
+
+\func sumFunBelow (f : Nat -> Nat) (n : Nat) : Nat \elim n
+  | 0 => 0
+  | suc n => f n + sumFunBelow f n
+
+\data Formula
+  | X
+  | Num (m : Nat)
+  | Add (q r : Formula)
+  | Mul (q r : Formula)
+  | SumFromBelow (q : Formula)
+  | Shift (q : Formula)
+
+\func evaluate \alias \infix 8 @ (f : Formula) (n : Nat) : Nat \elim f
+  | X => n
+  | Num m => m
+  | Add q r => evaluate q n + evaluate r n
+  | Mul q r => evaluate q n * evaluate r n
+  | SumFromBelow q => sumFunBelow (evaluate q) n
+  | Shift q => evaluate q (suc n)
+
+\func powery (n : Nat) : Formula \elim n
+  | 0 => Num 1
+  | suc n => Mul X (powery n)
+
+\func x => NatSemiring
+
+\func diff \alias ∂ (_ : Formula) : Formula
+  | X => Num 1
+  | Num m => Num 0
+  | Add q f => Add (∂ q) (∂ f)
+  | Mul q f => Add (Add
+                      (Mul (∂ q) f)
+                      (Mul q (∂ f)))
+                      (Mul (∂ q) (∂ f)
+                    )
+  | SumFromBelow f => f
+  | Shift f => Shift (∂ f)
+
+\where {
+  \func prop {f : Formula} {n : Nat} : f @ (suc n) = (∂ f) @ n + f @ n
+    \elim f
+      | X => idp
+      | Num m => idp
+      | Add q r =>
+          q @ (suc n) + r @ (suc n)             ==< pmap2 (+) prop prop >==
+          (∂ q @ n + q @ n) + (∂ r @ n + r @ n) ==< linarith            >==
+          (∂ $ Add q r) @ n + (q @ n + r @ n)   `qed
+      | Mul q r =>
+        q @ (suc n) * r @ (suc n)              ==< pmap2 (*) prop prop >==
+        (∂ q @ n + q @ n) * (∂ r @ n + r @ n)  ==< equation            >==
+        (∂ $ Mul q r) @ n + q @ n * r @ n      `qed
+      | SumFromBelow f => idp
+      | Shift f => prop
+}
+
+\data BotNum
+  | Bot -- "negative infinity"
+  | N Nat
+\where {
+  \func bpred (_ : BotNum) : BotNum
+    | Bot => Bot
+    | N 0 => Bot
+    | N (suc n) => N n
+
+  \func bsuc (_ : BotNum) : BotNum
+    | Bot => Bot
+    | N n => N (suc n)
+
+  \lemma bpred-bsuc {n : BotNum} : bpred (bsuc n) = n => cases n idp
+
+  \func bplus \alias \infix 6 b+ (_ _ : BotNum) : BotNum
+    | Bot, m => Bot
+    | n, Bot => Bot
+    | N n, N m => N (n + m)
+
+  \lemma bplus-0-r {n : BotNum} : n b+ N 0 = n => cases n idp
+  \lemma bplus-0-l {n : BotNum} : N 0 b+ n = n => cases n idp
+  \lemma bplus-Bot-r {n : BotNum} : n b+ Bot = Bot => cases n idp
+  \lemma bplus-Bot-l {n : BotNum} : Bot b+ n = Bot => cases n idp
+
+  \func bmax (_ _ : BotNum) : BotNum
+    | Bot, m => m
+    | n, Bot => n
+    | N n, N m => N (n ∨ m)
+
+  \lemma bmax-Bot-l {n : BotNum} : bmax Bot n = n => cases n idp
+  \lemma bmax-Bot-r {n : BotNum} : bmax n Bot = n => cases n idp
+
+  \lemma join-bottom {n : Nat} : 0 ∨ n = n => NatSemiring.join_<= zero<=_
+
+  -- TODO is there an easier proof?
+  \lemma join-suc {n m : Nat} : suc n ∨ suc m = suc (n ∨ m) => \case NatSemiring.totality n m \with {
+    | byLeft n<=m =>
+      suc n ∨ suc m ==< NatSemiring.join_<= (suc<=suc n<=m) >==
+      suc m         ==< pmap suc (inv (NatSemiring.join_<= n<=m)) >==
+      suc (n ∨ m)   `qed
+    | byRight m<=n =>
+      suc n ∨ suc m ==< NatSemiring.join-comm >==
+      suc m ∨ suc n ==< NatSemiring.join_<= (suc<=suc m<=n)  >==
+      suc n         ==< pmap suc (inv (NatSemiring.join_<= m<=n)) >==
+      suc (m ∨ n)   ==< pmap suc NatSemiring.join-comm >==
+      suc (n ∨ m)   `qed
+  }
+
+  \lemma bpred-bmax {n m : BotNum} : bpred (bmax n m) = bmax (bpred n) (bpred m)
+    \elim n, m
+      | Bot, m => rewrite (bmax-Bot-l, bmax-Bot-l) idp
+      | n, Bot => rewrite (bmax-Bot-r, bmax-Bot-r) idp
+      | N 0, N m => rewrite join-bottom (inv bmax-Bot-l)
+      | N (suc n), N 0 => idp
+      | N (suc n), N (suc m) => rewrite join-suc idp
+}
+\open BotNum
+
+\func bdegree (_ : Formula) : BotNum
+  | X => N 1
+  | Num 0 => Bot
+  | Num (suc m) => N 0
+  | Add q f => bmax  (bdegree q) (bdegree f)
+  | Mul q f => bdegree q b+ bdegree f
+  | SumFromBelow f => bsuc (bdegree f)
+  | Shift f => bdegree f
+\where {
+  \lemma respectsPowery {n : Nat} : bdegree (powery n) = N n \elim n
+    | 0 => idp
+    | suc n => pmap (_ b+) respectsPowery
+
+  \lemma diffLowersDegree {f : Formula} : bdegree (∂ f) = bpred (bdegree f) \elim f
+    | X => idp
+    | Num 0 => idp
+    | Num (suc m) => idp
+    | Add q f => pmap2 bmax diffLowersDegree diffLowersDegree *> inv bpred-bmax
+    | Mul q f => rewrite (diffLowersDegree, diffLowersDegree) $
+      cases (bdegree q, bdegree f) \with {
+      | Bot, m => rewrite (bplus-Bot-l, bplus-Bot-l) idp
+      | N n, Bot => rewrite bplus-Bot-r idp
+      | N 0, N m => rewrite (bplus-0-l, bplus-Bot-l, bmax-Bot-l, bmax-Bot-r) idp
+      | N (suc n), N 0 => idp
+      | N (suc n), N (suc m) => pmap N $
+        suc (n + m) ∨ suc (n + m) ∨ (n + m) ==< pmap (__ ∨ _) NatSemiring.join-idemp >==
+        suc (n + m) ∨ (n + m)               ==< NatSemiring.join-comm                >==
+        (n + m) ∨ suc (n + m)               ==< NatSemiring.join_<= id<=suc          >==
+        suc (n + m)                         `qed
+
+    }
+    | SumFromBelow f => inv bpred-bsuc
+    | Shift f => diffLowersDegree
+}

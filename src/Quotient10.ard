@@ -1,0 +1,22 @@
+\import Arith.Nat
+\import Data.Bool
+\import Paths.Meta
+\import Relation.Equivalence
+\import Set
+\open Nat (mod)
+
+\func CongruentMod10 (a b : Nat) : \Prop => (a mod 10) = {Nat} (b mod 10)
+
+\func NatMod10 : \Set => Quotient CongruentMod10
+
+\func IsEven (_ : NatMod10) : Bool
+  | in~ a => a mod 2 == {NatSemiring} 0
+  | ~-equiv (x : Nat) (y : Nat) (r : CongruentMod10 x y) =>
+    \let
+      | p : x mod 2 = {Nat} y mod 2 => rewriteI (helper {x}, helper {y}, r) idp
+      | goal : (x mod 2 == 0) = (y mod 2 == 0) => rewrite p idp
+    \in goal
+\where {
+  \func helper {a : Nat} : (a mod 10) mod 2 = {Nat} a mod 2
+    => {?} -- some proof here
+}

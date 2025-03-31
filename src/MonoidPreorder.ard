@@ -1,0 +1,64 @@
+\import Algebra.Monoid
+\import Meta
+\import Order.PartialOrder
+\import Paths
+\import Paths.Meta
+
+-- https://www.youtube.com/watch?v=V-VdOFDMuPc
+
+\data Bit : \Set | O | I
+
+\data Implies (x y : Bit) : \Prop \elim x, y
+  | O, O => OO
+  | O, I => OI
+  | I, I => II
+
+\instance GlomMonoid : Monoid Bit
+  | * => glom
+  | ide => O
+  | ide-left {x} => cases x idp
+  | ide-right {x} => cases x idp
+  | *-assoc {x} {y} {z} => cases (x, y, z) idp
+  \where {
+    -- glom is "or"
+
+    \func glom (_ _ : Bit) : Bit
+      | O, O => O
+      | O, I => I
+      | I, O => I
+      | I, I => I
+  }
+
+\truncated \data GlomOn (a c : Bit) : \Prop  -- not \Prop, since in a=1, c=1, b can be any
+  | Glomming (b : Bit) (p : a GlomMonoid.* b = c)
+
+\instance GlomOnPre : Preorder Bit
+  | <= x y => GlomOn x y
+  | <=-refl => Glomming GlomMonoid.ide GlomMonoid.ide-right
+  | <=-transitive {_} {y} {z} => \case \elim y, \elim z, \elim __, \elim __ \with {
+    | _, _, Glomming a idp, Glomming a' idp => Glomming (a GlomMonoid.* a') (inv GlomMonoid.*-assoc)
+  }
+
+\func Implies=GlomOn2 : Implies = GlomOn => ext (\lam x y => ext (
+  \lam i => cases (x, y, i) (Glomming O idp <|> Glomming I idp),
+  \lam g => \case \elim x, \elim y, \elim g \with {
+    | O, O, Glomming b p => OO
+    | O, I, Glomming b p => OI
+    | I, O, Glomming O ()
+    | I, O, Glomming I ()
+    | I, I, Glomming b p => II
+  }
+))
+
+-- the general pattern
+
+\func MonoidPreorder (M : Monoid) : Preorder M \cowith
+  | <= => MOn
+  | <=-refl => MOn.mOn M.ide M.ide-right
+  | <=-transitive => \case \elim __, \elim __ \with {
+    | MOn.mOn a p, MOn.mOn a' p' => MOn.mOn (a * a') (inv M.*-assoc *> pmap (__ * _) p *> p')
+  }
+  \where {
+    \truncated \data MOn {M : Monoid} (x z : M) : \Prop
+      | mOn (y : M) (p : x * y = z)
+  }
