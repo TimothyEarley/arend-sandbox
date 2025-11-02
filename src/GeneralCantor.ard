@@ -1,0 +1,44 @@
+\import Data.Bool
+\import Function
+\import Function.Meta
+\import Logic
+\import Paths
+\import Paths.Meta
+-- https://www.cambridge.org/core/services/aop-cambridge-core/content/view/9C490EC9520C0C96AEEF06E59BFD428B/S107989860000442Xa.pdf/div-class-title-a-universal-approach-to-self-referential-paradoxes-incompleteness-and-fixed-points-div.pdf
+
+\func NoFix {A : \Type} (f : A -> A) : \Prop => \Pi (a : A) -> f a /= a
+
+\func cantor (Y : \Type) (alpha : Y -> Y) (noFix : NoFix alpha)
+  (T : \Type) (f : T -> T -> Y) : \Pi (t : T) -> g /= (\lam x => f x t)
+=> \lam t0 p => noFix (f t0 t0) $
+    alpha (f t0 t0) ==< idp            >==
+    g t0            ==< pmap (__ t0) p >==
+    f t0 t0 `qed
+\where {
+  \func g : T -> Y => alpha o (\lam t => f t t) -- uses diag!
+}
+
+\func cantor' (Y : \Type) (alpha : Y -> Y) (noFix : NoFix alpha)
+  (T S : \Type) (beta : T -> S) (betaSurj : isSurj beta)
+  (f : \Sigma T S -> Y) : \Sigma (g : T -> Y) (\Pi (s : S) -> g /= \lam t => f (t, s))
+=> (alpha o f o (\lam t => (t, beta t)),
+    \lam s0 p => \case betaSurj s0 \with {
+      | inP (t0, p') => noFix (f (t0, s0)) $ rewriteI p' idp *> pmap (__ t0) p
+    }
+)
+\where {
+  \func isGeneralisation (Y : \Type) (alpha : Y -> Y) (noFix : NoFix alpha)
+                         (T : \Type) (f : \Sigma T T -> Y) : \Sigma (g : T -> Y) (\Pi (t : T) -> g /= \lam t' => f (t', t))
+    => cantor' Y alpha noFix T T id (\lam t => inP (t, idp)) f
+}
+
+\func ogCantor (f : Nat -> Nat -> Bool) (surj : isSurj f) : Empty
+  => \case surj (cantor.g {_} {not} {_} {f}) \with {
+    | inP (x, p) => cantor Bool not not-is-noFix Nat (\lam a b => f b a) x (inv p)
+  }
+\where {
+  \func not-is-noFix : NoFix not => \lam a p => \case \elim a, \elim p \with {
+    | true, ()
+    | false, ()
+  }
+}
