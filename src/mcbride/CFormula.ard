@@ -1,0 +1,63 @@
+\import Algebra.Meta
+\import Algebra.Semiring
+\import Meta
+\import Paths
+\import Arith.Nat (NatSemiring)
+
+-- https://www.youtube.com/watch?v=m5_q6kDZDvE
+
+\open Nat (*, +)
+\open NatSemiring (ldistr)
+
+\data CFormula -- Formula + Choose + Shift
+  | Choose (k : Nat) -- choose k from input
+  | N (v : Nat)
+  | \infixl 6 :+: (f g : CFormula)
+  | \infixl 5 :*: (f g : CFormula)
+  | Shift (f : CFormula)
+  \where {
+    \cons ecks : CFormula => Choose 1
+
+    \use \coerce fromNat (n : Nat) : CFormula => N n
+
+    \func sumFromBelow (f : Nat -> Nat) (n : Nat) : Nat \elim n
+      | 0 => 0
+      | suc n => f n + sumFromBelow f n
+
+    \func choose (k n : Nat) : Nat \elim k, n
+      | 0, _ => 1
+      | suc k, 0 => 0
+      | suc k, suc n => choose k n + choose (suc k) n
+
+    -- TODO: does this have another name?
+
+    \func pointwise {A B C D : \Type} (op : A -> B -> C) (f : D -> A) (g : D -> B) (d : D) : C => op (f d) (g d)
+
+    \func shiftFun {A : \Type} (f : Nat -> A) : Nat -> A => \lam n => f (suc n)
+
+    \func eval (_ : CFormula) : Nat -> Nat
+      | Choose k => choose k
+      | N v => \lam _ => v
+      | f :+: g => pointwise (+) (eval f) (eval g)
+      | f :*: g => pointwise (*) (eval f) (eval g)
+      | Shift f => shiftFun (eval f)
+
+    \func diff (_ : CFormula) : CFormula
+      | Choose 0 => 0
+      | Choose (suc k) => Choose k
+      | N v => 0
+      | f :+: f1 => diff f :+: diff f1
+      | f :*: f1 => (diff f :*: diff f1) :+: (f :*: diff f1) :+: (diff f :*: f1)
+      | Shift f => Shift (diff f)
+
+    \private \lemma cross-distr {a b c d : Nat} : (a + b) * (c + d) = a * c +  b * c +  a * d + b * d =>
+      ldistr *> pmap2 (+) rdistr rdistr *> linarith
+
+    \lemma diff-char {f : CFormula} {n : Nat} : eval f (suc n) = eval (diff f) n + eval f n \elim f
+      | Choose 0 => idp
+      | Choose (suc k) => idp
+      | N v => idp
+      | f1 :+: f2 => pmap2 (+) diff-char diff-char *> linarith
+      | f1 :*: f2 => pmap2 (*) diff-char diff-char *> cross-distr
+      | Shift f => diff-char
+  }

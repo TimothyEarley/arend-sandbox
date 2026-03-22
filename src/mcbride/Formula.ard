@@ -1,0 +1,176 @@
+\import Algebra.Meta
+\import Arith.Nat (NatSemiring, id<suc, suc<=suc, zero<=_)
+\import Function
+\import Function.Meta
+\import Meta
+\import Order.Lattice
+\import Order.LinearOrder
+\import Paths
+\import Paths.Meta
+\open Nat (*, +)
+\open NatSemiring (+-assoc, +-comm, ldistr)
+
+-- https://www.youtube.com/watch?v=WD4inwgZwKc&list=PLJTuln4ze6X-xx0K4LwTius5VZG02DLX8
+-- but also the same as ForwardsDiff
+
+\data Formula
+  | X
+  | N (v : Nat)
+  | \infixl 6 :+: Formula Formula
+  | \infixl 5 :*: Formula Formula
+  \where {
+    \use \coerce fromNat (n : Nat) : Formula => N n
+
+    \func eval (f : Formula) (n : Nat) : Nat \elim f
+      | X => n
+      | N v => v
+      | f1 :+: f2 => eval f1 n + eval f2 n
+      | f1 :*: f2 => eval f1 n * eval f2 n
+
+    \func shift (f : Formula) : Formula \elim f
+      | X => X :+: 1
+      | N v => N v
+      | f1 :+: f2 => shift f1 :+: shift f2
+      | f1 :*: f2 => shift f1 :*: shift f2
+
+    \lemma shift-char {f : Formula} {n : Nat} : eval (shift f) n = eval f (suc n) \elim f
+      | X => idp
+      | N v => idp
+      | f1 :+: f2 => pmap2 (+) shift-char shift-char
+      | f1 :*: f2 => pmap2 (*) shift-char shift-char
+
+    \func diff (_ : Formula) : Formula
+      | X => 1
+      | N v => 0
+      | f :+: f1 => diff f :+: diff f1
+      | f :*: f1 => (diff f :*: diff f1) :+: (f :*: diff f1) :+: (diff f :*: f1)
+
+    \private \lemma cross-distr {a b c d : Nat} : (a + b) * (c + d) = a * c +  b * c +  a * d + b * d =>
+      ldistr *> pmap2 (+) NatSemiring.rdistr NatSemiring.rdistr *> linarith
+
+    \lemma diff-char {f : Formula} {n : Nat} : eval f (suc n) = eval (diff f) n + eval f n \elim f
+      | X => idp
+      | N v => idp
+      | f1 :+: f2 => pmap2 (+) diff-char diff-char *> linarith
+      | f1 :*: f2 => pmap2 (*) diff-char diff-char *> cross-distr
+
+    \lemma diff-*-alt {f g : Formula} {n : Nat} : eval (diff (f :*: g)) n = eval ((diff f :*: shift g) :+: (f :*: diff g)) n =>
+      eval (diff (f :*: g)) n                                                                     ==< idp >==
+      eval (diff f) n * eval (diff g) n + eval f n * eval (diff g) n + eval (diff f) n * eval g n ==< +-assoc *> pmap (_ + __) +-comm *> inv +-assoc >==
+      eval (diff f) n * eval (diff g) n + eval (diff f) n * eval g n + eval f n * eval (diff g) n ==< pmap (__ + _ ) (inv ldistr) >==
+      eval (diff f) n * (eval (diff g) n + eval g n) + eval f n * eval (diff g) n                 ==< pmap (_ * __ + _) (inv diff-char) >==
+      eval (diff f) n * eval g (suc n) + eval f n * eval (diff g) n                               ==< pmap (_ * __ + _) (inv shift-char) >==
+      eval (diff f) n * eval (shift g) n + eval f n * eval (diff g) n                             ==< idp >==
+      eval ((diff f :*: shift g) :+: (f :*: diff g)) n `qed
+
+    \data BotNum
+      | Bot -- "negative infinity"
+      | Num Nat
+      \where {
+        \use \coerce fromNat (n : Nat) : BotNum => Num n
+
+        \func bmax (_ _ : BotNum) : BotNum
+          | Bot, b => b
+          | a, Bot => a
+          | Num n1, Num n2 => Num (n1 ∨ n2)
+
+        \lemma bmax-l {b : BotNum} : bmax Bot b = b \elim b
+          | Bot => idp
+          | Num n => idp
+
+        \lemma bmax-r {b : BotNum} : bmax b Bot = b \elim b
+          | Bot => idp
+          | Num n => idp
+
+        \lemma join-bottom {n : Nat} : 0 ∨ n = n => NatSemiring.join_<= zero<=_
+
+        \lemma join-1 {n : Nat} : 1 ∨ suc n = suc n => NatSemiring.join_<= (suc<=suc zero<=_)
+
+        -- TODO: ???
+        \lemma join-suc {n m : Nat} : (suc n) ∨ (suc m) = suc (n ∨ m) =>
+          cases (NatSemiring.trichotomy n m) \with {
+            | less n<m =>
+              suc n ∨ suc m ==< NatSemiring.join_<= (NatSemiring.<=-less (NatSemiring.suc<suc n<m)) >==
+              suc m         ==< pmap suc (inv $ NatSemiring.join_<= (NatSemiring.<=-less n<m)) >==
+              suc (n ∨ m)   `qed
+            | equals p =>
+              suc n ∨ suc m ==< NatSemiring.join_<= (<=-refl' (pmap suc p)) >==
+              suc m         ==< pmap suc (inv $ NatSemiring.join_<= (<=-refl' p)) >==
+              suc (n ∨ m)   `qed
+            | greater m<n =>
+              suc n ∨ suc m ==< NatSemiring.join-comm >==
+              suc m ∨ suc n ==< NatSemiring.join_<= (NatSemiring.<=-less (NatSemiring.suc<suc m<n)) >==
+              suc n         ==< pmap suc (inv $ NatSemiring.join_<= (NatSemiring.<=-less m<n)) >==
+              suc (m ∨ n)   ==< pmap suc NatSemiring.join-comm >==
+              suc (n ∨ m)   `qed
+          }
+          \where {
+            \func <=-refl' {n m : Nat} (p : n = m) : n NatSemiring.<= m \elim p
+              | idp => NatSemiring.<=-refl
+          }
+
+        \func badd (_ _ : BotNum) : BotNum
+          | Bot, _ => Bot
+          | _, Bot => Bot
+          | Num n, Num n1 => Num (n + n1)
+
+        \lemma badd-Bot-l {a : BotNum} : badd Bot a = Bot => cases a idp
+        \lemma badd-0-l {a : BotNum} : badd (Num 0) a = a => cases a idp
+
+
+        \func bpred (_ : BotNum) : BotNum
+          | Bot => Bot
+          | Num 0 => Bot
+          | Num (suc n) => n
+
+        \lemma bmax-bpred {a b : BotNum} : bmax (bpred a) (bpred b) = bpred (bmax a b) \elim a, b
+          | Bot, b => bmax-l *> inv (pmap bpred bmax-l)
+          | Num n, Bot => bmax-r
+          | Num 0, Num _ => bmax-l *> pmap (bpred o Num) (inv join-bottom)
+          | Num (suc _), Num 0 => idp
+          | Num (suc n), Num (suc n1) => pmap (bpred o Num) (inv join-suc)
+      }
+
+    \open BotNum
+
+    \func degree (_ : Formula) : BotNum
+      | X => 1
+      | N 0 => Bot
+      | N (suc v) => 0
+      | f :+: f1 => bmax (degree f) (degree f1)
+      | f :*: f1 => badd (degree f) (degree f1)
+
+    \lemma degree-shift {f : Formula} : degree (shift f) = degree f \elim f
+      | X => idp
+      | N v => idp
+      | f1 :+: f2 => pmap2 bmax degree-shift degree-shift
+      | f1 :*: f2 => pmap2 badd degree-shift degree-shift
+
+    \lemma degree-diff {f : Formula} : degree (diff f) = bpred (degree f) \elim f
+      | X => idp
+      | N 0 => idp
+      | N (suc v) => idp
+      | f1 :+: f2 => pmap2 bmax degree-diff degree-diff *> bmax-bpred
+      | f1 :*: f2 =>
+        \let | F1 => degree f1
+             | F2 => degree f2
+        \in rewrite (degree-diff, degree-diff, b-max-helper-1, b-max-helper-2) idp
+    \where {
+      \lemma b-max-helper-1 {a b : BotNum} : bmax (badd (bpred a) (bpred b)) (badd a (bpred b)) = badd a (bpred b)
+        \elim a, b
+          | Bot, _ => rewrite badd-Bot-l idp
+          | Num 0, _ => rewrite (badd-Bot-l, badd-0-l, bmax-l) idp
+          | Num (suc n), Bot => idp
+          | Num (suc n), Num 0 => idp
+          | Num (suc a), Num (suc b) => pmap Num $ NatSemiring.join_<= (NatSemiring.<=-less id<suc)
+
+      \lemma b-max-helper-2 {a b : BotNum} : bmax (badd a (bpred b)) (badd (bpred a) b) = bpred (badd a b)
+        \elim a, b
+          | Bot, _ => rewrite (badd-Bot-l, badd-Bot-l) idp
+          | Num 0, b => rewrite (badd-Bot-l, badd-0-l, bmax-r, badd-0-l) idp
+          | Num (suc n), Bot => idp
+          | Num (suc n), Num 0 => idp
+          | Num (suc a), Num (suc b) => pmap Num $ NatSemiring.join-idemp
+    }
+
+  }
