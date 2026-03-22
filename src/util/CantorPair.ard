@@ -10,12 +10,13 @@
 \import logik.fol.Semantics
 \import util.Nat
 \open Nat (+)
-\open NatSemiring (<, <-irreflexive, <-transitive)
+\open NatOrder (<)
 \open Semantics (≡)
+\open NatSemiring (<-transitive)
 
 -- https://git8.cs.fau.de/software/duration-monad-agda/-/blob/451eeb46ded67c95c75aac8dd931e5d8a15aa5df/Cantor.agda
 
-\func cPair (x y : Nat) : Nat
+\func cPair (x y : Nat) : Nat \elim x, y
   | 0, 0 => 0
   | 0, suc y => cPair 0 y + suc y + 1
   | suc x, y => cPair x y + suc (x + y)
@@ -64,7 +65,7 @@
       | 0 => idp
       | suc n => pmap (\lam z => suc (z + _)) cPair0=
 
-    \func h1 (n k : Nat) (h : k < suc n) : cPair.unPair1 (cPair0 n + k) = n ∸ k
+    \func h1 (n k : Nat) (_ : k < suc n) : cPair.unPair1 (cPair0 n + k) = n ∸ k
       | 0, 0, <.zero<suc => idp
       | 0, suc k, <.suc<suc ()
       | suc n, 0, h => rewrite (h1 n n n<sucn, ∸.=0) (pmap suc (h2 n n n<sucn))
@@ -76,7 +77,7 @@
         | suc x, q => unsuc (inv q *> ∸.+-assoc 1 k<=n)
       })
 
-    \func h2 (n k : Nat) (h : k < suc n) : cPair.unPair2 (cPair0 n + k) = k
+    \func h2 (n k : Nat) (_ : k < suc n) : cPair.unPair2 (cPair0 n + k) = k
       | 0, 0, <.zero<suc => idp
       | 0, suc k, <.suc<suc ()
       | suc n, 0, <.zero<suc => rewrite (h1 n n n<sucn, ∸.=0) idp
@@ -88,7 +89,10 @@
       })
 
     \func unPaircPair1-0 (x : Nat) : cPair.unPair1 (cPair x 0) = x =>
-      rewriteI cPair0= (rewriteF ∸.minus0 $ h1 x 0 <.zero<suc)
+        cPair.unPair1 (cPair x 0) ==< inv (pmap cPair.unPair1 cPair0=) >==
+        cPair.unPair1 (cPair0 x)  ==< h1 x 0 <.zero<suc >==
+        x ∸ 0  ==< ∸.minus0 >==
+        x `qed
 
     \func unPaircPair2-0 (x : Nat) : cPair.unPair2 (cPair x 0) = 0 => rewriteI cPair0= (h2 x 0 <.zero<suc)
 

@@ -5,7 +5,7 @@
 
 \func revFin {n : Nat} (i : Fin n) : Fin n
 \elim n, i
-  | suc n, 0 => last-fin n
+  | suc n, 0 => finLast n
   | suc n, suc i => revFin {n} i
 
   \where {
@@ -14,7 +14,7 @@
         | suc n, 0 => revLastFin
         | suc n, suc i => rewrite revSucn $ pmap fsuc revrev
 
-    \func revLastFin {n : Nat} : revFin (last-fin n) = 0 \elim n
+    \func revLastFin {n : Nat} : revFin (finLast n) = 0 \elim n
       | 0 => idp
       | suc n => revLastFin {n}
 
@@ -28,7 +28,7 @@
       | n, 0 => lastFinEq
       | suc n, suc i => pmap suc addsUp
 
-    \func lastFinEq {n : Nat} : last-fin n = {Nat} n \elim n
+    \func lastFinEq {n : Nat} : finLast n = {Nat} n \elim n
       | 0 => idp
       | suc n => pmap suc lastFinEq
   }

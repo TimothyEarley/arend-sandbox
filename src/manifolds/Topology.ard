@@ -16,7 +16,7 @@
 \import sets.FromArray
 \import sets.Intersect
 \import sets.MySet
-\import sets.remove
+\import sets.remove (without)
 \import sets.subset
 \import sets.union
 -- https://github.com/coq-community/topology/blob/master/theories/Topology/TopologicalSpaces.v
@@ -66,7 +66,7 @@
   \lemma interior-exterior-complement {S : DecElementEnsemble X} : interior S = exterior (complement S) =>
     extSet
         (\lam {p} i => unfold exterior (rewrite (complement.complement-complement {X} {S}) i))
-        (\lam {p} (inP (U, U_open, pU, US)) => inP (U, U_open, pU, rewriteF (complement.complement-complement {X} {S}) US))
+        (\lam {p} (inP (U, U_open, pU, US)) => inP (U, U_open, pU, rewrite (complement.complement-complement {X} {S}) in US))
 
   \lemma interior-in-S {S : Ensemble X} : interior S ⊆ S => \lam {x} (inP (U, _, xU, US)) => US xU
 
@@ -149,15 +149,15 @@
   \where {
     \func TopologicalSpace->TopSpace (TS : Topology) : TopSpace \cowith
       | E => TS.X
-      | topology => TS.T
-      | top-top => TS.totalInT
-      | top-meet {P} {Q} pIn qIn => intersectionIn P Q pIn qIn
-      | top-Join S h => unionIn S (\lam {x} s => h x s)
+      | isOpen => TS.T
+      | open-top => TS.totalInT
+      | open-inter => intersectionIn _ _
+      | open-Union => unionIn _
 
     \func TopSpace->TopologicalSpace (TS : TopSpace) : Topology \cowith
       | X => TS.E
-      | T => TS.topology
-      | totalInT => TS.top-top
-      | intersectionIn A B aIn bIn  => TS.top-meet aIn bIn
-      | unionIn F Fsub => TS.top-Join F (\lam P f => Fsub f)
+      | T => TS.isOpen
+      | totalInT => TS.open-top
+      | intersectionIn _ _  => TS.open-inter
+      | unionIn _ => TS.open-Union
   }

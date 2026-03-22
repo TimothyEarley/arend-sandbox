@@ -3,7 +3,7 @@
 \import Data.Maybe
 \import Logic
 \import Logic.Meta
-\import LogicUtil
+\import LogicUtil \hiding (<->refl, <->trans)
 \import Meta
 \import Paths
 \import Paths.Meta
@@ -116,25 +116,25 @@
         | skip, h => rsk (inv (just-injective h))
         | := e a, h => r:= evalAExp.sound (inv (just-injective h))
         | # a b, h => cases (fueledEval a fuel s arg addPath) \with {
-          | just s'', q => r# (sound q) (sound (rewriteF q h))
-          | nothing, q => using (rewriteF q h) contradiction
+          | just s'', q => r# (sound q) (sound (rewrite q in h))
+          | nothing, q => using (rewrite q in h) contradiction
         }
         | ite b then else, h => cases (evalBExp b s arg addPath) \with {
-          | false, p => riff (rewriteI p evalBExp.sound) (sound (rewriteF p h))
-          | true, p => rift (rewriteI p evalBExp.sound) (sound (rewriteF p h))
+          | false, p => riff (rewriteI p evalBExp.sound) (sound (rewrite p in h))
+          | true, p => rift (rewriteI p evalBExp.sound) (sound (rewrite p in h))
         }
         | while b c, h => cases (evalBExp b s arg addPath) \with {
-          | false, p => rwhf (rewriteI p evalBExp.sound) (just-injective (inv (rewriteF p h)))
-          | true, p => \let h' => rewriteF p h \in cases (fueledEval c fuel s arg addPath) \with {
-            | just s1, cEvalOnce => \let h2 : fueledEval (while b c) fuel s1 = just s' => rewriteF cEvalOnce h' \in
+          | false, p => rwhf (rewriteI p evalBExp.sound) (just-injective (inv (rewrite p in h)))
+          | true, p => \let h' => rewrite p in h \in cases (fueledEval c fuel s arg addPath) \with {
+            | just s1, cEvalOnce => \let h2 : fueledEval (while b c) fuel s1 = just s' => rewrite cEvalOnce in h' \in
               rwht (rewriteI p evalBExp.sound) (sound cEvalOnce) (sound h2)
-            | nothing, p1 => using (rewriteF p1 h') contradiction
+            | nothing, p1 => using (rewrite p1 in h') contradiction
           }
         }
         | append e a, h => rAp evalAExp.sound (just-injective (inv h))
         | :=L v lv a, h => cases (cEval.select (s.lists lv) (evalAExp a s) arg addPath) \with {
-          | just index, p => rSt evalAExp.sound {index} p (inv (just-injective (rewriteF p h)))
-          | nothing, p => using (rewriteF p h) contradiction
+          | just index, p => rSt evalAExp.sound {index} p (inv (just-injective (rewrite p in h)))
+          | nothing, p => using (rewrite p in h) contradiction
         }
       }
   }

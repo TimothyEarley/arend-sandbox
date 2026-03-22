@@ -333,12 +333,12 @@
         transport E (safeFinCorrect {n} {k} {k<n}) indexed)
   \where {
     \func safeFin {n : Nat} (m : Nat) (h : m < n) : Fin n \elim n, m, h
-      | suc n, 0, NatSemiring.zero<suc => 0
-      | suc n, suc m, NatSemiring.suc<suc h => fsuc (safeFin m h)
+      | suc n, 0, NatOrder.zero<suc => 0
+      | suc n, suc m, NatOrder.suc<suc h => fsuc (safeFin m h)
 
     \lemma safeFinCorrect {n m : Nat} {h : m < n} : safeFin m h = {Nat} m \elim n, m, h
-      | suc n, 0, NatSemiring.zero<suc => idp
-      | suc n, suc m, NatSemiring.suc<suc _x => pmap suc safeFinCorrect
+      | suc n, 0, NatOrder.zero<suc => idp
+      | suc n, suc m, NatOrder.suc<suc _x => pmap suc safeFinCorrect
 
     \func collectIHs {E : Nat -> \Type} (h : \Pi (n : Nat) (\Pi (k : Nat) (k < n) -> E k) -> E n) (n : Nat)
       : DArray {n} (E __) \elim n
@@ -346,8 +346,8 @@
       | suc n => \let e0 => h 0 (\case __, __) \in
         e0 Prelude.:: collectIHs {\lam z => E (suc z)}
             (\lam k h' => h (suc k) (\case \elim __, __ \with {
-              | 0, NatSemiring.zero<suc => e0
-              | suc k', NatSemiring.suc<suc k'<k => h' k' k'<k
+              | 0, NatOrder.zero<suc => e0
+              | suc k', NatOrder.suc<suc k'<k => h' k' k'<k
             }))
             n
   }

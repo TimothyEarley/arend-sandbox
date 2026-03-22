@@ -16,7 +16,7 @@
     | inl a => byLeft a
     | inr b => byRight b
   }
-  | isSurj x => \case \elim x \with {
+  | isSurjMap x => \case \elim x \with {
     | byLeft a => inP (inl a, idp)
     | byRight b => inP (inr b, idp)
   }

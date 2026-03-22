@@ -298,7 +298,7 @@
       \elim phi
         | equal x y => evalSubst x (\lam fr => inv (freeSame (byLeft fr))) *> h *> evalSubst y (\lam fr => freeSame (byRight fr))
         | atomic r d => transport (Semantics.rel {I.1} r)
-            (ext (ext (\lam j => rewriteF (inv $ subTermsAt j, inv $ subTermsAt j) (evalSubst (d j) (\lam {k} free => freeSame $ inP (j, free))))))
+            (ext (ext (\lam j => rewrite (inv $ subTermsAt j, inv $ subTermsAt j) in (evalSubst (d j) (\lam {k} free => freeSame $ inP (j, free))))))
             h
         | impH x phi => \lam mo =>
             \let xs : I ⊧ subst s x => substModel x (\lam fr => inv (freeSame (byLeft fr))) mo

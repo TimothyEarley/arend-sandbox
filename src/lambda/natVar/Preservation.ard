@@ -21,23 +21,23 @@
   | ⋅ (Lam v body) arg, TApp {T1} (TAbs {A} {B} p bodyType) argType, (Beta, idp) =>
     \let A=T1 => pmap Type.-->Left p
          | B=T => pmap Type.-->Right p
-    \in subsPreservation (rewriteF A=T1 (rewriteF B=T bodyType)) argType
+    \in subsPreservation (rewrite (A=T1, B=T) in bodyType) argType
 
   \where {
     \func subsPreservation {gamma : Context} {T S : Type} {t s : LambdaTerm} {x : Identifier}
                            (tType : Context.add gamma x S ⊢ (t, T)) (sType : gamma ⊢ (s, S)) : gamma ⊢ (subs t x s, T)
     \elim t, tType
       | Var v, TVar p => mcases \with {
-        | yes e => \let S=T => dejust (rewriteF (Context.addGet {gamma}) (rewriteF e p))
-                   \in rewriteI S=T (Typerule.contextInvariance sType (\lam x1 f => idp))
-        | no n => \let p' => rewriteF (Context.addGetOther {gamma} n) p \in TVar p'
+        | yes e => \let S=T => dejust (rewrite (Context.addGet {gamma}) in (rewrite e in p))
+                   \in rewriteI S=T (Typerule.contextInvariance sType (\lam _ _ => idp))
+        | no n => \let p' => rewrite (Context.addGetOther {gamma} n) in p \in TVar p'
       }
 
       | Lam v body, TAbs {T1} {T2} p bodyType => mcases \with {
-        | yes e => TAbs p (rewriteF (Context.addDuplicate {gamma} e) bodyType)
+        | yes e => TAbs p (rewrite (Context.addDuplicate {gamma} e) in bodyType)
         | no n => \let swapped : Typerule (Context.add (Context.add gamma v T1) x S) body T2 =>
-          rewriteF (Context.swap {gamma} n) bodyType
-                  \in TAbs p (subsPreservation swapped (contextInvariance sType (\lam x1 f => mcases \with {
+          rewrite (Context.swap {gamma} n) in bodyType
+                  \in TAbs p (subsPreservation swapped (contextInvariance sType (\lam _ _ => mcases \with {
             | yes p1 => {?}
             | no n1 => idp
           })))

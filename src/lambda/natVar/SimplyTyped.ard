@@ -4,7 +4,7 @@
 \import Identifier
 \import Logic
 \import Logic.Meta
-\import LogicUtil
+\import LogicUtil (invN)
 \import Meta
 \import Paths
 \import Paths.Meta
@@ -34,7 +34,7 @@
   | code-decode => decode
   | code-decide => decType
   \where {
-    \func Code (T S : Type) : \Prop
+    \func Code (_ _ : Type) : \Prop
       | --> A B, --> A1 B1 => \Sigma (Code A A1) (Code B B1)
 
     \func refl (T : Type) : Code T T \elim T
@@ -55,7 +55,7 @@
   | lam (v : Identifier) (T : Type) (body : AnnotatedLambdaTerm)
   | app \alias \infixl 6 ⋅⋅ (f arg : AnnotatedLambdaTerm)
   \where {
-    \func erase (t : AnnotatedLambdaTerm) : LambdaTerm
+    \func erase (_ : AnnotatedLambdaTerm) : LambdaTerm
       | var i => Var i
       | lam v T body => Lam v (erase body)
       | ⋅⋅ f arg => erase f ⋅ erase arg
@@ -63,7 +63,7 @@
 
 \func Context => Identifier -> Maybe Type
   \where {
-    \func emptyContext : Context => \lam i => nothing
+    \func emptyContext : Context => \lam _ => nothing
 
     \func add (c : Context) (j : Identifier) (T : Type) : Context => \lam i => \case i nat≟ j \with {
       | yes _ => just T
@@ -75,7 +75,7 @@
       | no n => contradiction
     })
 
-    \func addGetOther {c : Context} {j j' : Identifier} {T : Type} (h : j /= j') : add c j T j' = c j' =>
+    \func addGetOther {c : Context} {j j' : Identifier} {T : Type} (_ : j /= j') : add c j T j' = c j' =>
       unfold add (mcases \with {
         | yes p => contradiction
         | no n => idp
@@ -83,7 +83,7 @@
 
     \func addDuplicate {c : Context} {j j' : Identifier} {T T' : Type} (h : j = j') : add (add c j T) j' T' = add c j' T'
     \elim h
-      | idp => ext (\lam i => unfold add (mcases \with {
+      | idp => ext (\lam _ => unfold add (mcases \with {
         | yes p => idp
         | no n => mcases \with {
           | yes p => contradiction
@@ -91,8 +91,8 @@
         }
       }))
 
-    \func swap {c : Context} {j j' : Identifier} {T T' : Type} (h : j /= j') : add (add c j T) j' T' = add (add c j' T') j T =>
-      ext (\lam i => unfold add (mcases \with {
+    \func swap {c : Context} {j j' : Identifier} {T T' : Type} (_ : j /= j') : add (add c j T) j' T' = add (add c j' T') j T =>
+      ext (\lam _ => unfold add (mcases \with {
         | yes p, yes p1 => contradiction
         | yes p, no n => mcases \with {
           | yes p1 => idp
@@ -116,7 +116,7 @@
     }
 
     \func addRemove {c : Context} {j : Identifier} {T : Type} : add (remove c j) j T = add c j T =>
-      ext (\lam i => unfold (add, remove) (mcases \with {
+      ext (\lam _ => unfold (add, remove) (mcases \with {
         | yes p, yes p1 => idp
         | yes p, no n => idp
         | no n, yes p => mcases \with {
@@ -151,7 +151,7 @@
     \func typed=>onlyGammaFree {gamma : Context} {t : LambdaTerm} {T : Type} (h : Typerule gamma t T)
       : \Pi (i : Identifier) (FreeIn i t) -> \Sigma (T' : Type) (gamma i = just T')
     \elim t, h
-      | Var v, TVar p => \lam i f => (T, rewrite f p)
+      | Var v, TVar p => \lam _ f => (T, rewrite f p)
       | Lam v body, TAbs p bodyType => \lam i f => \let (T', q) => typed=>onlyGammaFree bodyType i f.2
                                                    \in (T', inv (Context.addGetOther {gamma} (invN f.1)) *> q )
       | ⋅ f arg, TApp fType argType => \lam i f1 => \case \elim f1 \with {
@@ -183,8 +183,8 @@
 \func types (gamma : Context) (t : AnnotatedLambdaTerm) : Maybe Type
 \elim t
   | var i => gamma i
-  | lam v T body => fmap (\lam T2 => T --> T2) (types (Context.add gamma v T) body)
-  | ⋅⋅ f arg => types gamma f >>= (\lam T1 =>
+  | lam v T body => MaybeMonad.fmap (\lam T2 => T --> T2) (types (Context.add gamma v T) body)
+  | ⋅⋅ f arg => types gamma f MaybeMonad.>>= (\lam T1 =>
       types gamma arg >>= (\lam T2 =>
           \case T1 \with {
             | --> A B => \case decideEq T2 A \with {
@@ -201,17 +201,17 @@
     \elim t
       | var i => TVar h
       | lam v T1 body => cases (types (Context.add gamma v T1) body arg addPath) \with {
-        | nothing, q => \case (rewriteF q h)
-        | just T2, q => \let h' => rewriteF q h \in TAbs (dejust h') (sound q)
+        | nothing, q => \case rewrite q in h
+        | just T2, q => \let h' => rewrite q in h \in TAbs (dejust h') (sound q)
       }
       | ⋅⋅ f t =>
         \let
           | (--> A B, typesF, p1) => flatMapJust h
           | (A', typesT, p2) => flatMapJust p1
         \in cases (decideEq A' A arg addPath) \with {
-          | yes A'=A, p => \let B=T => dejust $ rewriteF p p2
+          | yes A'=A, p => \let B=T => dejust $ rewrite p in p2
                         \in sound-app (sound typesF) (sound typesT) A'=A B=T
-          | no n, p => \case rewriteF p p2
+          | no n, p => \case rewrite p in p2
         }
 
     \func sound-app {gamma : Context} {f t : AnnotatedLambdaTerm} {T A A' B : Type}

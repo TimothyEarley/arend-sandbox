@@ -87,8 +87,8 @@
     }
   \func autoCorrect {c c' : Configuration} (p : auto c = just c') : c ->1_KAM c'
     => cases (Reduction.pick c arg addPath) \with {
-      | yes e, q => \let f => dejust (rewriteF q (unfold auto p)) \in (e, inv f)
-      | no n, q => \let f => rewriteF q (unfold auto p) \in contradiction
+      | yes e, q => \let f => dejust (rewrite q in unfold auto p) \in (e, inv f)
+      | no n, q => \let f => rewrite q in unfold auto p \in contradiction
     }
 }
 
@@ -104,8 +104,8 @@
     \elim fuel
       | 0 => refl (dejust p)
       | suc fuel => cases (->1_KAM.auto c arg addPath) \with {
-        | just a, q => \let p' => rewriteF q p \in ->1_KAM.autoCorrect q ~> run_correct fuel p'
-        | nothing, q => \let p' => rewriteF q p \in contradiction
+        | just a, q => \let p' => rewrite q in p \in ->1_KAM.autoCorrect q ~> run_correct fuel p'
+        | nothing, q => \let p' => rewrite q in p \in contradiction
       }
 
   \open Examples

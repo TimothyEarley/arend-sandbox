@@ -4,12 +4,13 @@
 \import Function.Meta
 \import Logic
 \import Logic.Meta
+\import Meta (in)
 \import Paths
 \import Paths.Meta
 \import Set \hiding (#)
 \import automaton.Language
 \import sets.DecidableSet
-\import sets.MySet
+\import sets.MySet (∅, ∈)
 \import sets.Single
 
 \record NFAeps
@@ -90,7 +91,7 @@
       | start => ()
       | End => ∅
       | isEnd => \new DecElementEnsemble {
-        | decElement s => no id
+        | decElement _ => no id
       }
       | decState => \new DecSet {
         | decideEq x y => \case \elim x, \elim y \with {
@@ -347,10 +348,10 @@
               | nil, isLast ()
               | :: _ _, isStep startState () r
               | :: x v', isStep (originalState q') d r =>
-                rewriteF ++-assoc $
+                rewrite ++-assoc in
                 inLanguageAccepts (v ++ x :: nil) v' (run.concat r' (oneStep q' d (noStep idp))) r
               | v', isEps (originalState q') d r =>
-                inLanguageAccepts v v' (rewriteF ++_nil $ run.concat r' (oneEps q' d (noStep idp))) r
+                inLanguageAccepts v v' (rewrite ++_nil in run.concat r' (oneEps q' d (noStep idp))) r
               -- end of a loop
               | v', isEps startState d r =>
                 Language.star.addOne (run.toAccepts r' d) (inLanguageIsStar r)

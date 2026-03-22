@@ -6,9 +6,9 @@
 \import Data.List (List)
 \import Data.Maybe
 \import Function.Meta
-\import HLevel
 \import Logic
 \import Logic.Meta
+\import Logic.Unique
 \import Meta
 \import Order.Lattice
 \import Order.PartialOrder
@@ -55,7 +55,7 @@
         | neg (suc n) => \case h
     }
 
-  \func arrayOf {A : \Type} (val : A) {n : Nat} : Array A n => mkArray (\lam f => val)
+  \func arrayOf {A : \Type} (val : A) {n : Nat} : Array A n => mkArray (\lam _ => val)
 
   --  \func set {n : Nat} {A : \Type} (a : Array A n) (i : Fin n) (v : A) : Array A n =>
   --    \lam j => \case i fin≟ j \return A \with {
@@ -85,7 +85,7 @@
 
   \func maxOf {A : JoinSemilattice} {n : Nat} (l : Array A (suc n))
     : \Sigma (m : A) (\Pi (i : Fin (suc n)) -> l i Order.PartialOrder.<= m)
-    => maxOfOr l (\case l \with {| a :: _ => a})
+    => maxOfOr l (l !! 0)
     \where {
       \func maxOfOr {A : JoinSemilattice} (l : Array A) (else : A)
         : \Sigma (m : A) (\Pi (i : Fin l.len) -> l i Order.PartialOrder.<= m)
@@ -141,17 +141,6 @@
   \func dropLast {n : Nat} {A : Fin (suc n) -> \Type} (d : DArray {suc n} A) : DArray {n} (A __) =>
     d __ -- same function, we just don't use the last entry
 
-  \func rev {n : Nat} {A : Fin n -> \Type} (d : DArray A) (i : Fin n) : Rev A i \elim n, d, i
-    | suc n, d, 0 => d n
-    | suc n, d, suc i => rev {n} {A __} (dropLast d) i
-    \where {
-      \func Rev {n : Nat} (A : Fin n -> \Type) (i : Fin n) : \Type \elim n, i
-        | suc n, 0 => A n
-        | suc n, suc i => Rev {n} (A __) i
-
-      \func example : rev (1 :: 2 :: 3 :: nil) = {Array Nat} 3 :: 2 :: 1 :: nil => idp
-    }
-
   \func headOr {A : \Type} (or : A) (d : Array A)  : A \elim d
     | nil => or
     | :: a arr => a
@@ -165,7 +154,7 @@
 
   \func append \alias \infixl 6 ::- {A : \Type} (d : Array A) (a : A) : Array A \elim d
     | nil => a :: nil
-    | :: a' arr => a' :: (arr ::- a)
+    | :: a' arr => a' :: arr ::- a
     \where {
       \func to++ {A : \Type} {l : Array A} {a : A} : l ::- a = l ++ (a :: nil) \elim l
         | nil => idp
@@ -221,7 +210,7 @@
       | :: a arr => \Sigma (Not (Index a arr)) (NoDup' arr)
 
     \func from' {A : \Set} {l : Array A} (h : NoDup' l) : NoDup l \elim l
-      | nil => \lam a aIn aIn' => \case aIn \with {
+      | nil => \lam _ aIn _ => \case aIn \with {
       ((), _)
       }
       | :: a arr => \lam x aIn aIn' => \case \elim aIn, \elim aIn' \with {
@@ -277,3 +266,8 @@
           }
       }
   }
+
+-- TODO: find this function elsewhere
+\func fold {A : \Type} (f : A -> A -> A) (a : A) (as : Array A) : A \elim as
+  | nil => a
+  | h :: l => f h (fold f a l)

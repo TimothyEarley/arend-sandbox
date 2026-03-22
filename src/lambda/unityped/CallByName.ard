@@ -1,5 +1,6 @@
 \import Logic
 \import Logic.Meta
+\import Meta
 \import Paths
 \import Paths.Meta
 \import Star
@@ -40,14 +41,14 @@
                           {r r' : Reduction t} (hr : IsCBNReduction r) (hr' : IsCBNReduction r')
       : r = r'
     \elim t, r, r', hr, hr'
-      | ⋅ t t1, R-App2 r, _, hr, hr' => absurd (rewriteF IsCBNReduction.app2 hr)
-      | ⋅ t t1, _, R-App2 r', hr, hr' => absurd (rewriteF IsCBNReduction.app2 hr')
+      | ⋅ t t1, R-App2 r, _, hr, hr' => absurd (rewrite IsCBNReduction.app2 in hr)
+      | ⋅ t t1, _, R-App2 r', hr, hr' => absurd (rewrite IsCBNReduction.app2 in hr')
       | ⋅ (lam t) t1, R-App1 r, _, hr, _ => absurd (IsCBNReduction.valueNoCBNReduction Lam-Value r hr)
       | ⋅ (lam t) t1, _, R-App1 r', _, hr' => absurd (IsCBNReduction.valueNoCBNReduction Lam-Value r' hr')
       | lam t, R-Lam r, R-Lam r', (), hr'
 
       | ⋅ (lam t) t1, R-Beta, R-Beta, hr, hr' => idp
-      | ⋅ t t1, R-App1 r, R-App1 r', hr, hr' => pmap R-App1 (singleReduction (rewriteF IsCBNReduction.app1 hr) (rewriteF IsCBNReduction.app1 hr'))
+      | ⋅ t t1, R-App1 r, R-App1 r', hr, hr' => pmap R-App1 (singleReduction (rewrite IsCBNReduction.app1 in hr) (rewrite IsCBNReduction.app1 in hr'))
 
     \func deterministic {ctx : UniContext} {t t' t'' : ctx u⊢ *}
                         (s : t ->1_u_cbn t') (s' : t ->1_u_cbn t'') : t' = t'' \elim s, s'

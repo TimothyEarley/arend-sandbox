@@ -1,10 +1,11 @@
 \import Function
 \import Function.Meta
 \import Logic
+\import Meta
 \import Paths
 \import Paths.Meta
 \import lambda.GeneralContext
-\import lambda.simplyTypedLambdaDeBruijne.Lambda (-->, EmptyT, Natural, SimpleContext, Type \as SimpleType, lam, succ, var, ⊢, ⋅)
+\import lambda.simplyTypedLambdaDeBruijne.Lambda (-->, Base, SimpleContext, Type \as SimpleType, base, lam, var, ⊢, ⋅)
 \import lambda.simplyTypedLambdaDeBruijne.Reduction
 \import lambda.simplyTypedLambdaDeBruijne.examples.ChurchNumerals
 
@@ -21,7 +22,7 @@
   \where {
     \func Pi {C : Ctx} (T : Type C) (A : Type (Ctx.cons C T)) : Type C => \lam c => \Pi (t : T c) -> A (c, t)
 
-    \func U {C : Ctx} : Type C => \lam c => \Type
+    \func U {C : Ctx} : Type C => \lam _ => \Type
   }
 
 \func Var (C : Ctx) (T : Type C) : \Type => \Pi (c : C) -> T c
@@ -43,9 +44,9 @@
   }
 
 \module Example \where {
-  \func NatT {C : Ctx} : Type C => \lam c => Nat
+  \func NatT {C : Ctx} : Type C => \lam _ => Nat
 
-  \func zeroNat {C : Ctx} : Term C NatT => \lam c => 0
+  \func zeroNat {C : Ctx} : Term C NatT => \lam _ => 0
 
   \func natId {C : Ctx} : Term C (Type.Pi NatT NatT) => Term.lambda (Term.var Var.same)
 
@@ -66,15 +67,13 @@
 \func embedSTLC {c : SimpleContext} {T : SimpleType} (t : c ⊢ T)
   : Term (simpleContextToContext c) (simpleTypeToType T (simpleContextToContext c))
 \elim T, t
-  | Natural, ⊢.zero => \lam _ => 0
-  | Natural, succ t => \let! t' => embedSTLC t \in \lam c => suc (t' c)
+  | Base B, base b => \lam _ => b
   | T, var l => Term.var (convertVar l)
-  | --> T T1, lam t => \lam c a => \let t' => embedSTLC t (c, a) \in rewriteF simpleTypeToTypeOblivious t'
+  | --> T T1, lam t => \lam c a => \let t' => embedSTLC t (c, a) \in rewrite simpleTypeToTypeOblivious in t'
   | T, ⋅ {A} t1 t2 => \lam c => embedSTLC t1 c (embedSTLC t2 c)
   \where {
     \func simpleTypeToType (T : SimpleType) (C : \Set) : \Pi C -> \Set \elim T
-      | Natural => \lam _ => Nat
-      | EmptyT => \lam _ => Empty
+      | Base B => \lam _ => B
       | --> A T => \lam c =>
       -- non-dependent Pi type, otherwise size to big for \Set
       -- this is the trouble maker, see simpleTypeToTypeOblivious
@@ -82,8 +81,7 @@
 
     \func simpleTypeToTypeOblivious {T : SimpleType} {C C' : \Set} {c : C} {c' : C'}
       : simpleTypeToType T C c = simpleTypeToType T C' c' \elim T
-      | Natural => idp
-      | EmptyT => idp
+      | Base B => idp
       | --> A T => pmap2 (__ -> __) simpleTypeToTypeOblivious simpleTypeToTypeOblivious
 
     \func simpleContextToContext (c : SimpleContext) : \Set \elim c
@@ -91,8 +89,8 @@
       | ∕ c t => Ctx.cons (simpleContextToContext c) (simpleTypeToType t (simpleContextToContext c))
 
     \func convertVar {c : SimpleContext} {T : SimpleType} (l : c ∋ T) : Var (simpleContextToContext c) (simpleTypeToType T (simpleContextToContext c)) \elim c, l
-      | ∕ c _, Z idp => \lam c1 => rewriteF simpleTypeToTypeOblivious c1.2
-      | ∕ c _, S l => \let l' => convertVar l \in \lam c1 => rewriteF simpleTypeToTypeOblivious $ l' c1.1
+      | ∕ c _, Z idp => \lam c1 => rewrite simpleTypeToTypeOblivious in c1.2
+      | ∕ c _, S l => \let l' => convertVar l \in \lam c1 => rewrite simpleTypeToTypeOblivious in l' c1.1
   }
 
-\func embedExample : embedSTLC {Context.∅} (Church.churchToNatural ⋅ Church.two) () = 2 => idp
+\func embedExample : embedSTLC {Context.∅} (Church.two {_} { Base Nat}) () = \lam s z => s (s z) => idp

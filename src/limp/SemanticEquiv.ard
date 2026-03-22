@@ -3,9 +3,10 @@
 \import Data.Bool (Bool, false, true)
 \import Logic
 \import Logic.Meta
-\import LogicUtil
+\import LogicUtil \hiding (<->refl, <->trans)
 \import Meta
 \import Order.PartialOrder
+\import Paths
 \import Paths.Meta
 \import Relation.Equivalence
 \import limp.LIMP
@@ -24,12 +25,12 @@
 
 \instance ComEq {S : Signature} : Equivalence Com
   | ~ a b => \Pi (s s' : State S) -> TruncP ((a, s) cEval s') <-> TruncP ((b, s) cEval s')
-  | ~-reflexive s s' => <->refl
+  | ~-reflexive _ _ => <->refl
   | ~-symmetric f s s' => <->symm (f s s')
   | ~-transitive f f' s s' => <->trans (f s s') (f' s s')
 
   \where {
-    \func seqEquiv {S : Signature} {a b a' b' : Com} (ha : a ComEq.~ a') (hb : b ComEq.~ b') : (a # b) ComEq.~ (a' # b') =>
+    \func seqEquiv {_ : Signature} {a b a' b' : Com} (ha : a ComEq.~ a') (hb : b ComEq.~ b') : (a # b) ComEq.~ (a' # b') =>
       \lam s s' => (
         \lam ev => \case ev \with {
           | inP (r# {s''} ev1 ev2) => \case (ha s s'').1 (inP ev1), (hb s'' s').1 (inP ev2) \with {
@@ -43,7 +44,7 @@
         }
       )
 
-    \func iteEquiv {S : Signature} {b b' : BExp} {t t' e e' : Com}
+    \func iteEquiv {_ : Signature} {b b' : BExp} {t t' e e' : Com}
                    (hb : b BExpEq.~ b')
                    (ht : t ComEq.~ t')
                    (he : e ComEq.~ e') : (ite b t e) ComEq.~ (ite b' t' e') => \lam s s' =>
@@ -64,10 +65,10 @@
            }
          })
 
-    \func whileEquiv {S : Signature} {b b' : BExp} {t t' : Com}
+    \func whileEquiv {_ : Signature} {b b' : BExp} {t t' : Com}
                      (hb : b BExpEq.~ b')
                      (ht : t ComEq.~ t') : (while b t) ComEq.~ (while b' t') =>
-      \lam s s' => (whileEquivHelper hb ht, whileEquivHelper (BExpEq.~-symmetric hb) (ComEq.~-symmetric ht))
+      \lam _ _ => (whileEquivHelper hb ht, whileEquivHelper (BExpEq.~-symmetric hb) (ComEq.~-symmetric ht))
 
       \where {
         \func whileEquivHelper {S : Signature} {b b' : BExp} {t t' : Com}
@@ -87,9 +88,9 @@
 
     -- ((x := 0) # (x := ((var x) ⊕ 1)))
 
-    \func example {S : Signature} {x : Var}
+    \func example {_ : Signature} {x : Var}
       : ((x := 0) # (x := (var x ⊕ 1))) ComEq.~ ((x := 0) # while (var x leq 0) (x := (var x ⊕ 1))) =>
-      \lam s s' => (
+      \lam _ s' => (
         \lam c => \case \elim s', \elim c \with {
           | _, inP (r# (r:= (rNum idp) idp) (r:= (rPlus (rVar idp) (rNum idp) idp) idp)) =>
             inP (r#
@@ -110,11 +111,11 @@
                 (r:= (rPlus (rVar substVar.get) (rNum idp) idp) stateP))
 
           | _, inP (r# (r:= (rNum idp) idp) (rwhf (rleqf _ (rVar idp) (rNum idp) h) idp)) =>
-            usingOnly (pos0<=pos0,  rewriteF substVar.get h) contradiction
+            usingOnly (pos0<=pos0,  rewrite substVar.get in h) contradiction
 
           | _, inP (r# (r:= (rNum idp) idp) (rwht (rleqt _ _ _ _)
               (r:= (rPlus (rVar idp) (rNum idp) idp) idp) (rwht (rleqt _ (rVar idp) (rNum idp) h) _ _))) =>
-            usingOnly (pos1</=pos0, rewriteF substVar.get (rewriteF substVar.get h)) contradiction
+            usingOnly (pos1</=pos0, rewrite substVar.get in (rewrite substVar.get in h)) contradiction
 
           | _, inP (r# (r:= (rNum idp) idp) (rwhf (rleqt () _ _ _) _))
           | _, inP (r# _ (rwht (rleqf () _ _ _) _ _))
@@ -129,6 +130,9 @@
 
         \func stateP {S : Signature} {s : State S} {x : Var}
           : substVar (substVar s x (pos 0)) x (variables {substVar s x (pos 0)} x + pos 1) = substVar (substVar s x (pos 0)) x (pos 1) =>
-          rewrite substVar.combine (rewrite substVar.get (rewrite substVar.combine idp))
+          substVar (substVar s x (pos 0)) x (variables {substVar s x (pos 0)} x + pos 1) ==< substVar.combine >==
+          substVar s x (variables {substVar s x (pos 0)} x + pos 1)                      ==< pmap (\lam z => substVar _ _ (z + _)) substVar.get >==
+          substVar s x (pos 0 + pos 1)                                                   ==< inv substVar.combine >==
+          substVar (substVar s x (pos 0)) x (pos 1)                                      `qed
       }
   }

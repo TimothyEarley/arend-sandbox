@@ -16,9 +16,9 @@
   \where {
     \func add {c : Context} (env : RealisedContext c) {i : Identifier} {T : Type} (real : realiseType T)
       : RealisedContext (Context.add c i T) =>
-      unfold Context.add (\lam j {T1} p => cases (j nat≟ i arg addPath) \with {
-        | yes e, q => \let p' => dejust (rewriteF q p) \in rewriteI p' real
-        | no n, q => \let p' => rewriteF q p \in env j p'
+      unfold Context.add (\lam j {_} p => cases (j nat≟ i arg addPath) \with {
+        | yes e, q => \let p' => dejust (rewrite q in p) \in rewriteI p' real
+        | no n, q => \let p' => rewrite q in p \in env j p'
       })
   }
 

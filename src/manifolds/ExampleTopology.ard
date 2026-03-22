@@ -2,6 +2,7 @@
 \import Algebra.Group
 \import Algebra.Meta
 \import Algebra.Ordered
+\import Algebra.StrictlyOrdered
 \import Arith.Int
 \import Arith.Nat
 \import Arith.Rat
@@ -9,6 +10,7 @@
 \import Logic
 \import Logic.Meta
 \import Meta
+\import Order.Biordered
 \import Order.Lattice
 \import Order.LinearOrder
 \import Order.PartialOrder
@@ -36,8 +38,8 @@
         | max => a ∨ b
         | h : openIntervalInfRight a ∩ openIntervalInfRight b = openIntervalInfRight max =>
           extSet
-              (\lam {x} (a<, b<) => LinearOrder.<_join-univ {RatDenseOrder} a< b<)
-              (\lam {x} o => (<-transitive-right join-left o, <-transitive-right join-right o))
+              (\lam {x} (a<, b<) => unfold openIntervalInfRight {?})
+              (\lam {x} o => (<∘r join-left o, <-transitive-right join-right o))
       \in
         byLeft (byLeft (inP (max, h)))
     | _, _, byLeft (byRight idp), _ => rewrite ∩.empty-intersecion (byLeft (byRight idp))

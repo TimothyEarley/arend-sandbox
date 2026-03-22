@@ -1,4 +1,5 @@
 \import Function.Meta
+\import Meta
 \import Paths
 \import Paths.Meta
 \import Star
@@ -43,7 +44,7 @@
 
     \func typedIsSN {T : Type} (e : ∅ ⊢ T) : SN T e =>
       \let proof => typedIsSNSubs {T} {∅} {∅} e var (\case __ \with {})
-      \in rewriteF SimpleSubstOperations.subst-ids proof
+      \in rewrite SimpleSubstOperations.subst-ids in proof
       \where {
         \func SubSatsContext {gamma delta : SimpleContext} (s : SimpleSubst gamma delta) : \Type =>
           \Pi {T : Type} (i : gamma ∋ T) -> SN T {delta} (s i)

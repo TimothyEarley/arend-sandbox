@@ -9,7 +9,7 @@
 \import sets.MySet
 \import util.CantorPair
 \open Semantics (Structure)
-\open NatSemiring (<)
+\open NatOrder (<)
 
 \func LNN : CodeableLanguage \cowith
   | Relations => LNN'.Relations
@@ -113,21 +113,21 @@
   | structure => \new Structure {
     | Universe => Nat
     | rel => \case \elim __ \with {
-      | LNN.Less => \case __ \with {
+      | LNN.Less => \case \elim __ \with {
         | :: x (:: y nil) => x < y
       }
     }
     | funcs => \case \elim __ \with {
-      | LNN.Plus => \case __ \with {
+      | LNN.Plus => \case \elim __ \with {
         | :: x (:: y nil) => x Nat.+ y
       }
-      | LNN.Times => \case __ \with {
+      | LNN.Times => \case \elim __ \with {
         | :: x (:: y nil) => x Nat.* y
       }
-      | LNN.Succ => \case __ \with {
+      | LNN.Succ => \case \elim __ \with {
         | :: x nil => suc x
       }
-      | LNN.Zero => \case __ \with {
+      | LNN.Zero => \case \elim __ \with {
         | nil => 0
       }
     }

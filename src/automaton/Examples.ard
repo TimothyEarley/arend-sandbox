@@ -17,7 +17,7 @@
   \data ABLang
     | a | b
 
-  \instance DecABLang : DecAlphabet
+  \instance DecABLang : DecSet
     | E => ABLang
     | decideEq x y => \case \elim x, \elim y \with {
       | a, a => yes idp

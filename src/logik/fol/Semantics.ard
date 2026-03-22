@@ -39,7 +39,7 @@
                          {x : Universe {I.1}} (t : Term n)
         : evaluate (subOne I x) (Formula.rename fsuc t) = evaluate I t \elim t
         | var f => idp
-        | apply f d => unfold $ pmap (funcs {I.1} f) (ext (ext (\lam j => rewriteF (inv (renamesAt j)) (subOneRename (d j)))))
+        | apply f d => unfold $ pmap (funcs {I.1} f) (ext (ext (\lam j => rewrite (inv (renamesAt j)) in (subOneRename (d j)))))
     }
 
   \func evaluate {L : Language} {n : Nat} (I : Interpretation n) (t : Term n) : Universe {I.1} \elim t
@@ -77,7 +77,7 @@
         : evaluate (S1, a1) t = evaluate (S2, a2) t
       \elim t, depth
         | var f, depth => h2 idp
-        | apply f d, 0 => absurd (rh NatSemiring.zero<suc)
+        | apply f d, 0 => absurd (rh NatOrder.zero<suc)
         | apply f d, suc depth =>
           \let p : (\lam j => evaluate (S1, a1) (d j)) = {Array U (functionArity f)} (\lam j => evaluate (S2, a2) (d j))
           => ext (ext (\lam j => termCoincidenceLemma h1 (\lam {i} free => h2 (inP (j, free))) {depth} (<=-transitive termDepth.maxTermDepthIsBigger (suc<=suc.conv rh))))
@@ -138,7 +138,7 @@
         | apply f d => pmap (funcs {I.1} f) (ext (ext (\lam j =>
             \let
               | goal' : evaluate (Interpretation.subst I ts) (d j) = evaluate I (Formula.subTerm ts (d j)) => termSubstitution (d j)
-              | goal : evaluate (Interpretation.subst I ts) (d j) = evaluate I (Formula.subTerms ts d j) => rewriteF (inv (subTermsAt j)) goal'
+              | goal : evaluate (Interpretation.subst I ts) (d j) = evaluate I (Formula.subTerms ts d j) => rewrite (inv (subTermsAt j)) in goal'
             \in goal
         )))
 
@@ -149,7 +149,7 @@
         | equal x y, p => termSubstitution x *> p *> inv (termSubstitution y)
         | atomic r d, h => transport
             (rel {I.1} r)
-            (ext (ext (\lam j => inv (rewriteF (inv (subTermsAt j)) (termSubstitution (d j))))))
+            (ext (ext (\lam j => inv (rewrite (inv (subTermsAt j)) in (termSubstitution (d j))))))
             h
         | impH x phi, h => \lam m => substitutionLemma-> (h (substitutionLemma<- m))
         | notH phi, h => \lam m => h (substitutionLemma<- m)
@@ -176,7 +176,7 @@
         | equal x y, p => inv (termSubstitution x) *> p *> termSubstitution y
         | atomic r d, h => transport
             (rel {I.1} r)
-            (ext (ext (\lam j => rewriteF (inv (subTermsAt j)) (termSubstitution (d j)))))
+            (ext (ext (\lam j => rewrite (inv (subTermsAt j)) in (termSubstitution (d j)))))
             h
         | impH x phi, h => \lam m => substitutionLemma<- (h (substitutionLemma-> m))
         | notH phi, h => \lam m => h (substitutionLemma-> m)

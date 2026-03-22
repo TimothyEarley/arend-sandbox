@@ -3,9 +3,9 @@
 \import Logic.Meta
 \import Paths.Meta
 \import Set
-\import sets.MySet
+\import sets.MySet (Ensemble, ∈)
 \import sets.Single
-\import sets.union
+\import sets.union (∪)
 
 \func Alphabet => \Set
 \func DecAlphabet => DecSet

@@ -130,11 +130,11 @@
              rewrite (reduce.beta, reduce.beta) (underRename-sub r))
       | A, ⋅ f t2, (R-App1 st,p) =>
         \let (next, nextP) => underRename r (st, idp)
-             | p' => rewriteF reduce.app1 p
+             | p' => rewrite reduce.app1 in p
         \in rewrite renameApp (R-App1 next, reduce.app1 *> pmap (__ ⋅ _) nextP *> inv renameApp *> pmap (rename r) p')
       | A, ⋅ f t2, (R-App2 st v,p) =>
         \let (next, nextP) => underRename r (st, idp)
-             | p' => rewriteF reduce.app2 p
+             | p' => rewrite reduce.app2 in p
         \in rewrite renameApp (R-App2 next (Value.afterRename v),
                                reduce.app2 *> pmap (_ ⋅ __) nextP *> inv renameApp *> pmap (rename r) p')
       | Base B, base b, ((),p)

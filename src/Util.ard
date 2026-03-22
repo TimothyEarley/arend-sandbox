@@ -25,7 +25,7 @@
   }
 
 -- used when the inference gets it wrong
-\func fpred {n : Nat} (a : Fin (suc n)) (h : a /= 0) : Fin n \elim n, a
+\func fpred {n : Nat} (a : Fin (suc n)) (_ : a /= 0) : Fin n \elim n, a
   | n, zero => contradiction
   | n, suc a => a
 \func fsucfpred {n : Nat} {a : Fin (suc n)} {h : a /= 0} : fsuc (fpred a h) = a

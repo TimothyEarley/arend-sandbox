@@ -2,6 +2,7 @@
 \import Data.Maybe
 \import Data.Or
 \import Function.Meta ($)
+\import Meta
 \import Paths.Meta
 \import logik.fol.FOL
 \import logik.fol.LNN
@@ -32,7 +33,7 @@
                  (R : AllowsRepresentations C T)
                  (psi : Formula 1) : \Sigma (phi : Formula 0) (T ⊢ phi <->H sub psi (natToTerm (encode phi)))
   => \let
-     | F : (Array Nat 2) -> Nat => \case __ \with {
+     | F : Array Nat 2 -> Nat => \case \elim __ \with {
        | :: n (:: m nil) => \case decode n 1 \with {
          | nothing => 0
          | just xi => encode (sub xi (natToTerm m))
@@ -43,7 +44,7 @@
      | phi : Formula 0 => forallH ({?} impH {?})
      | betabeta : phi = sub beta (⊻⊼ beta) => {?}
      | Fbeta : F (⊼ beta :: ⊼ beta :: nil) = ⊼ phi => {?}
-     | h' => rewriteF Fbeta $ fRepH (⊼ beta :: ⊼ beta :: nil)
+     | h' => rewrite Fbeta in fRepH (⊼ beta :: ⊼ beta :: nil)
      | h : T ⊢ subN' alpha (⊻⊼ phi :: ⊻⊼ beta :: ⊻⊼ beta :: nil) => {?} -- should just be h'
      \in (phi,
           ⊢.intro-<->H

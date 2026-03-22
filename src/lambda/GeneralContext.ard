@@ -1,6 +1,7 @@
 \import Arith.Nat
 \import Data.Fin
 \import Data.List
+\import Logic.Rewriting.TRS.Utils.FinFunctions (Index, expand-fin-left, expand-fin-right)
 \import Order.PartialOrder
 \import Paths
 \import Paths.Meta
@@ -73,13 +74,13 @@
 
 \func Rename {Type : \1-Type} (gamma delta : Context Type) => \Pi {A : Type} (gamma ∋ A) -> delta ∋ A
   \where {
-    \func id {Type : \1-Type} {gamma : Context Type} : Rename gamma gamma => \lam {A} l => l
+    \func id {Type : \1-Type} {gamma : Context Type} : Rename gamma gamma => \lam {_} l => l
 
     \func weaken {Type : \1-Type} {gamma : Context Type} {A : Type} : Rename gamma (gamma ∕ A) => \lam {_} => S
 
     \func compose {Type : \1-Type} {gamma delta epsilon : Context Type}
                   (r1 : Rename gamma delta) (r2 : Rename delta epsilon) : Rename gamma epsilon =>
-      \lam {A} l => r2 (r1 l)
+      \lam {_} l => r2 (r1 l)
 
     \func extendCompose {Type : \1-Type} {gamma delta epsilon : Context Type}
                         {r1 : Rename gamma delta} {r2 : Rename delta epsilon} {A : Type}

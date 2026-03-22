@@ -6,7 +6,7 @@
 \import Order.PartialOrder
 \import Paths.Meta
 \open LinearOrder (<=-dec)
-\open NatSemiring (<)
+\open NatOrder (<)
 \open Nat (+)
 
 \func not<=0 {n : Nat} (h : suc n <= 0) : Empty
@@ -49,6 +49,6 @@
   | 0 => <.zero<suc
   | suc n => <.suc<suc n<sucn
 
-\func n<k<sn {n k : Nat} (h : n < k) (h' : k < suc n) : Empty
+\func n<k<sn {n k : Nat} (_ : n < k) (_ : k < suc n) : Empty
   | {0}, {suc k}, <.zero<suc, <.suc<suc ()
   | {suc n}, {suc k}, <.suc<suc h, <.suc<suc h' => n<k<sn h h'

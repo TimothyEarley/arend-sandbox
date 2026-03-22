@@ -1,6 +1,7 @@
 \import Data.Or
 \import Function.Meta
 \import Logic
+\import Meta
 \import NatLike
 \import Paths
 \import Paths.Meta
@@ -57,7 +58,7 @@
 -- agda
 
 \func strongNorm {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A) : StronglyNormalizing t =>
-  qoute (rewriteF idSubst.useSubst (fundamentalTheorem t idSubst (SubP.id {gamma})))
+  qoute (rewrite idSubst.useSubst in fundamentalTheorem t idSubst (SubP.id {gamma}))
   \where {
     \func TermP {gamma : SimpleContext} {A : Type} (t : gamma ⊢ A) : \Prop \elim A
       | Base B => StronglyNormalizing t
@@ -136,7 +137,7 @@
             | (t'',t->t'', p) =>
               \let
                 | tp :  TermP (rename (Rename.compose r r2) t'' ⋅ a) => h t'' t->t'' (Rename.compose r r2) ap
-                | tp' : TermP (rename r2 (rename r t'') ⋅ a) => rewriteF rename.uncompose tp
+                | tp' : TermP (rename r2 (rename r t'') ⋅ a) => rewrite rename.uncompose in tp
               \in rewrite (inv p) tp'
           }
 
@@ -147,7 +148,7 @@
                  (t' : gamma ⊢ B) (st : (t ⋅ a) ->1 t') : TermP t' \elim B, t, nt, sa, st
           | A, lam t, (), _, _
           | A, t, nt, _, (R-App1 st, idp) =>
-            \let tp => rewriteF rename.renameId $ h (reduce st) (st, idp) Rename.id ap
+            \let tp => rewrite rename.renameId in h (reduce st) (st, idp) Rename.id ap
             \in rewrite reduce.app1 tp
           | A, t, nt, sn sa, (R-App2 st v, idp) =>
             \let a' => reduce st

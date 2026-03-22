@@ -4,7 +4,7 @@
 \import Data.Or
 \import Logic
 \import Logic.Meta
-\import LogicUtil
+\import LogicUtil \hiding (<->refl, <->trans)
 \import Meta
 \import Paths
 \import Paths.Meta
@@ -12,6 +12,7 @@
 \import sets.Add
 \import sets.FromArray
 \import sets.MySet
+\import util.ArrayUtils
 \import util.So
 
 \data Formula (V : \Set) : \Set
@@ -47,10 +48,10 @@
       unfold (⊧) (rewrite (soTrue ja) (rewrite (soTrue jb) ()))
 
     \func rAnd1 {V : \Set} {J : Assignment V} {A B : Formula V} (j : J ⊧ A andH B) : J ⊧ A =>
-      soAnd1 (rewriteF notNot (rewriteF notNot (transport So deMorganOr j)))
+      soAnd1 (rewrite notNot in (rewrite notNot in transport So deMorganOr j))
 
     \func rAnd2 {V : \Set} {J : Assignment V} {A B : Formula V} (j : J ⊧ A andH B) : J ⊧ B =>
-      soAnd2 (rewriteF notNot (rewriteF notNot (transport So deMorganOr j)))
+      soAnd2 (rewrite notNot in (rewrite notNot in transport So deMorganOr j))
 
     \func rnotAnd1 {V : \Set} {J : Assignment V} {A : Formula V} (na : J ⊭ A) (B : Formula V) : J ⊭ (A andH B) =>
       \lam m => na (rAnd1 m)
@@ -99,7 +100,7 @@
 \func models? \alias \infix 6 ⊧? {V : \Set} (J : Assignment V) (f : Formula V) : Dec (J ⊧ f) =>
   cases (evaluate J f arg addPath) \with {
     | Bool.true, p => yes (unfold (⊧) (rewrite p ()))
-    | Bool.false, p => no (\lam (m : So (evaluate J f)) => \case (rewriteF p m))
+    | Bool.false, p => no (\lam (m : So (evaluate J f)) => \case rewrite p in m)
   }
 
 \func Formulae (V : \Set) : \Set => Formula V -> \Prop
@@ -195,9 +196,9 @@
     }
 
   \func sound {V : \Set} {axioms : Formulae V} {f : Formula V} (h : axioms ⊢ f) : axioms ⊧e f \elim f, h
-    | f, Ax a => \lam J m => m (f, a)
-    | f, ff-El a => \lam J m => \case m (ff, a)
-    | tt, tt-In => \lam J m => ()
+    | f, Ax a => \lam _ m => m (f, a)
+    | f, ff-El a => \lam _ m => \case m (ff, a)
+    | tt, tt-In => \lam _ _ => ()
     | f, or-El {a} {b} el h1 h2 => \lam J m => \case ⊧.rOr (m (a orH b, el)) \with {
         | inl e => (sound h1) J (⊧s.modelsAdd m e)
         | inr e => (sound h2) J (⊧s.modelsAdd m e)

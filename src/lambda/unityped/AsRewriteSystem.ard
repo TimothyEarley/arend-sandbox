@@ -6,6 +6,7 @@
 \import Logic.Rewriting.TRS.MetaContexts
 \import Logic.Rewriting.TRS.Substitutions
 \import Logic.Rewriting.TRS.Utils
+\import Logic.Rewriting.TRS.Utils.FinFunctions
 \import Paths
 \import Paths.Meta
 \import lambda.GeneralContext
@@ -68,10 +69,7 @@
     Term.func application (\case \elim __ \with {
       | 0 => unitypedToHRSLambda {_} {*} (lam t) ++_nil
       | 1 => unitypedToHRSLambda t1 ++_nil
-    }) => pmap (func application __) (extext (\case \elim __ \with {
-      | 0 => pmap (func abstraction __) (extext (\lam 0 => {?})) -- the end is where no metavariables remain, TODO show something
-      | 1 => {?}
-    }))
+    }) => pmap (func application __) {?}
   \in
     RewriteRelation.rewrite-with-rule () sub l {?}
 

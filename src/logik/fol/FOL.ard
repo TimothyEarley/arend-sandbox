@@ -34,7 +34,7 @@
     \func FreeVar {L : Language} {n : Nat} (t : Term n) (i : Fin n) : \Prop
     \elim t
       | var f => f = i
-      | apply f d => AnyFreeVar d i
+      | apply f d => ∃ (j : Fin d.len) (FreeVar (d j) i)
 
     \func AnyFreeVar {L : Language} {n : Nat} (ts : Array (Term n)) (i : Fin n) : \Prop =>
       ∃ (j : Fin ts.len) (FreeVar (ts j) i)

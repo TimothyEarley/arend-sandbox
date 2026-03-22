@@ -1,6 +1,6 @@
 \import Algebra.Meta
 \import Arith.Nat
-\import Data.Fin (Index, fsuc)
+\import Data.Fin
 \import Data.List
 \import Data.Maybe
 \import Equiv
@@ -16,6 +16,8 @@
 -- https://www.youtube.com/watch?v=wh_SVuCGdPo&t=4s
 
 -- Util
+
+\private \func Index {A : \Type} (l : List A) => Fin (length l)
 
 \func lessThaNotEquals {A : StrictPoset} {a b : A} (h : a < b) (p : a = b) : Empty
 \elim p
@@ -380,7 +382,7 @@
   | suc n, suc k => pascalNumber n k Nat.+ pascalNumber n (suc k)
 
   \where {
-    \func beyondRightEdge {n m : Nat} (h : n NatSemiring.< m) : pascalNumber n m = 0
+    \func beyondRightEdge {n m : Nat} (h : n NatOrder.< m) : pascalNumber n m = 0
     \elim n, m, h
       | 0, suc m, h => idp
       | suc n, suc m, h => pmap2 (Nat.+) (beyondRightEdge linarith) (beyondRightEdge linarith)
